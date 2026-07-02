@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "kids-tutor-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "0d3bfd62-ce4f-4ed7-89ff-d70fcc62cd1a",
       "migrations_dir": "./db/migrations"
     }
   ],
