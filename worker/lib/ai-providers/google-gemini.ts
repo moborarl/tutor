@@ -1,7 +1,7 @@
 import type { ExtractedQuestion, QuestionType } from '@shared/types';
 import type { AiExtractionProvider, ExtractionInput, ExtractionOutcome } from './types';
 
-const MODEL = 'gemini-2.0-flash-exp';
+const MODEL = 'gemini-3.5-flash';
 const VALID_TYPES: QuestionType[] = ['multiple_choice', 'fill_blank', 'matching', 'true_false'];
 
 function buildSystemPrompt(ageBand: 'young' | 'older'): string {

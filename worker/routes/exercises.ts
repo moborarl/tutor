@@ -346,10 +346,22 @@ exerciseRoutes.post('/:id/assign', async (c) => {
 exerciseRoutes.delete('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
-  await c.env.DB.prepare(
-    `UPDATE exercise_sets SET status = 'archived', updated_at = datetime('now') WHERE id = ? AND parent_id = ?`,
+
+  // Get the R2 key before deleting
+  const set = await c.env.DB.prepare(
+    'SELECT source_image_r2_key FROM exercise_sets WHERE id = ? AND parent_id = ?',
   )
     .bind(id, parentId)
-    .run();
+    .first<{ source_image_r2_key: string }>();
+  if (!set) return c.json({ error: 'not_found' }, 404);
+
+  // Delete the image from R2
+  await c.env.WORKSHEETS.delete(set.source_image_r2_key);
+
+  // Hard delete: remove all questions first (cascade not guaranteed), then the set
+  await c.env.DB.prepare('DELETE FROM questions WHERE exercise_set_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM assignments WHERE exercise_set_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM exercise_sets WHERE id = ?').bind(id).run();
+
   return c.json({ ok: true });
 });
