@@ -1,0 +1,23 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+  extraction-service:
+    build: .
+    container_name: extraction-service
+    environment:
+      API_BASE_URL: ${API_BASE_URL}
+      PI_WORKER_TOKEN: ${PI_WORKER_TOKEN}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      POLL_SECONDS: ${POLL_SECONDS:-20}
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama-models:

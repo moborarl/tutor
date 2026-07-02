@@ -1,0 +1,3 @@
+SESSION_SECRET=dev-only-secret-change-in-production
+PI_WORKER_TOKEN=dev-pi-token
+# ANTHROPIC_API_KEY=sk-ant-...

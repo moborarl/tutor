@@ -1,0 +1,296 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { api, ApiError } from '../../lib/api-client';
+import type {
+  Child,
+  ExerciseSetDetail,
+  QuestionWithAnswer,
+  QuestionType,
+} from '@shared/types';
+
+const STATUS_TH: Record<string, string> = {
+  processing: 'รอคิว Raspberry Pi (โควตา AI cloud หมด)',
+  extracting: 'AI กำลังแกะโจทย์...',
+  pending_review: 'รอตรวจและอนุมัติ',
+  extraction_failed: 'แกะโจทย์ไม่สำเร็จ',
+  published: 'เผยแพร่แล้ว',
+};
+
+const PROVIDER_TH: Record<string, string> = {
+  claude: 'Claude (แม่นยำสูง)',
+  other_cloud: 'Cloud AI สำรอง',
+  pi: 'Raspberry Pi (ควรตรวจละเอียดเป็นพิเศษ)',
+};
+
+const TYPE_TH: Record<QuestionType, string> = {
+  multiple_choice: 'ปรนัย (เลือกตอบ)',
+  true_false: 'ถูก/ผิด',
+  fill_blank: 'เติมคำ',
+  matching: 'จับคู่',
+};
+
+export default function ReviewExercise() {
+  const { id } = useParams();
+  const nav = useNavigate();
+  const [set, setSet] = useState<ExerciseSetDetail | null>(null);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [assignIds, setAssignIds] = useState<Set<number>>(new Set());
+  const [msg, setMsg] = useState('');
+  const [showImage, setShowImage] = useState(false);
+
+  const load = useCallback(() => {
+    api.get<ExerciseSetDetail>(`/api/parent/exercise-sets/${id}`).then((data) => {
+      setSet(data);
+      setAssignIds(new Set(data.assignedChildIds));
+    });
+  }, [id]);
+
+  useEffect(() => {
+    load();
+    api.get<Child[]>('/api/parent/children').then(setChildren);
+  }, [load]);
+
+  // Poll while queued for the Pi / extracting.
+  useEffect(() => {
+    if (!set || (set.status !== 'processing' && set.status !== 'extracting')) return;
+    const t = setInterval(load, 8000);
+    return () => clearInterval(t);
+  }, [set, load]);
+
+  if (!set) return <div className="muted">กำลังโหลด...</div>;
+
+  const allApproved = set.questions.length > 0 && set.questions.every((q) => q.status === 'approved');
+
+  async function approveAll() {
+    await Promise.all(
+      set!.questions.filter((q) => q.status !== 'approved').map((q) => api.post(`/api/parent/questions/${q.id}/approve`)),
+    );
+    load();
+  }
+
+  async function publish() {
+    setMsg('');
+    try {
+      await api.post(`/api/parent/exercise-sets/${id}/publish`);
+      load();
+    } catch (err) {
+      setMsg(err instanceof ApiError && err.code === 'all_questions_must_be_approved'
+        ? 'ต้องอนุมัติทุกข้อก่อนเผยแพร่'
+        : 'เผยแพร่ไม่สำเร็จ');
+    }
+  }
+
+  async function saveAssignments() {
+    await api.post(`/api/parent/exercise-sets/${id}/assign`, { childIds: [...assignIds] });
+    setMsg('บันทึกการมอบหมายแล้ว');
+    load();
+  }
+
+  async function retry() {
+    setMsg('');
+    await api.post(`/api/parent/exercise-sets/${id}/retry-extraction`);
+    load();
+  }
+
+  async function addManualQuestion() {
+    await api.post('/api/parent/questions', {
+      exerciseSetId: Number(id),
+      questionType: 'multiple_choice',
+      prompt: 'โจทย์ใหม่ (แก้ไขได้)',
+      content: { options: ['ตัวเลือก 1', 'ตัวเลือก 2', 'ตัวเลือก 3'] },
+      answer: { correctIndex: 0 },
+    });
+    load();
+  }
+
+  return (
+    <div>
+      <div className="row">
+        <h2 className="grow">{set.title || `ชุดที่ ${set.id}`}</h2>
+        <span className={`badge ${set.status}`}>{STATUS_TH[set.status] ?? set.status}</span>
+      </div>
+      <div className="muted" style={{ marginBottom: 14 }}>
+        {set.subjectName ?? 'ไม่ระบุวิชา'} · {set.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
+        {set.extractionProvider && <> · แกะโจทย์โดย <b>{PROVIDER_TH[set.extractionProvider]}</b></>}
+      </div>
+
+      {set.extractionError && set.status !== 'pending_review' && set.status !== 'published' && (
+        <div className="card" style={{ background: 'var(--red-soft)' }}>
+          <div className="error-text">{set.extractionError}</div>
+          <div className="row" style={{ marginTop: 10 }}>
+            <button onClick={retry}>ลองแกะใหม่</button>
+            <button className="secondary" onClick={addManualQuestion}>สร้างโจทย์เอง</button>
+          </div>
+        </div>
+      )}
+
+      {(set.status === 'processing' || set.status === 'extracting') && (
+        <div className="card muted">
+          ⏳ {STATUS_TH[set.status]} — หน้านี้จะรีเฟรชอัตโนมัติ
+        </div>
+      )}
+
+      <div className="row" style={{ marginBottom: 14 }}>
+        <button className="secondary" onClick={() => setShowImage((v) => !v)}>
+          {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
+        </button>
+        {set.questions.length > 0 && set.status === 'pending_review' && (
+          <>
+            <button className="secondary" onClick={approveAll}>อนุมัติทุกข้อ</button>
+            <button className="success" onClick={publish} disabled={!allApproved}>เผยแพร่</button>
+          </>
+        )}
+        {set.status === 'pending_review' && (
+          <button className="secondary" onClick={addManualQuestion}>+ เพิ่มโจทย์เอง</button>
+        )}
+      </div>
+      {msg && <div className="muted" style={{ marginBottom: 10 }}>{msg}</div>}
+
+      {showImage && (
+        <div className="card">
+          <img src={`/api/parent/exercise-sets/${id}/image`} alt="original" style={{ maxWidth: '100%', borderRadius: 10 }} />
+        </div>
+      )}
+
+      {set.questions.map((q, i) => (
+        <QuestionEditor key={q.id} q={q} index={i} onChanged={load} />
+      ))}
+
+      {(set.status === 'published' || set.status === 'pending_review') && (
+        <div className="card">
+          <h3>มอบหมายให้ลูก</h3>
+          {children.length === 0 && (
+            <div className="muted">ยังไม่มีโปรไฟล์ลูก — <a href="#" onClick={(e) => { e.preventDefault(); nav('/parent/children'); }}>เพิ่มลูกก่อน</a></div>
+          )}
+          <div className="row">
+            {children.map((ch) => (
+              <button
+                key={ch.id}
+                className="secondary"
+                style={{ outline: assignIds.has(ch.id) ? '3px solid var(--green)' : 'none' }}
+                onClick={() => {
+                  const next = new Set(assignIds);
+                  if (next.has(ch.id)) next.delete(ch.id); else next.add(ch.id);
+                  setAssignIds(next);
+                }}
+              >
+                {ch.avatar} {ch.name}
+              </button>
+            ))}
+            {children.length > 0 && <button onClick={saveAssignments}>บันทึกการมอบหมาย</button>}
+          </div>
+          {set.status !== 'published' && (
+            <div className="muted" style={{ marginTop: 8 }}>เด็กจะเห็นแบบฝึกหัดนี้หลังกด "เผยแพร่" แล้วเท่านั้น</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index: number; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [prompt, setPrompt] = useState(q.prompt);
+  const [contentText, setContentText] = useState(JSON.stringify(q.content, null, 2));
+  const [answerText, setAnswerText] = useState(JSON.stringify(q.answer, null, 2));
+  const [err, setErr] = useState('');
+
+  async function save() {
+    setErr('');
+    let content: unknown, answer: unknown;
+    try {
+      content = JSON.parse(contentText);
+      answer = JSON.parse(answerText);
+    } catch {
+      setErr('รูปแบบ JSON ไม่ถูกต้อง');
+      return;
+    }
+    await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer });
+    setEditing(false);
+    onChanged();
+  }
+
+  async function approve() {
+    await api.post(`/api/parent/questions/${q.id}/approve`);
+    onChanged();
+  }
+
+  async function remove() {
+    await api.delete(`/api/parent/questions/${q.id}`);
+    onChanged();
+  }
+
+  return (
+    <div className="card">
+      <div className="row">
+        <b>ข้อ {index + 1}</b>
+        <span className="badge draft">{TYPE_TH[q.questionType]}</span>
+        <span className={`badge ${q.status}`}>{q.status === 'approved' ? 'อนุมัติแล้ว' : 'ร่าง'}</span>
+        <span className="grow" />
+        {!editing && (
+          <>
+            {q.status !== 'approved' && <button className="secondary" onClick={approve}>✓ อนุมัติ</button>}
+            <button className="secondary" onClick={() => setEditing(true)}>แก้ไข</button>
+            <button className="danger" onClick={remove}>ลบ</button>
+          </>
+        )}
+      </div>
+
+      {!editing ? (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontWeight: 600 }}>{q.prompt}</div>
+          <QuestionPreview q={q} />
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+          <label className="muted">โจทย์</label>
+          <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          <label className="muted">เนื้อหา (content JSON)</label>
+          <textarea rows={4} value={contentText} onChange={(e) => setContentText(e.target.value)} style={{ fontFamily: 'monospace' }} />
+          <label className="muted">เฉลย (answer JSON)</label>
+          <textarea rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} style={{ fontFamily: 'monospace' }} />
+          {err && <div className="error-text">{err}</div>}
+          <div className="row">
+            <button onClick={save}>บันทึก</button>
+            <button className="secondary" onClick={() => setEditing(false)}>ยกเลิก</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuestionPreview({ q }: { q: QuestionWithAnswer }) {
+  const content = q.content as Record<string, unknown>;
+  const answer = q.answer as Record<string, unknown>;
+
+  if (q.questionType === 'multiple_choice' && Array.isArray(content.options)) {
+    return (
+      <ul style={{ margin: '8px 0' }}>
+        {(content.options as string[]).map((opt, i) => (
+          <li key={i} style={{ fontWeight: i === answer.correctIndex ? 700 : 400, color: i === answer.correctIndex ? 'var(--green)' : 'inherit' }}>
+            {opt} {i === answer.correctIndex && '✓'}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (q.questionType === 'true_false') {
+    return <div className="muted" style={{ marginTop: 6 }}>เฉลย: {answer.value ? 'ถูก ✓' : 'ผิด ✗'}</div>;
+  }
+  if (q.questionType === 'fill_blank' && Array.isArray(answer.answers)) {
+    return <div className="muted" style={{ marginTop: 6 }}>เฉลย: {(answer.answers as string[]).join(' / ')}</div>;
+  }
+  if (q.questionType === 'matching' && Array.isArray(content.left) && Array.isArray(content.right) && Array.isArray(answer.pairs)) {
+    return (
+      <ul style={{ margin: '8px 0' }}>
+        {(content.left as string[]).map((l, i) => (
+          <li key={i}>
+            {l} ↔ {(content.right as string[])[(answer.pairs as number[])[i]] ?? '?'}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return null;
+}
