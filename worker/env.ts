@@ -3,9 +3,10 @@ export interface Env {
   WORKSHEETS: R2Bucket;
   ASSETS: Fetcher;
   SESSION_SECRET: string;
-  ANTHROPIC_API_KEY?: string;
+  GOOGLE_AI_API_KEY?: string; // Primary free provider (Gemini Vision)
+  ANTHROPIC_API_KEY?: string; // Optional paid fallback (Claude)
   PI_WORKER_TOKEN?: string;
-  OPENAI_API_KEY?: string;
+  OPENAI_API_KEY?: string; // Reserved for future use
 }
 
 export interface SessionInfo {

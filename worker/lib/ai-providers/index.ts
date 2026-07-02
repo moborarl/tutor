@@ -1,11 +1,15 @@
 import type { Env } from '../../env';
 import type { ExtractedQuestion, ExtractionProvider } from '@shared/types';
 import type { AiExtractionProvider, ExtractionInput } from './types';
+import { createGoogleGeminiProvider } from './google-gemini';
 import { createClaudeProvider } from './claude';
 
-// Placeholder for a secondary cloud provider (OpenAI/Gemini) — add here later.
+// Cloud provider chain: Google Gemini (free) → Claude (optional paid fallback) → Pi queue
 function cloudProviders(env: Env): AiExtractionProvider[] {
-  return [createClaudeProvider(env.ANTHROPIC_API_KEY)];
+  return [
+    createGoogleGeminiProvider(env.GOOGLE_AI_API_KEY),
+    createClaudeProvider(env.ANTHROPIC_API_KEY), // optional, falls back to Pi if not configured
+  ];
 }
 
 export type OrchestratorResult =
