@@ -119,6 +119,11 @@ export default function Player() {
           <div className={`feedback-banner ${result.isCorrect ? 'good' : 'bad'}`}>
             {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : '❌ ยังไม่ถูก ดูเฉลยนะ'}
           </div>
+          {result.explanation && (
+            <div className="card" style={{ marginTop: 10, background: '#f0f4f8' }}>
+              💡 {result.explanation}
+            </div>
+          )}
           <button style={{ marginTop: 18 }} onClick={next}>
             {index + 1 < exercise.questions.length ? 'ข้อต่อไป ▶' : 'ดูคะแนน 🏁'}
           </button>

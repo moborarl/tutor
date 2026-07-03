@@ -34,6 +34,7 @@ questionRoutes.patch('/:id', async (c) => {
       content?: unknown;
       answer?: unknown;
       orderIndex?: number;
+      explanation?: string;
     }>()
     .catch(() => null);
   if (!body) return c.json({ error: 'invalid_body' }, 400);
@@ -60,6 +61,10 @@ questionRoutes.patch('/:id', async (c) => {
   if (typeof body.orderIndex === 'number') {
     updates.push('order_index = ?');
     values.push(body.orderIndex);
+  }
+  if (typeof body.explanation === 'string') {
+    updates.push('explanation = ?');
+    values.push(body.explanation.trim() || null);
   }
   // Any edit returns the question to draft so it must be re-approved.
   updates.push(`status = 'draft'`);
@@ -97,6 +102,7 @@ questionRoutes.post('/', async (c) => {
       questionType?: string;
       content?: unknown;
       answer?: unknown;
+      explanation?: string;
     }>()
     .catch(() => null);
   if (!body?.exerciseSetId || !body.prompt?.trim() || !VALID_TYPES.includes(body.questionType ?? '')) {
@@ -116,8 +122,8 @@ questionRoutes.post('/', async (c) => {
     .first<{ m: number }>();
 
   const result = await c.env.DB.prepare(
-    `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       body.exerciseSetId,
@@ -126,6 +132,7 @@ questionRoutes.post('/', async (c) => {
       body.prompt.trim(),
       JSON.stringify(body.content ?? {}),
       JSON.stringify(body.answer ?? {}),
+      body.explanation?.trim() || null,
     )
     .run();
 

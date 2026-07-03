@@ -211,21 +211,32 @@ playRoutes.post('/attempts/:id/answers', requireChildSession, async (c) => {
   if (!attempt) return c.json({ error: 'attempt_not_found' }, 404);
 
   const question = await c.env.DB.prepare(
-    'SELECT id, question_type, answer_json FROM questions WHERE id = ? AND exercise_set_id = ?',
+    'SELECT id, question_type, answer_json, explanation FROM questions WHERE id = ? AND exercise_set_id = ?',
   )
     .bind(body.questionId, attempt.exercise_set_id)
-    .first<{ id: number; question_type: QuestionType; answer_json: string }>();
+    .first<{ id: number; question_type: QuestionType; answer_json: string; explanation: string | null }>();
   if (!question) return c.json({ error: 'question_not_found' }, 404);
+
+  // Answers are locked once submitted: a retried request returns the original result
+  // instead of letting the kid change their answer after seeing it was wrong.
+  const existing = await c.env.DB.prepare(
+    'SELECT is_correct FROM attempt_answers WHERE attempt_id = ? AND question_id = ?',
+  )
+    .bind(attemptId, question.id)
+    .first<{ is_correct: number }>();
+  if (existing) {
+    return c.json({
+      isCorrect: existing.is_correct === 1,
+      correctAnswer: JSON.parse(question.answer_json),
+      explanation: question.explanation,
+    });
+  }
 
   const isCorrect = gradeAnswer(question.question_type, question.answer_json, body.answer);
 
-  // Upsert so a retried submission for the same question overwrites.
   await c.env.DB.prepare(
     `INSERT INTO attempt_answers (attempt_id, question_id, given_answer_json, is_correct, time_spent_ms)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (attempt_id, question_id)
-     DO UPDATE SET given_answer_json = excluded.given_answer_json, is_correct = excluded.is_correct,
-                   time_spent_ms = excluded.time_spent_ms, answered_at = datetime('now')`,
+     VALUES (?, ?, ?, ?, ?)`,
   )
     .bind(
       attemptId,
@@ -236,7 +247,7 @@ playRoutes.post('/attempts/:id/answers', requireChildSession, async (c) => {
     )
     .run();
 
-  return c.json({ isCorrect, correctAnswer: JSON.parse(question.answer_json) });
+  return c.json({ isCorrect, correctAnswer: JSON.parse(question.answer_json), explanation: question.explanation });
 });
 
 playRoutes.post('/attempts/:id/complete', requireChildSession, async (c) => {

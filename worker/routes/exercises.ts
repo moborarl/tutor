@@ -3,6 +3,7 @@ import type { Context } from 'hono';
 import type { AppEnv } from '../env';
 import type { ExtractedQuestion } from '@shared/types';
 import { runCloudExtraction } from '../lib/ai-providers';
+import { parseImportedJson } from '../lib/json-import';
 import { randomId } from '../lib/crypto';
 
 export const exerciseRoutes = new Hono<AppEnv>();
@@ -18,8 +19,8 @@ async function insertDraftQuestions(
   const stmts = questions.map((q, i) =>
     db
       .prepare(
-        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         exerciseSetId,
@@ -28,6 +29,7 @@ async function insertDraftQuestions(
         q.prompt,
         JSON.stringify(q.content ?? {}),
         JSON.stringify(q.answer ?? {}),
+        q.explanation ?? null,
       ),
   );
   await db.batch(stmts);
@@ -77,7 +79,9 @@ async function extractForSet(
   }
 }
 
-// Upload a worksheet photo -> R2 -> extraction (Claude sync; Pi queue on quota exhaustion).
+// Create a worksheet set from parent-provided JSON (extracted by the parent using a
+// free external AI chat, e.g. ChatGPT/Claude/Gemini web) -> R2 photo kept for reference,
+// questions inserted directly as drafts ready for review.
 exerciseRoutes.post('/', async (c) => {
   const { parentId } = c.get('session');
   const form = await c.req.formData().catch(() => null);
@@ -89,34 +93,37 @@ exerciseRoutes.post('/', async (c) => {
   if (!IMAGE_TYPES.includes(file.type)) return c.json({ error: 'unsupported_image_type' }, 400);
   if (file.size > MAX_UPLOAD_BYTES) return c.json({ error: 'image_too_large' }, 400);
 
+  const questionsJsonRaw = form.get('questionsJson');
+  if (typeof questionsJsonRaw !== 'string' || !questionsJsonRaw.trim()) {
+    return c.json({ error: 'questions_json_required' }, 400);
+  }
+  const imported = parseImportedJson(questionsJsonRaw);
+  if (!imported.ok) {
+    return c.json({ error: 'invalid_questions_json', message: imported.error }, 400);
+  }
+
   const ageBand = form.get('ageBand') === 'young' ? 'young' : 'older';
-  const title = typeof form.get('title') === 'string' ? (form.get('title') as string).trim() : '';
+  const titleRaw = typeof form.get('title') === 'string' ? (form.get('title') as string).trim() : '';
+  const title = titleRaw || imported.title;
   const subjectIdRaw = form.get('subjectId');
   const subjectId = subjectIdRaw && !isNaN(Number(subjectIdRaw)) ? Number(subjectIdRaw) : null;
-  const provider = form.get('provider') === 'pi' ? 'pi' : 'cloud';
 
   const r2Key = `worksheets/${parentId}/${randomId(12)}`;
   await c.env.WORKSHEETS.put(r2Key, await file.arrayBuffer(), {
     httpMetadata: { contentType: file.type },
   });
 
-  const initialStatus = provider === 'pi' ? 'processing' : 'extracting';
   const result = await c.env.DB.prepare(
     `INSERT INTO exercise_sets (parent_id, subject_id, title, age_band, source_image_r2_key, source_image_content_type, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, 'pending_review')`,
   )
-    .bind(parentId, subjectId, title, ageBand, r2Key, file.type, initialStatus)
+    .bind(parentId, subjectId, title, ageBand, r2Key, file.type)
     .run();
   const setId = result.meta.last_row_id as number;
 
-  if (provider === 'cloud') {
-    await extractForSet(c, setId, r2Key, file.type, ageBand);
-  }
+  await insertDraftQuestions(c.env.DB, setId, imported.questions);
 
-  const row = await c.env.DB.prepare('SELECT status FROM exercise_sets WHERE id = ?')
-    .bind(setId)
-    .first<{ status: string }>();
-  return c.json({ id: setId, status: row?.status }, 201);
+  return c.json({ id: setId, status: 'pending_review' }, 201);
 });
 
 exerciseRoutes.get('/', async (c) => {
@@ -161,7 +168,7 @@ exerciseRoutes.get('/:id', async (c) => {
   if (!set) return c.json({ error: 'not_found' }, 404);
 
   const questions = await c.env.DB.prepare(
-    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status
+    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation
      FROM questions WHERE exercise_set_id = ? ORDER BY order_index, id`,
   )
     .bind(id)
@@ -192,6 +199,7 @@ exerciseRoutes.get('/:id', async (c) => {
       content: JSON.parse(q.content_json as string),
       answer: JSON.parse(q.answer_json as string),
       status: q.status,
+      explanation: q.explanation ?? null,
     })),
   });
 });

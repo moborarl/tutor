@@ -77,6 +77,7 @@ export interface Question {
   prompt: string;
   content: unknown;
   status: 'draft' | 'approved';
+  explanation: string | null;
 }
 
 // Parent review view includes the answer; kid play view does not.
@@ -113,6 +114,7 @@ export interface AnswerResult {
   isCorrect: boolean;
   // revealed after answering so the kid gets feedback
   correctAnswer: unknown;
+  explanation: string | null;
 }
 
 // --- Progress (parent dashboard) ---
@@ -150,4 +152,5 @@ export interface ExtractedQuestion {
   prompt: string;
   content: unknown;
   answer: unknown;
+  explanation?: string;
 }

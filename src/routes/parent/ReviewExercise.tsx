@@ -193,6 +193,7 @@ function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index:
   const [prompt, setPrompt] = useState(q.prompt);
   const [contentText, setContentText] = useState(JSON.stringify(q.content, null, 2));
   const [answerText, setAnswerText] = useState(JSON.stringify(q.answer, null, 2));
+  const [explanation, setExplanation] = useState(q.explanation ?? '');
   const [err, setErr] = useState('');
 
   async function save() {
@@ -205,7 +206,7 @@ function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index:
       setErr('รูปแบบ JSON ไม่ถูกต้อง');
       return;
     }
-    await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer });
+    await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer, explanation });
     setEditing(false);
     onChanged();
   }
@@ -240,6 +241,11 @@ function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index:
         <div style={{ marginTop: 10 }}>
           <div style={{ fontWeight: 600 }}>{q.prompt}</div>
           <QuestionPreview q={q} />
+          {q.explanation && (
+            <div className="muted" style={{ marginTop: 8, padding: 8, background: '#f5f5f5', borderRadius: 6 }}>
+              💡 คำอธิบาย: {q.explanation}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
@@ -249,6 +255,8 @@ function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index:
           <textarea rows={4} value={contentText} onChange={(e) => setContentText(e.target.value)} style={{ fontFamily: 'monospace' }} />
           <label className="muted">เฉลย (answer JSON)</label>
           <textarea rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} style={{ fontFamily: 'monospace' }} />
+          <label className="muted">คำอธิบายเฉลย (แสดงให้เด็กเห็นหลังตอบ)</label>
+          <textarea rows={2} value={explanation} onChange={(e) => setExplanation(e.target.value)} />
           {err && <div className="error-text">{err}</div>}
           <div className="row">
             <button onClick={save}>บันทึก</button>
