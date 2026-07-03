@@ -87,11 +87,13 @@ exerciseRoutes.post('/', async (c) => {
   const form = await c.req.formData().catch(() => null);
   if (!form) return c.json({ error: 'multipart_required' }, 400);
 
-  // workers-types FormData.get is typed as string|null, but binary parts arrive as File at runtime
-  const file = form.get('image') as unknown;
-  if (!(file instanceof File)) return c.json({ error: 'image_required' }, 400);
-  if (!IMAGE_TYPES.includes(file.type)) return c.json({ error: 'unsupported_image_type' }, 400);
-  if (file.size > MAX_UPLOAD_BYTES) return c.json({ error: 'image_too_large' }, 400);
+  // workers-types FormData.getAll is typed as string[], but binary parts arrive as File at runtime
+  const files = (form.getAll('images') as unknown[]).filter((f): f is File => f instanceof File);
+  if (files.length === 0) return c.json({ error: 'image_required' }, 400);
+  for (const f of files) {
+    if (!IMAGE_TYPES.includes(f.type)) return c.json({ error: 'unsupported_image_type' }, 400);
+    if (f.size > MAX_UPLOAD_BYTES) return c.json({ error: 'image_too_large' }, 400);
+  }
 
   const questionsJsonRaw = form.get('questionsJson');
   if (typeof questionsJsonRaw !== 'string' || !questionsJsonRaw.trim()) {
@@ -108,18 +110,30 @@ exerciseRoutes.post('/', async (c) => {
   const subjectIdRaw = form.get('subjectId');
   const subjectId = subjectIdRaw && !isNaN(Number(subjectIdRaw)) ? Number(subjectIdRaw) : null;
 
-  const r2Key = `worksheets/${parentId}/${randomId(12)}`;
-  await c.env.WORKSHEETS.put(r2Key, await file.arrayBuffer(), {
-    httpMetadata: { contentType: file.type },
-  });
+  const uploaded: { r2Key: string; contentType: string }[] = [];
+  for (const f of files) {
+    const r2Key = `worksheets/${parentId}/${randomId(12)}`;
+    await c.env.WORKSHEETS.put(r2Key, await f.arrayBuffer(), {
+      httpMetadata: { contentType: f.type },
+    });
+    uploaded.push({ r2Key, contentType: f.type });
+  }
 
   const result = await c.env.DB.prepare(
     `INSERT INTO exercise_sets (parent_id, subject_id, title, age_band, source_image_r2_key, source_image_content_type, status)
      VALUES (?, ?, ?, ?, ?, ?, 'pending_review')`,
   )
-    .bind(parentId, subjectId, title, ageBand, r2Key, file.type)
+    .bind(parentId, subjectId, title, ageBand, uploaded[0].r2Key, uploaded[0].contentType)
     .run();
   const setId = result.meta.last_row_id as number;
+
+  await c.env.DB.batch(
+    uploaded.map((u, i) =>
+      c.env.DB.prepare(
+        `INSERT INTO exercise_images (exercise_set_id, r2_key, content_type, order_index) VALUES (?, ?, ?, ?)`,
+      ).bind(setId, u.r2Key, u.contentType, i),
+    ),
+  );
 
   await insertDraftQuestions(c.env.DB, setId, imported.questions);
 
@@ -178,6 +192,11 @@ exerciseRoutes.get('/:id', async (c) => {
   )
     .bind(id)
     .all<{ child_id: number }>();
+  const images = await c.env.DB.prepare(
+    'SELECT id, order_index FROM exercise_images WHERE exercise_set_id = ? ORDER BY order_index, id',
+  )
+    .bind(id)
+    .all<{ id: number; order_index: number }>();
 
   return c.json({
     id: set.id,
@@ -191,6 +210,7 @@ exerciseRoutes.get('/:id', async (c) => {
     createdAt: set.created_at,
     questionCount: questions.results.length,
     assignedChildIds: assigned.results.map((a) => a.child_id),
+    images: images.results.map((img) => ({ id: img.id, orderIndex: img.order_index })),
     questions: questions.results.map((q) => ({
       id: q.id,
       orderIndex: q.order_index,
@@ -204,20 +224,27 @@ exerciseRoutes.get('/:id', async (c) => {
   });
 });
 
-// Serve the original uploaded photo to the parent (for the review screen).
-exerciseRoutes.get('/:id/image', async (c) => {
+// Serve one page of the original uploaded worksheet photos to the parent (review screen).
+exerciseRoutes.get('/:id/images/:imageId', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
-  const set = await c.env.DB.prepare(
-    'SELECT source_image_r2_key, source_image_content_type FROM exercise_sets WHERE id = ? AND parent_id = ?',
-  )
+  const imageId = Number(c.req.param('imageId'));
+  const set = await c.env.DB.prepare('SELECT id FROM exercise_sets WHERE id = ? AND parent_id = ?')
     .bind(id, parentId)
-    .first<{ source_image_r2_key: string; source_image_content_type: string }>();
+    .first();
   if (!set) return c.json({ error: 'not_found' }, 404);
-  const obj = await c.env.WORKSHEETS.get(set.source_image_r2_key);
+
+  const image = await c.env.DB.prepare(
+    'SELECT r2_key, content_type FROM exercise_images WHERE id = ? AND exercise_set_id = ?',
+  )
+    .bind(imageId, id)
+    .first<{ r2_key: string; content_type: string }>();
+  if (!image) return c.json({ error: 'not_found' }, 404);
+
+  const obj = await c.env.WORKSHEETS.get(image.r2_key);
   if (!obj) return c.json({ error: 'image_missing' }, 404);
   return new Response(obj.body, {
-    headers: { 'content-type': set.source_image_content_type, 'cache-control': 'private, max-age=3600' },
+    headers: { 'content-type': image.content_type, 'cache-control': 'private, max-age=3600' },
   });
 });
 
@@ -359,7 +386,9 @@ exerciseRoutes.delete('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
 
-  // Get the R2 key before deleting
+  // Get all R2 keys before deleting (source_image_r2_key is a duplicate of the
+  // first exercise_images row, kept as a legacy column; include both to also
+  // clean up sets created before multi-page support existed).
   const set = await c.env.DB.prepare(
     'SELECT source_image_r2_key FROM exercise_sets WHERE id = ? AND parent_id = ?',
   )
@@ -367,12 +396,19 @@ exerciseRoutes.delete('/:id', async (c) => {
     .first<{ source_image_r2_key: string }>();
   if (!set) return c.json({ error: 'not_found' }, 404);
 
-  // Delete the image from R2
-  await c.env.WORKSHEETS.delete(set.source_image_r2_key);
+  const images = await c.env.DB.prepare(
+    'SELECT r2_key FROM exercise_images WHERE exercise_set_id = ?',
+  )
+    .bind(id)
+    .all<{ r2_key: string }>();
+
+  const r2Keys = new Set([set.source_image_r2_key, ...images.results.map((img) => img.r2_key)]);
+  await Promise.all([...r2Keys].map((key) => c.env.WORKSHEETS.delete(key)));
 
   // Hard delete: remove all questions first (cascade not guaranteed), then the set
   await c.env.DB.prepare('DELETE FROM questions WHERE exercise_set_id = ?').bind(id).run();
   await c.env.DB.prepare('DELETE FROM assignments WHERE exercise_set_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM exercise_images WHERE exercise_set_id = ?').bind(id).run();
   await c.env.DB.prepare('DELETE FROM exercise_sets WHERE id = ?').bind(id).run();
 
   return c.json({ ok: true });

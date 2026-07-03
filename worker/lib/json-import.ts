@@ -6,6 +6,20 @@ export type ImportResult =
   | { ok: true; title: string; questions: ExtractedQuestion[] }
   | { ok: false; error: string };
 
+// Some AI chats echo the schema documentation literally and wrap content/answer in a
+// key like "_multiple_choice" or "multiple_choice" instead of putting the fields
+// directly. If we see an object with exactly one key that matches the question's
+// type (with or without a leading underscore), unwrap it.
+function unwrapTypeKey(value: unknown, questionType: QuestionType): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  if (keys.length !== 1) return value;
+  const bareKey = keys[0].replace(/^_/, '');
+  if (bareKey === questionType) return obj[keys[0]];
+  return value;
+}
+
 // Parses and validates JSON pasted by a parent (produced by an external AI chat,
 // e.g. ChatGPT/Claude/Gemini web) against our questions schema.
 export function parseImportedJson(raw: string): ImportResult {
@@ -33,11 +47,12 @@ export function parseImportedJson(raw: string): ImportResult {
       typeof (q as Record<string, unknown>).prompt === 'string'
     ) {
       const item = q as Record<string, unknown>;
+      const questionType = item.questionType as QuestionType;
       questions.push({
-        questionType: item.questionType as QuestionType,
+        questionType,
         prompt: item.prompt as string,
-        content: item.content ?? {},
-        answer: item.answer ?? {},
+        content: unwrapTypeKey(item.content ?? {}, questionType),
+        answer: unwrapTypeKey(item.answer ?? {}, questionType),
         explanation: typeof item.explanation === 'string' ? item.explanation : undefined,
       });
     }

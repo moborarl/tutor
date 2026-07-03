@@ -88,6 +88,7 @@ export interface QuestionWithAnswer extends Question {
 export interface ExerciseSetDetail extends ExerciseSetSummary {
   questions: QuestionWithAnswer[];
   assignedChildIds: number[];
+  images: { id: number; orderIndex: number }[];
 }
 
 // --- Play (kid) side ---

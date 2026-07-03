@@ -148,7 +148,14 @@ export default function ReviewExercise() {
 
       {showImage && (
         <div className="card">
-          <img src={`/api/parent/exercise-sets/${id}/image`} alt="original" style={{ maxWidth: '100%', borderRadius: 10 }} />
+          {set.images.map((img) => (
+            <img
+              key={img.id}
+              src={`/api/parent/exercise-sets/${id}/images/${img.id}`}
+              alt={`หน้า ${img.orderIndex + 1}`}
+              style={{ maxWidth: '100%', borderRadius: 10, marginBottom: 12, display: 'block' }}
+            />
+          ))}
         </div>
       )}
 

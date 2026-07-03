@@ -19,8 +19,7 @@ export default function Player() {
   const [exercise, setExercise] = useState<ExerciseData | null>(null);
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [index, setIndex] = useState(0);
-  const [result, setResult] = useState<AnswerResult | null>(null);
-  const [correctCount, setCorrectCount] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, AnswerResult>>({});
   const [finished, setFinished] = useState<{ score: number; correct: number; total: number } | null>(null);
   const questionStart = useRef(Date.now());
   const child: Child | null = JSON.parse(sessionStorage.getItem('activeChild') ?? 'null');
@@ -44,30 +43,46 @@ export default function Player() {
   }
 
   const uiSimple = child?.ageBand === 'young';
+  const total = exercise.questions.length;
   const q = exercise.questions[index];
+  const result = answers[q.id] ?? null;
+  const answeredCount = Object.keys(answers).length;
+  const correctCount = Object.values(answers).filter((a) => a.isCorrect).length;
+  const allAnswered = answeredCount === total;
+
+  function jumpTo(i: number) {
+    setIndex(i);
+    questionStart.current = Date.now();
+  }
 
   async function submitAnswer(answer: unknown) {
-    if (result) return; // already answered
+    if (answers[q.id]) return; // already answered, locked
     const res = await api.post<AnswerResult>(`/api/play/attempts/${attemptId}/answers`, {
       questionId: q.id,
       answer,
       timeSpentMs: Date.now() - questionStart.current,
     });
-    setResult(res);
-    if (res.isCorrect) setCorrectCount((n) => n + 1);
+    setAnswers((prev) => ({ ...prev, [q.id]: res }));
   }
 
-  async function next() {
-    if (index + 1 < exercise!.questions.length) {
-      setIndex(index + 1);
-      setResult(null);
-      questionStart.current = Date.now();
-    } else {
-      const done = await api.post<{ score: number; correct: number; total: number }>(
-        `/api/play/attempts/${attemptId}/complete`,
-      );
-      setFinished(done);
+  async function finish() {
+    const done = await api.post<{ score: number; correct: number; total: number }>(
+      `/api/play/attempts/${attemptId}/complete`,
+    );
+    setFinished(done);
+  }
+
+  function goNext() {
+    if (index + 1 < total) {
+      jumpTo(index + 1);
+      return;
     }
+    if (allAnswered) {
+      finish();
+      return;
+    }
+    const firstUnanswered = exercise!.questions.findIndex((qq) => !answers[qq.id]);
+    jumpTo(firstUnanswered >= 0 ? firstUnanswered : 0);
   }
 
   if (finished) {
@@ -93,25 +108,49 @@ export default function Player() {
         <button className="secondary" onClick={() => nav('/play/exercises')}>← ออก</button>
         <div className="grow" style={{ margin: '0 10px' }}>
           <div className="progress-bar-track">
-            <div className="progress-bar-fill" style={{ width: `${(index / exercise.questions.length) * 100}%` }} />
+            <div className="progress-bar-fill" style={{ width: `${(answeredCount / total) * 100}%` }} />
           </div>
         </div>
-        <span style={{ fontWeight: 700 }}>{index + 1}/{exercise.questions.length}</span>
+        <span style={{ fontWeight: 700 }}>{answeredCount}/{total}</span>
       </div>
+
+      <div className="question-grid">
+        {exercise.questions.map((qq, i) => {
+          const a = answers[qq.id];
+          const status = a ? (a.isCorrect ? 'correct' : 'wrong') : '';
+          return (
+            <button
+              key={qq.id}
+              className={`question-grid-btn ${status} ${i === index ? 'current' : ''}`}
+              onClick={() => jumpTo(i)}
+            >
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="muted" style={{ marginBottom: 6 }}>ตอบถูกแล้ว {correctCount} จาก {answeredCount} ข้อที่ตอบ</div>
+
+      {allAnswered && (
+        <button className="success" onClick={finish} style={{ marginBottom: 14 }}>
+          ✓ ตอบครบแล้ว ดูคะแนน 🏁
+        </button>
+      )}
 
       <div className="question-prompt">{q.prompt}</div>
 
       {q.questionType === 'multiple_choice' && (
-        <QuestionMultipleChoice q={q} result={result} onAnswer={submitAnswer} />
+        <QuestionMultipleChoice key={q.id} q={q} result={result} onAnswer={submitAnswer} />
       )}
       {q.questionType === 'true_false' && (
-        <QuestionTrueFalse result={result} onAnswer={submitAnswer} />
+        <QuestionTrueFalse key={q.id} result={result} onAnswer={submitAnswer} />
       )}
       {q.questionType === 'fill_blank' && (
-        <QuestionFillBlank q={q} result={result} onAnswer={submitAnswer} />
+        <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={submitAnswer} />
       )}
       {q.questionType === 'matching' && (
-        <QuestionMatching q={q} result={result} onAnswer={submitAnswer} />
+        <QuestionMatching key={q.id} q={q} result={result} onAnswer={submitAnswer} />
       )}
 
       {result && (
@@ -124,15 +163,11 @@ export default function Player() {
               💡 {result.explanation}
             </div>
           )}
-          <button style={{ marginTop: 18 }} onClick={next}>
-            {index + 1 < exercise.questions.length ? 'ข้อต่อไป ▶' : 'ดูคะแนน 🏁'}
+          <button style={{ marginTop: 18 }} onClick={goNext}>
+            {index + 1 < total ? 'ข้อต่อไป ▶' : allAnswered ? 'ดูคะแนน 🏁' : 'ไปข้อที่ยังไม่ตอบ ▶'}
           </button>
         </>
       )}
-
-      <div className="muted" style={{ marginTop: 'auto', paddingTop: 20 }}>
-        ตอบถูกแล้ว {correctCount} ข้อ
-      </div>
     </div>
   );
 }
