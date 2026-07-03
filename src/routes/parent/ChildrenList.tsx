@@ -9,11 +9,59 @@ export default function ChildrenList() {
   const [children, setChildren] = useState<Child[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Child | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(false);
 
   function load() {
     api.get<Child[]>('/api/parent/children').then(setChildren);
   }
   useEffect(load, []);
+
+  const toggleSelected = (id: number) => {
+    const newSet = new Set(selected);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelected(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === children.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(children.map((ch) => ch.id)));
+    }
+  };
+
+  const handleDeleteSingle = async (id: number) => {
+    if (!confirm('ลบลูกนี้ทั้งข้อมูลความก้าวหน้า?')) return;
+    setLoading(true);
+    try {
+      await api.delete(`/api/parent/children/${id}`);
+      load();
+    } catch (err) {
+      alert('ลบไม่สำเร็จ: ' + String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteBulk = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`ลบ ${selected.size} ลูก ทั้งข้อมูลความก้าวหน้า?`)) return;
+    setLoading(true);
+    try {
+      await Promise.all(Array.from(selected).map((id) => api.delete(`/api/parent/children/${id}`)));
+      setSelected(new Set());
+      load();
+    } catch (err) {
+      alert('ลบไม่สำเร็จ: ' + String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -22,21 +70,67 @@ export default function ChildrenList() {
         <button onClick={() => { setEditing(null); setShowForm(true); }}>+ เพิ่มลูก</button>
       </div>
 
+      {children.length > 0 && selected.size > 0 && (
+        <div className="card" style={{ marginBottom: 16, padding: 12 }}>
+          <div className="row">
+            <span className="grow">เลือก {selected.size} ลูก</span>
+            <button
+              onClick={handleDeleteBulk}
+              disabled={loading}
+              style={{ background: '#fee' }}
+            >
+              🗑️ ลบ {selected.size} ลูก
+            </button>
+          </div>
+        </div>
+      )}
+
       {children.length === 0 && !showForm && (
         <div className="card muted">ยังไม่มีโปรไฟล์ลูก กด "+ เพิ่มลูก" เพื่อเริ่มต้น</div>
       )}
 
+      {children.length > 0 && (
+        <div className="card" style={{ marginBottom: 12, padding: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={selected.size === children.length && children.length > 0}
+              onChange={toggleSelectAll}
+              disabled={loading}
+            />
+            <span>เลือกทั้งหมด</span>
+          </label>
+        </div>
+      )}
+
       {children.map((ch) => (
-        <div className="card row" key={ch.id}>
-          <span style={{ fontSize: 40 }}>{ch.avatar}</span>
+        <div className="card row" key={ch.id} style={{ alignItems: 'center' }}>
+          <input
+            type="checkbox"
+            checked={selected.has(ch.id)}
+            onChange={() => toggleSelected(ch.id)}
+            disabled={loading}
+            style={{ width: 20, height: 20, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 40, marginLeft: 8 }}>{ch.avatar}</span>
           <div className="grow">
             <div style={{ fontWeight: 700 }}>{ch.name}</div>
             <div className="muted">{ch.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}</div>
           </div>
           <Link to={`/parent/children/${ch.id}/progress`}>
-            <button className="secondary">ดู Progress</button>
+            <button className="secondary" disabled={loading}>ดู Progress</button>
           </Link>
-          <button className="secondary" onClick={() => { setEditing(ch); setShowForm(true); }}>แก้ไข</button>
+          <button className="secondary" onClick={() => { setEditing(ch); setShowForm(true); }} disabled={loading}>
+            แก้ไข
+          </button>
+          <button
+            className="secondary"
+            onClick={() => handleDeleteSingle(ch.id)}
+            disabled={loading}
+            style={{ background: '#fee' }}
+          >
+            🗑️
+          </button>
         </div>
       ))}
 

@@ -84,8 +84,23 @@ childrenRoutes.patch('/:id', async (c) => {
 childrenRoutes.delete('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
-  await c.env.DB.prepare('DELETE FROM children WHERE id = ? AND parent_id = ?')
+
+  const child = await c.env.DB.prepare('SELECT id FROM children WHERE id = ? AND parent_id = ?')
     .bind(id, parentId)
+    .first();
+  if (!child) return c.json({ error: 'not_found' }, 404);
+
+  // Cascade delete: attempt_answers → attempts → assignments → children
+  await c.env.DB.prepare(`
+    DELETE FROM attempt_answers
+    WHERE attempt_id IN (SELECT id FROM attempts WHERE child_id = ?)
+  `)
+    .bind(id)
     .run();
+
+  await c.env.DB.prepare('DELETE FROM attempts WHERE child_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM assignments WHERE child_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM children WHERE id = ?').bind(id).run();
+
   return c.json({ ok: true });
 });

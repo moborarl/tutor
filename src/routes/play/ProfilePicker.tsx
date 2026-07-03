@@ -10,6 +10,11 @@ export default function ProfilePicker() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [needLogin, setNeedLogin] = useState(false);
+  const [showForgotPin, setShowForgotPin] = useState(false);
+  const [parentPassword, setParentPassword] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     api
@@ -35,6 +40,31 @@ export default function ProfilePicker() {
         setPin('');
       });
   }, [pin, picked, nav]);
+
+  const handleResetPin = async () => {
+    if (!parentPassword || !newPin || !/^\d{4}$/.test(newPin)) {
+      setForgotError('ใส่รหัสผ่านผู้ปกครองและ PIN ใหม่ (4 หลัก)');
+      return;
+    }
+    setResetting(true);
+    setForgotError('');
+    try {
+      await api.post('/api/play/forgot-pin', {
+        childId: picked!.id,
+        parentPassword,
+        newPin,
+      });
+      setShowForgotPin(false);
+      setParentPassword('');
+      setNewPin('');
+      setPin('');
+      setError('ตั้ง PIN ใหม่เสร็จแล้ว ลองใส่ PIN ใหม่นะ');
+    } catch (err) {
+      setForgotError('ตั้ง PIN ไม่สำเร็จ — รหัสผ่านอาจผิด');
+    } finally {
+      setResetting(false);
+    }
+  };
 
   if (needLogin) {
     return (
@@ -69,9 +99,42 @@ export default function ProfilePicker() {
     );
   }
 
+  if (showForgotPin) {
+    return (
+      <div className="play-root">
+        <h2>ตั้ง PIN ใหม่</h2>
+        <p style={{ marginBottom: 20 }}>ใส่รหัสผ่านผู้ปกครอง</p>
+        <input
+          type="password"
+          placeholder="รหัสผ่านผู้ปกครอง"
+          value={parentPassword}
+          onChange={(e) => setParentPassword(e.target.value)}
+          style={{ marginBottom: 12 }}
+        />
+        <input
+          type="text"
+          placeholder="PIN ใหม่ (4 ตัวเลข)"
+          value={newPin}
+          onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          maxLength={4}
+          style={{ marginBottom: 12 }}
+        />
+        {forgotError && <div className="error-text" style={{ marginBottom: 12 }}>{forgotError}</div>}
+        <div className="row" style={{ gap: 8 }}>
+          <button onClick={handleResetPin} disabled={resetting} style={{ flex: 1 }}>
+            {resetting ? 'กำลังบันทึก...' : 'บันทึก PIN ใหม่'}
+          </button>
+          <button className="secondary" onClick={() => { setShowForgotPin(false); setParentPassword(''); setNewPin(''); setForgotError(''); }} disabled={resetting}>
+            ยกเลิก
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="play-root">
-      <button className="secondary" style={{ alignSelf: 'flex-start' }} onClick={() => { setPicked(null); setPin(''); }}>
+      <button className="secondary" style={{ alignSelf: 'flex-start' }} onClick={() => { setPicked(null); setPin(''); setError(''); }}>
         ← เลือกใหม่
       </button>
       <div style={{ fontSize: 70, marginTop: 10 }}>{picked.avatar}</div>
@@ -90,6 +153,9 @@ export default function ProfilePicker() {
         <button className="pin-key" onClick={() => setPin((p) => (p + '0').slice(0, 4))}>0</button>
         <button className="pin-key" onClick={() => setPin((p) => p.slice(0, -1))}>⌫</button>
       </div>
+      <button className="secondary" style={{ marginTop: 16 }} onClick={() => setShowForgotPin(true)}>
+        ลืม PIN?
+      </button>
     </div>
   );
 }

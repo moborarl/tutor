@@ -93,21 +93,25 @@ exerciseRoutes.post('/', async (c) => {
   const title = typeof form.get('title') === 'string' ? (form.get('title') as string).trim() : '';
   const subjectIdRaw = form.get('subjectId');
   const subjectId = subjectIdRaw && !isNaN(Number(subjectIdRaw)) ? Number(subjectIdRaw) : null;
+  const provider = form.get('provider') === 'pi' ? 'pi' : 'cloud';
 
   const r2Key = `worksheets/${parentId}/${randomId(12)}`;
   await c.env.WORKSHEETS.put(r2Key, await file.arrayBuffer(), {
     httpMetadata: { contentType: file.type },
   });
 
+  const initialStatus = provider === 'pi' ? 'processing' : 'extracting';
   const result = await c.env.DB.prepare(
     `INSERT INTO exercise_sets (parent_id, subject_id, title, age_band, source_image_r2_key, source_image_content_type, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'extracting')`,
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(parentId, subjectId, title, ageBand, r2Key, file.type)
+    .bind(parentId, subjectId, title, ageBand, r2Key, file.type, initialStatus)
     .run();
   const setId = result.meta.last_row_id as number;
 
-  await extractForSet(c, setId, r2Key, file.type, ageBand);
+  if (provider === 'cloud') {
+    await extractForSet(c, setId, r2Key, file.type, ageBand);
+  }
 
   const row = await c.env.DB.prepare('SELECT status FROM exercise_sets WHERE id = ?')
     .bind(setId)

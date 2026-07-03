@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import type { Subject, AgeBand } from '@shared/types';
 
+type Provider = 'cloud' | 'pi';
+
 export default function Upload() {
   const nav = useNavigate();
   const [file, setFile] = useState<File | null>(null);
@@ -12,6 +14,7 @@ export default function Upload() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectId, setSubjectId] = useState('');
   const [newSubject, setNewSubject] = useState('');
+  const [provider, setProvider] = useState<Provider>('cloud');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,6 +43,7 @@ export default function Upload() {
       form.append('image', file);
       form.append('ageBand', ageBand);
       form.append('title', title);
+      form.append('provider', provider);
       if (sid) form.append('subjectId', sid);
       const res = await api.post<{ id: number; status: string }>('/api/parent/exercise-sets', form);
       nav(`/parent/exercises/${res.id}`);
@@ -68,6 +72,17 @@ export default function Upload() {
             <option value="young">สำหรับเด็กเล็ก</option>
             <option value="older">สำหรับเด็กโต</option>
           </select>
+          <div style={{ padding: 12, background: '#f5f5f5', borderRadius: 8 }}>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>เลือกวิธีแกะโจทย์:</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}>
+              <input type="radio" value="cloud" checked={provider === 'cloud'} onChange={(e) => setProvider(e.target.value as Provider)} />
+              <span>☁️ Google Gemini (เร็ว)</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input type="radio" value="pi" checked={provider === 'pi'} onChange={(e) => setProvider(e.target.value as Provider)} />
+              <span>🍓 Raspberry Pi (ฟรี แต่ช้ากว่า)</span>
+            </label>
+          </div>
           <div className="row">
             <select className="grow" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
               <option value="">— เลือกวิชา —</option>
