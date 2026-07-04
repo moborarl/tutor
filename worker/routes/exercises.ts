@@ -15,12 +15,14 @@ async function insertDraftQuestions(
   db: D1Database,
   exerciseSetId: number,
   questions: ExtractedQuestion[],
+  // maps a 1-indexed "imagePage" (upload order) to the actual exercise_images.id
+  pageToImageId: Map<number, number> = new Map(),
 ): Promise<void> {
   const stmts = questions.map((q, i) =>
     db
       .prepare(
-        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         exerciseSetId,
@@ -30,6 +32,7 @@ async function insertDraftQuestions(
         JSON.stringify(q.content ?? {}),
         JSON.stringify(q.answer ?? {}),
         q.explanation ?? null,
+        q.imagePage ? pageToImageId.get(q.imagePage) ?? null : null,
       ),
   );
   await db.batch(stmts);
@@ -135,7 +138,16 @@ exerciseRoutes.post('/', async (c) => {
     ),
   );
 
-  await insertDraftQuestions(c.env.DB, setId, imported.questions);
+  // Map each question's 1-indexed "imagePage" (upload order) to the row id we
+  // just inserted, so questions.image_id can point at the right photo.
+  const insertedImages = await c.env.DB.prepare(
+    'SELECT id, order_index FROM exercise_images WHERE exercise_set_id = ? ORDER BY order_index',
+  )
+    .bind(setId)
+    .all<{ id: number; order_index: number }>();
+  const pageToImageId = new Map(insertedImages.results.map((img) => [img.order_index + 1, img.id]));
+
+  await insertDraftQuestions(c.env.DB, setId, imported.questions, pageToImageId);
 
   return c.json({ id: setId, status: 'pending_review' }, 201);
 });
@@ -182,7 +194,7 @@ exerciseRoutes.get('/:id', async (c) => {
   if (!set) return c.json({ error: 'not_found' }, 404);
 
   const questions = await c.env.DB.prepare(
-    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation
+    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation, image_id
      FROM questions WHERE exercise_set_id = ? ORDER BY order_index, id`,
   )
     .bind(id)
@@ -220,6 +232,7 @@ exerciseRoutes.get('/:id', async (c) => {
       answer: JSON.parse(q.answer_json as string),
       status: q.status,
       explanation: q.explanation ?? null,
+      imageId: q.image_id ?? null,
     })),
   });
 });

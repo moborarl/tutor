@@ -138,6 +138,14 @@ export default function Player() {
         </button>
       )}
 
+      {q.imageId && (
+        <img
+          src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`}
+          alt="รูปประกอบโจทย์"
+          className="question-image"
+        />
+      )}
+
       <div className="question-prompt">{q.prompt}</div>
 
       {q.questionType === 'multiple_choice' && (

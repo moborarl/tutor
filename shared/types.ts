@@ -78,6 +78,7 @@ export interface Question {
   content: unknown;
   status: 'draft' | 'approved';
   explanation: string | null;
+  imageId: number | null;
 }
 
 // Parent review view includes the answer; kid play view does not.
@@ -109,6 +110,7 @@ export interface PlayQuestion {
   questionType: QuestionType;
   prompt: string;
   content: unknown;
+  imageId: number | null;
 }
 
 export interface AnswerResult {
@@ -154,4 +156,7 @@ export interface ExtractedQuestion {
   content: unknown;
   answer: unknown;
   explanation?: string;
+  // 1-indexed reference to the uploaded worksheet photo (in upload order) that
+  // contains a diagram/figure this question depends on, if any.
+  imagePage?: number;
 }

@@ -130,7 +130,7 @@ export default function ReviewExercise() {
         </div>
       )}
 
-      <div className="row" style={{ marginBottom: 14 }}>
+      <div className="row sticky-toolbar" style={{ marginBottom: 14 }}>
         <button className="secondary" onClick={() => setShowImage((v) => !v)}>
           {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
         </button>
@@ -160,7 +160,7 @@ export default function ReviewExercise() {
       )}
 
       {set.questions.map((q, i) => (
-        <QuestionEditor key={q.id} q={q} index={i} onChanged={load} />
+        <QuestionEditor key={q.id} q={q} index={i} images={set!.images} setId={set!.id} onChanged={load} />
       ))}
 
       {(set.status === 'published' || set.status === 'pending_review') && (
@@ -195,12 +195,25 @@ export default function ReviewExercise() {
   );
 }
 
-function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index: number; onChanged: () => void }) {
+function QuestionEditor({
+  q,
+  index,
+  images,
+  setId,
+  onChanged,
+}: {
+  q: QuestionWithAnswer;
+  index: number;
+  images: { id: number; orderIndex: number }[];
+  setId: number;
+  onChanged: () => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [prompt, setPrompt] = useState(q.prompt);
   const [contentText, setContentText] = useState(JSON.stringify(q.content, null, 2));
   const [answerText, setAnswerText] = useState(JSON.stringify(q.answer, null, 2));
   const [explanation, setExplanation] = useState(q.explanation ?? '');
+  const [imageId, setImageId] = useState<number | null>(q.imageId);
   const [err, setErr] = useState('');
 
   async function save() {
@@ -213,7 +226,7 @@ function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index:
       setErr('รูปแบบ JSON ไม่ถูกต้อง');
       return;
     }
-    await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer, explanation });
+    await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer, explanation, imageId });
     setEditing(false);
     onChanged();
   }
@@ -246,6 +259,13 @@ function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index:
 
       {!editing ? (
         <div style={{ marginTop: 10 }}>
+          {q.imageId && (
+            <img
+              src={`/api/parent/exercise-sets/${setId}/images/${q.imageId}`}
+              alt="รูปประกอบโจทย์"
+              style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, marginBottom: 8, display: 'block' }}
+            />
+          )}
           <div style={{ fontWeight: 600 }}>{q.prompt}</div>
           <QuestionPreview q={q} />
           {q.explanation && (
@@ -264,6 +284,36 @@ function QuestionEditor({ q, index, onChanged }: { q: QuestionWithAnswer; index:
           <textarea rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} style={{ fontFamily: 'monospace' }} />
           <label className="muted">คำอธิบายเฉลย (แสดงให้เด็กเห็นหลังตอบ)</label>
           <textarea rows={2} value={explanation} onChange={(e) => setExplanation(e.target.value)} />
+          {images.length > 0 && (
+            <>
+              <label className="muted">รูปประกอบโจทย์ (ถ้าต้องดูแผนภาพถึงจะตอบได้)</label>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={imageId === null ? '' : 'secondary'}
+                  onClick={() => setImageId(null)}
+                >
+                  ไม่มีรูป
+                </button>
+                {images.map((img) => (
+                  <img
+                    key={img.id}
+                    src={`/api/parent/exercise-sets/${setId}/images/${img.id}`}
+                    alt={`หน้า ${img.orderIndex + 1}`}
+                    onClick={() => setImageId(img.id)}
+                    style={{
+                      width: 70,
+                      height: 70,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      outline: imageId === img.id ? '3px solid var(--accent)' : '2px solid #e8e1d5',
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
           {err && <div className="error-text">{err}</div>}
           <div className="row">
             <button onClick={save}>บันทึก</button>

@@ -154,7 +154,7 @@ playRoutes.get('/exercises/:id', requireChildSession, async (c) => {
   if (!assigned) return c.json({ error: 'not_found' }, 404);
 
   const questions = await c.env.DB.prepare(
-    `SELECT id, order_index, question_type, prompt, content_json
+    `SELECT id, order_index, question_type, prompt, content_json, image_id
      FROM questions WHERE exercise_set_id = ? ORDER BY order_index, id`,
   )
     .bind(id)
@@ -168,7 +168,37 @@ playRoutes.get('/exercises/:id', requireChildSession, async (c) => {
       questionType: q.question_type,
       prompt: q.prompt,
       content: JSON.parse(q.content_json as string),
+      imageId: q.image_id ?? null,
     })),
+  });
+});
+
+// Serve a worksheet page image referenced by a question, for the kid player.
+playRoutes.get('/exercises/:id/images/:imageId', requireChildSession, async (c) => {
+  const { activeChildId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  const imageId = Number(c.req.param('imageId'));
+
+  const assigned = await c.env.DB.prepare(
+    `SELECT es.id FROM assignments asg
+     JOIN exercise_sets es ON es.id = asg.exercise_set_id
+     WHERE asg.child_id = ? AND es.id = ? AND es.status = 'published'`,
+  )
+    .bind(activeChildId, id)
+    .first();
+  if (!assigned) return c.json({ error: 'not_found' }, 404);
+
+  const image = await c.env.DB.prepare(
+    'SELECT r2_key, content_type FROM exercise_images WHERE id = ? AND exercise_set_id = ?',
+  )
+    .bind(imageId, id)
+    .first<{ r2_key: string; content_type: string }>();
+  if (!image) return c.json({ error: 'not_found' }, 404);
+
+  const obj = await c.env.WORKSHEETS.get(image.r2_key);
+  if (!obj) return c.json({ error: 'image_missing' }, 404);
+  return new Response(obj.body, {
+    headers: { 'content-type': image.content_type, 'cache-control': 'private, max-age=3600' },
   });
 });
 

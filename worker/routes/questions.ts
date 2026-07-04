@@ -35,6 +35,7 @@ questionRoutes.patch('/:id', async (c) => {
       answer?: unknown;
       orderIndex?: number;
       explanation?: string;
+      imageId?: number | null;
     }>()
     .catch(() => null);
   if (!body) return c.json({ error: 'invalid_body' }, 400);
@@ -65,6 +66,22 @@ questionRoutes.patch('/:id', async (c) => {
   if (typeof body.explanation === 'string') {
     updates.push('explanation = ?');
     values.push(body.explanation.trim() || null);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'imageId')) {
+    const imageId = body.imageId;
+    if (imageId !== null && typeof imageId !== 'number') {
+      return c.json({ error: 'invalid_image_id' }, 400);
+    }
+    if (imageId !== null) {
+      const img = await c.env.DB.prepare(
+        'SELECT id FROM exercise_images WHERE id = ? AND exercise_set_id = ?',
+      )
+        .bind(imageId, q.exercise_set_id)
+        .first();
+      if (!img) return c.json({ error: 'image_not_found' }, 400);
+    }
+    updates.push('image_id = ?');
+    values.push(imageId);
   }
   // Any edit returns the question to draft so it must be re-approved.
   updates.push(`status = 'draft'`);

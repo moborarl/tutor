@@ -20,6 +20,15 @@ function unwrapTypeKey(value: unknown, questionType: QuestionType): unknown {
   return value;
 }
 
+// The original worksheet often numbers questions ("58. ..."), but that numbering
+// rarely matches our own sequential question order (e.g. a set extracted from page
+// 2 of a bigger worksheet, or questions the AI skipped). Showing both together is
+// confusing, so strip a leading "N." / "N)" marker and let our own order_index-based
+// numbering (shown in Review/Player) be the single source of truth.
+function stripLeadingNumber(prompt: string): string {
+  return prompt.replace(/^\s*\d+[.)]\s*/, '').trim();
+}
+
 // Parses and validates JSON pasted by a parent (produced by an external AI chat,
 // e.g. ChatGPT/Claude/Gemini web) against our questions schema.
 export function parseImportedJson(raw: string): ImportResult {
@@ -48,12 +57,14 @@ export function parseImportedJson(raw: string): ImportResult {
     ) {
       const item = q as Record<string, unknown>;
       const questionType = item.questionType as QuestionType;
+      const imagePage = typeof item.imagePage === 'number' && item.imagePage > 0 ? item.imagePage : undefined;
       questions.push({
         questionType,
-        prompt: item.prompt as string,
+        prompt: stripLeadingNumber(item.prompt as string),
         content: unwrapTypeKey(item.content ?? {}, questionType),
         answer: unwrapTypeKey(item.answer ?? {}, questionType),
         explanation: typeof item.explanation === 'string' ? item.explanation : undefined,
+        imagePage,
       });
     }
   }
