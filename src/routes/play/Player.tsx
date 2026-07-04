@@ -45,25 +45,18 @@ export default function Player() {
 
   const uiSimple = child?.ageBand === 'young';
   const total = exercise.questions.length;
-  const q = exercise.questions[index];
-  const result = answers[q.id] ?? null;
   const answeredCount = Object.keys(answers).length;
   const correctCount = Object.values(answers).filter((a) => a.isCorrect).length;
   const allAnswered = answeredCount === total;
 
-  function jumpTo(i: number) {
-    setIndex(i);
-    questionStart.current = Date.now();
-  }
-
-  async function submitAnswer(answer: unknown) {
-    if (answers[q.id]) return; // already answered, locked
+  async function submitAnswer(question: PlayQuestion, answer: unknown, startedAt: number) {
+    if (answers[question.id]) return; // already answered, locked
     const res = await api.post<AnswerResult>(`/api/play/attempts/${attemptId}/answers`, {
-      questionId: q.id,
+      questionId: question.id,
       answer,
-      timeSpentMs: Date.now() - questionStart.current,
+      timeSpentMs: Date.now() - startedAt,
     });
-    setAnswers((prev) => ({ ...prev, [q.id]: res }));
+    setAnswers((prev) => ({ ...prev, [question.id]: res }));
   }
 
   async function finish() {
@@ -71,19 +64,6 @@ export default function Player() {
       `/api/play/attempts/${attemptId}/complete`,
     );
     setFinished(done);
-  }
-
-  function goNext() {
-    if (index + 1 < total) {
-      jumpTo(index + 1);
-      return;
-    }
-    if (allAnswered) {
-      finish();
-      return;
-    }
-    const firstUnanswered = exercise!.questions.findIndex((qq) => !answers[qq.id]);
-    jumpTo(firstUnanswered >= 0 ? firstUnanswered : 0);
   }
 
   if (finished) {
@@ -103,10 +83,148 @@ export default function Player() {
     );
   }
 
+  if (uiSimple) {
+    return (
+      <SimplePlayer
+        exercise={exercise}
+        index={index}
+        setIndex={setIndex}
+        answers={answers}
+        answeredCount={answeredCount}
+        correctCount={correctCount}
+        allAnswered={allAnswered}
+        total={total}
+        onAnswer={(q, answer) => submitAnswer(q, answer, questionStart.current)}
+        onNavigate={() => { questionStart.current = Date.now(); }}
+        onFinish={finish}
+        onExit={() => nav('/play/exercises')}
+      />
+    );
+  }
+
+  // Older kids: every question loaded at once in one scrollable page — pick an
+  // answer and get feedback immediately, scroll to move between questions.
   return (
-    <div className={`play-root ${uiSimple ? 'ui-simple' : ''}`}>
-      <div className="row" style={{ width: '100%', maxWidth: 640 }}>
+    <div>
+      <div className="row sticky-toolbar">
         <button className="secondary" onClick={() => nav('/play/exercises')}>← ออก</button>
+        <b className="grow" style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {exercise.title}
+        </b>
+        <span className="muted" style={{ fontSize: 13 }}>
+          ตรวจแล้ว {answeredCount}/{total} · ถูก {correctCount}
+        </span>
+        {allAnswered && <button className="success" onClick={finish}>ดูคะแนน 🏁</button>}
+      </div>
+
+      {exercise.questions.map((q, i) => {
+        const result = answers[q.id] ?? null;
+        return (
+          <div className="card" key={q.id}>
+            <div className="row" style={{ marginBottom: 8 }}>
+              <span className="badge draft">ข้อ {i + 1}</span>
+              {result && <span className={`badge ${result.isCorrect ? 'correct' : 'wrong'}`}>{result.isCorrect ? 'ถูก' : 'ผิด'}</span>}
+            </div>
+
+            {q.imageId ? (
+              <img src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`} alt="รูปประกอบโจทย์" className="question-image" />
+            ) : q.generatedSvg ? (
+              <SafeSvg svg={q.generatedSvg} className="question-image" />
+            ) : null}
+
+            <div className="question-prompt" style={{ textAlign: 'left', margin: '10px 0' }}>{q.prompt}</div>
+
+            {q.questionType === 'multiple_choice' && (
+              <QuestionMultipleChoice q={q} result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
+            )}
+            {q.questionType === 'true_false' && (
+              <QuestionTrueFalse result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
+            )}
+            {q.questionType === 'fill_blank' && (
+              <QuestionFillBlank q={q} result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
+            )}
+            {q.questionType === 'matching' && (
+              <QuestionMatching q={q} result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
+            )}
+
+            {result && (
+              <>
+                <div className={`feedback-banner ${result.isCorrect ? 'good' : 'bad'}`}>
+                  {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : '❌ ยังไม่ถูก ดูเฉลยนะ'}
+                </div>
+                {result.explanation && (
+                  <div className="card" style={{ marginTop: 10, background: '#f0f4f8' }}>
+                    💡 {result.explanation}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      {allAnswered && (
+        <button className="success" onClick={finish} style={{ width: '100%' }}>
+          ✓ ตอบครบแล้ว ดูคะแนน 🏁
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Young kids: one big question at a time, with a number grid to jump around.
+function SimplePlayer({
+  exercise,
+  index,
+  setIndex,
+  answers,
+  answeredCount,
+  correctCount,
+  allAnswered,
+  total,
+  onAnswer,
+  onNavigate,
+  onFinish,
+  onExit,
+}: {
+  exercise: ExerciseData;
+  index: number;
+  setIndex: (i: number) => void;
+  answers: Record<number, AnswerResult>;
+  answeredCount: number;
+  correctCount: number;
+  allAnswered: boolean;
+  total: number;
+  onAnswer: (q: PlayQuestion, answer: unknown) => void;
+  onNavigate: () => void;
+  onFinish: () => void;
+  onExit: () => void;
+}) {
+  const q = exercise.questions[index];
+  const result = answers[q.id] ?? null;
+
+  function jumpTo(i: number) {
+    setIndex(i);
+    onNavigate();
+  }
+
+  function goNext() {
+    if (index + 1 < total) {
+      jumpTo(index + 1);
+      return;
+    }
+    if (allAnswered) {
+      onFinish();
+      return;
+    }
+    const firstUnanswered = exercise.questions.findIndex((qq) => !answers[qq.id]);
+    jumpTo(firstUnanswered >= 0 ? firstUnanswered : 0);
+  }
+
+  return (
+    <div className="play-root ui-simple">
+      <div className="row" style={{ width: '100%', maxWidth: 640 }}>
+        <button className="secondary" onClick={onExit}>← ออก</button>
         <div className="grow" style={{ margin: '0 10px' }}>
           <div className="progress-bar-track">
             <div className="progress-bar-fill" style={{ width: `${(answeredCount / total) * 100}%` }} />
@@ -134,7 +252,7 @@ export default function Player() {
       <div className="muted" style={{ marginBottom: 6 }}>ตอบถูกแล้ว {correctCount} จาก {answeredCount} ข้อที่ตอบ</div>
 
       {allAnswered && (
-        <button className="success" onClick={finish} style={{ marginBottom: 14 }}>
+        <button className="success" onClick={onFinish} style={{ marginBottom: 14 }}>
           ✓ ตอบครบแล้ว ดูคะแนน 🏁
         </button>
       )}
@@ -152,16 +270,16 @@ export default function Player() {
       <div className="question-prompt">{q.prompt}</div>
 
       {q.questionType === 'multiple_choice' && (
-        <QuestionMultipleChoice key={q.id} q={q} result={result} onAnswer={submitAnswer} />
+        <QuestionMultipleChoice key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
       )}
       {q.questionType === 'true_false' && (
-        <QuestionTrueFalse key={q.id} result={result} onAnswer={submitAnswer} />
+        <QuestionTrueFalse key={q.id} result={result} onAnswer={(a) => onAnswer(q, a)} />
       )}
       {q.questionType === 'fill_blank' && (
-        <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={submitAnswer} />
+        <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
       )}
       {q.questionType === 'matching' && (
-        <QuestionMatching key={q.id} q={q} result={result} onAnswer={submitAnswer} />
+        <QuestionMatching key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
       )}
 
       {result && (

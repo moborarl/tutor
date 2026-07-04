@@ -79,6 +79,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .badge.extraction_failed { background: var(--red-soft); color: var(--red); }
 .badge.draft { background: #f0ece4; color: var(--muted); }
 .badge.approved { background: var(--green-soft); color: var(--green); }
+.badge.correct { background: var(--green-soft); color: var(--green); }
+.badge.wrong { background: var(--red-soft); color: var(--red); }
 
 /* --- Kid play mode --- */
 .play-root {

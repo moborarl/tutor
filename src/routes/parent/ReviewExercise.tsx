@@ -107,15 +107,6 @@ export default function ReviewExercise() {
 
   return (
     <div>
-      <div className="row">
-        <h2 className="grow">{set.title || `ชุดที่ ${set.id}`}</h2>
-        <span className={`badge ${set.status}`}>{STATUS_TH[set.status] ?? set.status}</span>
-      </div>
-      <div className="muted" style={{ marginBottom: 14 }}>
-        {set.subjectName ?? 'ไม่ระบุวิชา'} · {set.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
-        {set.extractionProvider && <> · แกะโจทย์โดย <b>{PROVIDER_TH[set.extractionProvider]}</b></>}
-      </div>
-
       {set.extractionError && set.status !== 'pending_review' && set.status !== 'published' && (
         <div className="card" style={{ background: 'var(--red-soft)' }}>
           <div className="error-text">{set.extractionError}</div>
@@ -132,19 +123,33 @@ export default function ReviewExercise() {
         </div>
       )}
 
-      <div className="row sticky-toolbar" style={{ marginBottom: 14 }}>
-        <button className="secondary" onClick={() => setShowImage((v) => !v)}>
-          {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
-        </button>
-        {set.questions.length > 0 && set.status === 'pending_review' && (
-          <>
-            <button className="secondary" onClick={approveAll}>อนุมัติทุกข้อ</button>
-            <button className="success" onClick={publish} disabled={!allApproved}>เผยแพร่</button>
-          </>
-        )}
-        {set.status === 'pending_review' && (
-          <button className="secondary" onClick={addManualQuestion}>+ เพิ่มโจทย์เอง</button>
-        )}
+      {/* Compact sticky header: title+status stay pinned while scrolling through
+          many questions, but stay small so they don't eat into the visible area. */}
+      <div className="sticky-toolbar" style={{ marginBottom: 14 }}>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <b className="grow" style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {set.title || `ชุดที่ ${set.id}`}
+          </b>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {set.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
+            {set.extractionProvider && ` · ${PROVIDER_TH[set.extractionProvider]}`}
+          </span>
+          <span className={`badge ${set.status}`}>{STATUS_TH[set.status] ?? set.status}</span>
+        </div>
+        <div className="row">
+          <button className="secondary" onClick={() => setShowImage((v) => !v)}>
+            {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
+          </button>
+          {set.questions.length > 0 && set.status === 'pending_review' && (
+            <>
+              <button className="secondary" onClick={approveAll}>อนุมัติทุกข้อ</button>
+              <button className="success" onClick={publish} disabled={!allApproved}>เผยแพร่</button>
+            </>
+          )}
+          {set.status === 'pending_review' && (
+            <button className="secondary" onClick={addManualQuestion}>+ เพิ่มโจทย์เอง</button>
+          )}
+        </div>
       </div>
       {msg && <div className="muted" style={{ marginBottom: 10 }}>{msg}</div>}
 

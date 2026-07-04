@@ -41,9 +41,7 @@ export default function ExerciseList() {
     return () => clearInterval(t);
   }, []);
 
-  const handleDelete = async (id: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDelete = async (id: number) => {
     if (!confirm('ลบแบบฝึกหัดและรูปภาพ?')) return;
     setLoading(true);
     try {
@@ -56,9 +54,7 @@ export default function ExerciseList() {
     }
   };
 
-  const handleRename = async (id: number, newTitle: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleRename = async (id: number, newTitle: string) => {
     if (!newTitle.trim()) return;
     setLoading(true);
     try {
@@ -72,16 +68,12 @@ export default function ExerciseList() {
     }
   };
 
-  const startEdit = (s: ExerciseSetSummary, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const startEdit = (s: ExerciseSetSummary) => {
     setEditingId(s.id);
     setEditTitle(s.title);
   };
 
-  const toggleSelected = (id: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const toggleSelected = (id: number) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
@@ -159,29 +151,32 @@ export default function ExerciseList() {
                   placeholder="ชื่อแบบฝึกหัด"
                   style={{ flex: 1, marginRight: 8 }}
                 />
-                <button
-                  onClick={(e) => handleRename(s.id, editTitle, e)}
-                  disabled={loading}
-                  style={{ marginRight: 4 }}
-                >
+                <button onClick={() => handleRename(s.id, editTitle)} disabled={loading} style={{ marginRight: 4 }}>
                   บันทึก
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); setEditingId(null); }} disabled={loading}>
+                <button onClick={() => setEditingId(null)} disabled={loading}>
                   ยกเลิก
                 </button>
               </div>
             </div>
           ) : (
-            <Link to={`/parent/exercises/${s.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="card row">
-                <input
-                  type="checkbox"
-                  checked={selected.has(s.id)}
-                  onClick={(e) => toggleSelected(s.id, e)}
-                  onChange={() => {}}
-                  disabled={loading}
-                  style={{ width: 20, height: 20, cursor: 'pointer' }}
-                />
+            // Checkbox and action buttons are siblings of the Link, not nested inside
+            // it — nesting a checkbox inside an <a> is unreliable on touch devices
+            // (iPad Safari can still navigate on tap even with stopPropagation), so
+            // keeping them fully outside removes any ambiguity.
+            <div className="card row">
+              <input
+                type="checkbox"
+                checked={selected.has(s.id)}
+                onChange={() => toggleSelected(s.id)}
+                disabled={loading}
+                style={{ width: 22, height: 22, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <Link
+                to={`/parent/exercises/${s.id}`}
+                className="grow row"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
                 <div className="grow">
                   <div style={{ fontWeight: 700 }}>{s.title || `ชุดที่ ${s.id}`}</div>
                   <div className="muted">
@@ -193,26 +188,26 @@ export default function ExerciseList() {
                 <span className={`badge ${s.status}`} style={{ marginRight: 8 }}>
                   {STATUS_TH[s.status] ?? s.status}
                 </span>
-                <div className="row" style={{ gap: 4 }}>
-                  <button
-                    onClick={(e) => startEdit(s, e)}
-                    disabled={loading}
-                    title="เปลี่ยนชื่อ"
-                    style={{ fontSize: 16, width: 32, height: 32, padding: 0 }}
-                  >
-                    ✎
-                  </button>
-                  <button
-                    onClick={(e) => handleDelete(s.id, e)}
-                    disabled={loading}
-                    title="ลบ"
-                    style={{ fontSize: 16, width: 32, height: 32, padding: 0, background: '#fee' }}
-                  >
-                    🗑️
-                  </button>
-                </div>
+              </Link>
+              <div className="row" style={{ gap: 4 }}>
+                <button
+                  onClick={() => startEdit(s)}
+                  disabled={loading}
+                  title="เปลี่ยนชื่อ"
+                  style={{ fontSize: 16, width: 32, height: 32, padding: 0 }}
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={() => handleDelete(s.id)}
+                  disabled={loading}
+                  title="ลบ"
+                  style={{ fontSize: 16, width: 32, height: 32, padding: 0, background: '#fee' }}
+                >
+                  🗑️
+                </button>
               </div>
-            </Link>
+            </div>
           )}
         </div>
       ))}

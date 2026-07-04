@@ -10,6 +10,8 @@ interface Props {
 
 type Point = { x: number; y: number };
 
+const ZOOM_LEVELS = [1, 1.5, 2, 3];
+
 // Lets the parent pick one of the uploaded worksheet pages, then drag-select a
 // rectangle on it. The selection is cropped client-side (canvas) and uploaded
 // as a new page image, which the caller then assigns to a question. Used to
@@ -22,6 +24,7 @@ type Point = { x: number; y: number };
 // gesture as a native image drag or page scroll instead of our rectangle select.
 export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
   const [pageId, setPageId] = useState<number | null>(null);
+  const [zoomIdx, setZoomIdx] = useState(0);
   const [start, setStart] = useState<Point | null>(null);
   const [current, setCurrent] = useState<Point | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -29,16 +32,26 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+  const zoom = ZOOM_LEVELS[zoomIdx];
+
+  function selectPage(id: number) {
+    setPageId(id);
+    setZoomIdx(0);
+    setStart(null);
+    setCurrent(null);
+  }
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el || pageId === null) return;
 
+    // Position relative to the full (possibly zoomed-and-scrolled) image content,
+    // not just the visible viewport of the scroll container.
     function relativePos(clientX: number, clientY: number): Point {
       const rect = el!.getBoundingClientRect();
       return {
-        x: Math.min(Math.max(clientX - rect.left, 0), rect.width),
-        y: Math.min(Math.max(clientY - rect.top, 0), rect.height),
+        x: clientX - rect.left + el!.scrollLeft,
+        y: clientY - rect.top + el!.scrollTop,
       };
     }
 
@@ -156,7 +169,7 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
               key={img.id}
               src={`/api/parent/exercise-sets/${setId}/images/${img.id}`}
               alt={`หน้า ${img.orderIndex + 1}`}
-              onClick={() => setPageId(img.id)}
+              onClick={() => selectPage(img.id)}
               style={{
                 width: 90,
                 height: 90,
@@ -177,14 +190,40 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
 
   return (
     <div className="card" style={{ padding: 14 }}>
-      <div className="muted" style={{ marginBottom: 8 }}>ลากเลือกกรอบเฉพาะส่วนแผนภาพ</div>
+      <div className="row" style={{ marginBottom: 8 }}>
+        <span className="muted grow">ลากเลือกกรอบเฉพาะส่วนแผนภาพ (ซูมเข้าเพื่อเลือกได้แม่นขึ้น)</span>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setZoomIdx((i) => Math.max(0, i - 1))}
+          disabled={zoomIdx === 0}
+          style={{ width: 36, height: 36, padding: 0, fontSize: 18 }}
+        >
+          −
+        </button>
+        <span className="muted" style={{ minWidth: 34, textAlign: 'center' }}>{zoom}x</span>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setZoomIdx((i) => Math.min(ZOOM_LEVELS.length - 1, i + 1))}
+          disabled={zoomIdx === ZOOM_LEVELS.length - 1}
+          style={{ width: 36, height: 36, padding: 0, fontSize: 18 }}
+        >
+          +
+        </button>
+      </div>
       <div
         ref={containerRef}
         style={{
           position: 'relative',
-          display: 'inline-block',
+          width: '100%',
+          maxWidth: 560,
+          maxHeight: 420,
+          overflow: 'auto',
           touchAction: 'none',
           cursor: 'crosshair',
+          border: '1px solid #e8e1d5',
+          borderRadius: 8,
         }}
       >
         <img
@@ -192,8 +231,8 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
           src={`/api/parent/exercise-sets/${setId}/images/${pageId}`}
           alt="หน้าที่เลือก"
           style={{
-            maxWidth: '100%',
-            maxHeight: 420,
+            width: `${zoom * 100}%`,
+            maxWidth: 'none',
             display: 'block',
             userSelect: 'none',
             pointerEvents: 'none',
