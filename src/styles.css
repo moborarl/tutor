@@ -195,9 +195,23 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
   object-fit: contain;
   border-radius: 10px;
   margin-top: 6px;
+  margin-bottom: 6px;
   box-shadow: 0 2px 8px rgba(60, 45, 20, 0.1);
+  overflow: hidden;
+}
+/* AI-generated diagrams render as a raw <svg> child (via SafeSvg), not an <img>.
+   object-fit/max-height on the wrapping div only constrain the div's own box —
+   they do nothing to a nested <svg>, which otherwise renders at whatever literal
+   width/height attributes the AI wrote, ignoring the container entirely and
+   overflowing into surrounding content. Target the svg itself to scale it down. */
+.question-image svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 160px;
 }
 .ui-simple .question-image { max-height: 190px; }
+.ui-simple .question-image svg { max-height: 190px; }
 
 .match-columns { display: flex; gap: 16px; width: 100%; max-width: 560px; justify-content: center; }
 .match-col { display: flex; flex-direction: column; gap: 7px; flex: 1; }
