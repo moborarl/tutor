@@ -39,16 +39,35 @@ export function repairUnescapedDiagramSvgQuotes(raw: string): string {
   return out;
 }
 
-// Tries a normal JSON.parse first, then falls back to the SVG-quote repair.
-// Returns null if neither succeeds.
+// Some AI chats (e.g. Gemini's code-interpreter mode) paste their own
+// scratchpad/reasoning code above the actual JSON answer. If the parent
+// copies everything, the document no longer starts with "{". Recover by
+// slicing from the first "{" to the last "}" and trying that instead.
+function extractJsonObjectSpan(raw: string): string | null {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+  return raw.slice(start, end + 1);
+}
+
+// Tries a normal JSON.parse first, then falls back to the SVG-quote repair,
+// then to extracting just the {...} span (for stray code/prose around the
+// JSON), trying both variants of that too. Returns null if nothing works.
 export function parseJsonWithSvgRepair(raw: string): unknown | null {
-  try {
-    return JSON.parse(raw);
-  } catch {
+  const candidates = [raw];
+  const extracted = extractJsonObjectSpan(raw);
+  if (extracted && extracted !== raw) candidates.push(extracted);
+
+  for (const candidate of candidates) {
     try {
-      return JSON.parse(repairUnescapedDiagramSvgQuotes(raw));
+      return JSON.parse(candidate);
     } catch {
-      return null;
+      try {
+        return JSON.parse(repairUnescapedDiagramSvgQuotes(candidate));
+      } catch {
+        // try the next candidate
+      }
     }
   }
+  return null;
 }
