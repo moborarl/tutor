@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import type { ChildProgress as ChildProgressData } from '@shared/types';
@@ -10,10 +10,26 @@ function pct(v: number | null): string {
 export default function ChildProgress() {
   const { id } = useParams();
   const [data, setData] = useState<ChildProgressData | null>(null);
+  const [resettingId, setResettingId] = useState<number | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     api.get<ChildProgressData>(`/api/parent/children/${id}/progress`).then(setData);
   }, [id]);
+
+  useEffect(load, [load]);
+
+  async function resetInProgress(exerciseSetId: number) {
+    if (!confirm('ล้างค่าที่ทำค้างไว้ ให้ลูกเริ่มชุดนี้ใหม่ตั้งแต่ต้น? (คะแนนที่ทำเสร็จแล้วก่อนหน้าจะไม่หาย)')) return;
+    setResettingId(exerciseSetId);
+    try {
+      await api.post(`/api/parent/children/${id}/exercise-sets/${exerciseSetId}/reset-in-progress`);
+      load();
+    } catch (err) {
+      alert('รีเซ็ตไม่สำเร็จ: ' + String(err));
+    } finally {
+      setResettingId(null);
+    }
+  }
 
   if (!data) return <div className="muted">กำลังโหลด...</div>;
 
@@ -51,6 +67,19 @@ export default function ChildProgress() {
               </div>
               <span style={{ fontWeight: 700, color: 'var(--green)' }}>{pct(s.bestScore)}</span>
             </div>
+            {s.hasInProgress && (
+              <div className="row" style={{ marginTop: 6 }}>
+                <span className="muted" style={{ fontSize: 13 }}>⏳ มีชุดที่ทำค้างไว้ (ยังไม่เสร็จ)</span>
+                <button
+                  className="secondary"
+                  onClick={() => resetInProgress(s.exerciseSetId)}
+                  disabled={resettingId === s.exerciseSetId}
+                  style={{ fontSize: 13, padding: '4px 10px' }}
+                >
+                  {resettingId === s.exerciseSetId ? 'กำลังรีเซ็ต...' : 'รีเซ็ตให้ทำใหม่'}
+                </button>
+              </div>
+            )}
             <div className="progress-bar-track" style={{ marginTop: 6 }}>
               <div className="progress-bar-fill" style={{ width: `${(s.bestScore ?? 0) * 100}%` }} />
             </div>

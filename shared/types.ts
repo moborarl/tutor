@@ -133,6 +133,10 @@ export interface ProgressSetRow {
   bestScore: number | null;
   lastScore: number | null;
   lastAttemptAt: string | null;
+  // true if the child has an unfinished attempt on this set (exited before
+  // completing) — only a parent-triggered reset clears this, so surface it
+  // so the parent knows there's something to reset.
+  hasInProgress: boolean;
 }
 
 export interface RecentAttemptRow {

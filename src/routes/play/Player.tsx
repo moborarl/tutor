@@ -29,9 +29,21 @@ export default function Player() {
     (async () => {
       try {
         const ex = await api.get<ExerciseData>(`/api/play/exercises/${id}`);
-        const at = await api.post<{ attemptId: number }>('/api/play/attempts', { exerciseSetId: Number(id) });
+        const at = await api.post<{
+          attemptId: number;
+          existingAnswers?: Array<{ questionId: number; isCorrect: boolean; correctAnswer: unknown; explanation: string | null }>;
+        }>('/api/play/attempts', { exerciseSetId: Number(id) });
         setExercise(ex);
         setAttemptId(at.attemptId);
+        // Resuming an unfinished attempt: restore already-locked answers so they
+        // show as answered instead of looking open for a redo.
+        if (at.existingAnswers?.length) {
+          const restored: Record<number, AnswerResult> = {};
+          for (const a of at.existingAnswers) {
+            restored[a.questionId] = { isCorrect: a.isCorrect, correctAnswer: a.correctAnswer, explanation: a.explanation };
+          }
+          setAnswers(restored);
+        }
         questionStart.current = Date.now();
       } catch {
         nav('/play');

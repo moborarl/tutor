@@ -217,6 +217,34 @@ playRoutes.post('/attempts', requireChildSession, async (c) => {
     .first();
   if (!assigned) return c.json({ error: 'not_found' }, 404);
 
+  // Resume an unfinished attempt instead of always starting a new one — otherwise
+  // exiting mid-way and coming back would spawn a fresh attempt with no locked
+  // answers, letting the kid redo questions they already answered.
+  const existing = await c.env.DB.prepare(
+    `SELECT id FROM attempts WHERE child_id = ? AND exercise_set_id = ? AND status = 'in_progress'`,
+  )
+    .bind(activeChildId, body.exerciseSetId)
+    .first<{ id: number }>();
+
+  if (existing) {
+    const existingAnswers = await c.env.DB.prepare(
+      `SELECT aa.question_id, aa.is_correct, q.answer_json, q.explanation
+       FROM attempt_answers aa JOIN questions q ON q.id = aa.question_id
+       WHERE aa.attempt_id = ?`,
+    )
+      .bind(existing.id)
+      .all<{ question_id: number; is_correct: number; answer_json: string; explanation: string | null }>();
+    return c.json({
+      attemptId: existing.id,
+      existingAnswers: existingAnswers.results.map((r) => ({
+        questionId: r.question_id,
+        isCorrect: r.is_correct === 1,
+        correctAnswer: JSON.parse(r.answer_json),
+        explanation: r.explanation,
+      })),
+    });
+  }
+
   const result = await c.env.DB.prepare(
     'INSERT INTO attempts (child_id, exercise_set_id) VALUES (?, ?)',
   )
