@@ -30,6 +30,7 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
   }
 
   function onPointerDown(e: React.PointerEvent) {
+    e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     const p = getRelativePos(e);
     setStart(p);
@@ -134,8 +135,18 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
           ref={imgRef}
           src={`/api/parent/exercise-sets/${setId}/images/${pageId}`}
           alt="หน้าที่เลือก"
-          style={{ maxWidth: '100%', maxHeight: 420, display: 'block', userSelect: 'none' }}
+          style={{
+            maxWidth: '100%',
+            maxHeight: 420,
+            display: 'block',
+            userSelect: 'none',
+            touchAction: 'none',
+            WebkitUserSelect: 'none',
+            WebkitUserDrag: 'none',
+            WebkitTouchCallout: 'none',
+          } as React.CSSProperties}
           draggable={false}
+          onDragStart={(e) => e.preventDefault()}
         />
         {box && (
           <div
