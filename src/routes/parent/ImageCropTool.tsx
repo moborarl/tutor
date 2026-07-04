@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api-client';
 
 interface Props {
@@ -8,39 +8,92 @@ interface Props {
   onClose: () => void;
 }
 
+type Point = { x: number; y: number };
+
 // Lets the parent pick one of the uploaded worksheet pages, then drag-select a
 // rectangle on it. The selection is cropped client-side (canvas) and uploaded
 // as a new page image, which the caller then assigns to a question. Used to
 // fix an AI-generated diagram that turned out wrong, with a real photo crop.
+//
+// Drag handling uses native touch/mouse listeners (attached via addEventListener
+// with { passive: false }) instead of React's Pointer Event props or bare
+// onTouchMove/onTouchStart — React attaches those as passive listeners in most
+// browsers, silently ignoring preventDefault() and letting iOS Safari treat the
+// gesture as a native image drag or page scroll instead of our rectangle select.
 export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
   const [pageId, setPageId] = useState<number | null>(null);
-  const [start, setStart] = useState<{ x: number; y: number } | null>(null);
-  const [current, setCurrent] = useState<{ x: number; y: number } | null>(null);
+  const [start, setStart] = useState<Point | null>(null);
+  const [current, setCurrent] = useState<Point | null>(null);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState('');
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
 
-  function getRelativePos(e: React.PointerEvent): { x: number; y: number } {
-    const rect = containerRef.current!.getBoundingClientRect();
-    return {
-      x: Math.min(Math.max(e.clientX - rect.left, 0), rect.width),
-      y: Math.min(Math.max(e.clientY - rect.top, 0), rect.height),
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || pageId === null) return;
+
+    function relativePos(clientX: number, clientY: number): Point {
+      const rect = el!.getBoundingClientRect();
+      return {
+        x: Math.min(Math.max(clientX - rect.left, 0), rect.width),
+        y: Math.min(Math.max(clientY - rect.top, 0), rect.height),
+      };
+    }
+
+    function begin(clientX: number, clientY: number) {
+      draggingRef.current = true;
+      const p = relativePos(clientX, clientY);
+      setStart(p);
+      setCurrent(p);
+    }
+
+    function move(clientX: number, clientY: number) {
+      if (!draggingRef.current) return;
+      setCurrent(relativePos(clientX, clientY));
+    }
+
+    function end() {
+      draggingRef.current = false;
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      e.preventDefault();
+      const t = e.touches[0];
+      if (t) begin(t.clientX, t.clientY);
+    }
+    function onTouchMove(e: TouchEvent) {
+      e.preventDefault();
+      const t = e.touches[0];
+      if (t) move(t.clientX, t.clientY);
+    }
+    function onMouseDown(e: MouseEvent) {
+      e.preventDefault();
+      begin(e.clientX, e.clientY);
+    }
+    function onMouseMove(e: MouseEvent) {
+      move(e.clientX, e.clientY);
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', end, { passive: false });
+    el.addEventListener('touchcancel', end, { passive: false });
+    el.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', end);
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', end);
+      el.removeEventListener('touchcancel', end);
+      el.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', end);
     };
-  }
-
-  function onPointerDown(e: React.PointerEvent) {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const p = getRelativePos(e);
-    setStart(p);
-    setCurrent(p);
-  }
-
-  function onPointerMove(e: React.PointerEvent) {
-    if (!start) return;
-    setCurrent(getRelativePos(e));
-  }
+  }, [pageId]);
 
   const box =
     start && current
@@ -127,9 +180,12 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
       <div className="muted" style={{ marginBottom: 8 }}>ลากเลือกกรอบเฉพาะส่วนแผนภาพ</div>
       <div
         ref={containerRef}
-        style={{ position: 'relative', display: 'inline-block', touchAction: 'none', cursor: 'crosshair' }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
+        style={{
+          position: 'relative',
+          display: 'inline-block',
+          touchAction: 'none',
+          cursor: 'crosshair',
+        }}
       >
         <img
           ref={imgRef}
@@ -140,13 +196,11 @@ export function ImageCropTool({ setId, images, onCropped, onClose }: Props) {
             maxHeight: 420,
             display: 'block',
             userSelect: 'none',
-            touchAction: 'none',
-            WebkitUserSelect: 'none',
+            pointerEvents: 'none',
             WebkitUserDrag: 'none',
             WebkitTouchCallout: 'none',
           } as React.CSSProperties}
           draggable={false}
-          onDragStart={(e) => e.preventDefault()}
         />
         {box && (
           <div

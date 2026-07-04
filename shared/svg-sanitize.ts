@@ -7,8 +7,14 @@ const DANGEROUS_PATTERN =
 
 export function sanitizeSvg(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!/^<svg[\s>]/i.test(trimmed) || !/<\/svg>\s*$/i.test(trimmed)) return null;
+  let trimmed = raw.trim();
+  if (!/^<svg[\s>]/i.test(trimmed)) return null;
   if (DANGEROUS_PATTERN.test(trimmed)) return null;
+  // AI output is sometimes truncated (hit a length limit) before the closing
+  // </svg>. Inner tags left open (</text>, </g>, ...) are auto-closed by the
+  // browser's HTML parser when we render via innerHTML, so simply appending
+  // the missing </svg> is enough to recover an otherwise-safe diagram instead
+  // of silently dropping it.
+  if (!/<\/svg>\s*$/i.test(trimmed)) trimmed = `${trimmed}</svg>`;
   return trimmed;
 }
