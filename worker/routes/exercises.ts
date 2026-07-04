@@ -5,6 +5,7 @@ import type { ExtractedQuestion } from '@shared/types';
 import { runCloudExtraction } from '../lib/ai-providers';
 import { parseImportedJson } from '../lib/json-import';
 import { randomId } from '../lib/crypto';
+import { sanitizeSvg } from '@shared/svg-sanitize';
 
 export const exerciseRoutes = new Hono<AppEnv>();
 
@@ -21,8 +22,8 @@ async function insertDraftQuestions(
   const stmts = questions.map((q, i) =>
     db
       .prepare(
-        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id, generated_svg)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         exerciseSetId,
@@ -33,6 +34,7 @@ async function insertDraftQuestions(
         JSON.stringify(q.answer ?? {}),
         q.explanation ?? null,
         q.imagePage ? pageToImageId.get(q.imagePage) ?? null : null,
+        sanitizeSvg(q.diagramSvg),
       ),
   );
   await db.batch(stmts);
@@ -152,6 +154,74 @@ exerciseRoutes.post('/', async (c) => {
   return c.json({ id: setId, status: 'pending_review' }, 201);
 });
 
+// Merge two or more of this parent's exercise sets into one. The set with the
+// smallest id is kept as the target; the rest are folded into it (questions and
+// worksheet pages re-parented, assignments unioned) and then removed. The
+// merged set goes back to 'pending_review' since its contents changed.
+exerciseRoutes.post('/merge', async (c) => {
+  const { parentId } = c.get('session');
+  const body = await c.req.json<{ setIds?: number[]; title?: string }>().catch(() => null);
+  if (!body || !Array.isArray(body.setIds) || body.setIds.length < 2) {
+    return c.json({ error: 'need_at_least_two_sets' }, 400);
+  }
+
+  const ids = [...new Set(body.setIds.map(Number))];
+  const placeholders = ids.map(() => '?').join(',');
+  const owned = await c.env.DB.prepare(
+    `SELECT id FROM exercise_sets WHERE parent_id = ? AND id IN (${placeholders})`,
+  )
+    .bind(parentId, ...ids)
+    .all<{ id: number }>();
+  if (owned.results.length !== ids.length) return c.json({ error: 'not_found' }, 404);
+
+  const targetId = Math.min(...ids);
+  const sourceIds = ids.filter((sid) => sid !== targetId);
+
+  for (const sourceId of sourceIds) {
+    const [maxQ, maxImg] = await Promise.all([
+      c.env.DB.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM questions WHERE exercise_set_id = ?')
+        .bind(targetId)
+        .first<{ m: number }>(),
+      c.env.DB.prepare('SELECT COALESCE(MAX(order_index), -1) AS m FROM exercise_images WHERE exercise_set_id = ?')
+        .bind(targetId)
+        .first<{ m: number }>(),
+    ]);
+    const qOffset = (maxQ?.m ?? -1) + 1;
+    const imgOffset = (maxImg?.m ?? -1) + 1;
+
+    await c.env.DB.prepare(
+      `UPDATE exercise_images SET exercise_set_id = ?, order_index = order_index + ? WHERE exercise_set_id = ?`,
+    )
+      .bind(targetId, imgOffset, sourceId)
+      .run();
+    await c.env.DB.prepare(
+      `UPDATE questions SET exercise_set_id = ?, order_index = order_index + ? WHERE exercise_set_id = ?`,
+    )
+      .bind(targetId, qOffset, sourceId)
+      .run();
+    await c.env.DB.prepare(
+      `INSERT OR IGNORE INTO assignments (child_id, exercise_set_id)
+       SELECT child_id, ? FROM assignments WHERE exercise_set_id = ?`,
+    )
+      .bind(targetId, sourceId)
+      .run();
+    await c.env.DB.prepare('DELETE FROM assignments WHERE exercise_set_id = ?').bind(sourceId).run();
+    await c.env.DB.prepare('DELETE FROM exercise_sets WHERE id = ?').bind(sourceId).run();
+  }
+
+  const updates: string[] = [`status = 'pending_review'`, `extraction_error = NULL`, `updated_at = datetime('now')`];
+  const values: unknown[] = [];
+  if (typeof body.title === 'string' && body.title.trim()) {
+    updates.push('title = ?');
+    values.push(body.title.trim());
+  }
+  await c.env.DB.prepare(`UPDATE exercise_sets SET ${updates.join(', ')} WHERE id = ?`)
+    .bind(...values, targetId)
+    .run();
+
+  return c.json({ id: targetId, status: 'pending_review' });
+});
+
 exerciseRoutes.get('/', async (c) => {
   const { parentId } = c.get('session');
   const rows = await c.env.DB.prepare(
@@ -194,7 +264,7 @@ exerciseRoutes.get('/:id', async (c) => {
   if (!set) return c.json({ error: 'not_found' }, 404);
 
   const questions = await c.env.DB.prepare(
-    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation, image_id
+    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation, image_id, generated_svg
      FROM questions WHERE exercise_set_id = ? ORDER BY order_index, id`,
   )
     .bind(id)
@@ -233,8 +303,45 @@ exerciseRoutes.get('/:id', async (c) => {
       status: q.status,
       explanation: q.explanation ?? null,
       imageId: q.image_id ?? null,
+      generatedSvg: q.generated_svg ?? null,
     })),
   });
+});
+
+// Upload a new photo (e.g. a crop the parent made from an existing page) as an
+// additional worksheet page, so it can be assigned to a question via imageId.
+exerciseRoutes.post('/:id/images', async (c) => {
+  const { parentId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  const set = await c.env.DB.prepare('SELECT id FROM exercise_sets WHERE id = ? AND parent_id = ?')
+    .bind(id, parentId)
+    .first();
+  if (!set) return c.json({ error: 'not_found' }, 404);
+
+  const form = await c.req.formData().catch(() => null);
+  if (!form) return c.json({ error: 'multipart_required' }, 400);
+  const file = form.get('image') as unknown;
+  if (!(file instanceof File)) return c.json({ error: 'image_required' }, 400);
+  if (!IMAGE_TYPES.includes(file.type)) return c.json({ error: 'unsupported_image_type' }, 400);
+  if (file.size > MAX_UPLOAD_BYTES) return c.json({ error: 'image_too_large' }, 400);
+
+  const maxOrder = await c.env.DB.prepare(
+    'SELECT COALESCE(MAX(order_index), -1) AS m FROM exercise_images WHERE exercise_set_id = ?',
+  )
+    .bind(id)
+    .first<{ m: number }>();
+
+  const r2Key = `worksheets/${parentId}/${randomId(12)}`;
+  await c.env.WORKSHEETS.put(r2Key, await file.arrayBuffer(), {
+    httpMetadata: { contentType: file.type },
+  });
+  const result = await c.env.DB.prepare(
+    'INSERT INTO exercise_images (exercise_set_id, r2_key, content_type, order_index) VALUES (?, ?, ?, ?)',
+  )
+    .bind(id, r2Key, file.type, (maxOrder?.m ?? -1) + 1)
+    .run();
+
+  return c.json({ id: result.meta.last_row_id }, 201);
 });
 
 // Serve one page of the original uploaded worksheet photos to the parent (review screen).

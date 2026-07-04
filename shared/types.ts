@@ -79,6 +79,8 @@ export interface Question {
   status: 'draft' | 'approved';
   explanation: string | null;
   imageId: number | null;
+  // AI-generated vector diagram (SVG markup), used only when imageId is not set.
+  generatedSvg: string | null;
 }
 
 // Parent review view includes the answer; kid play view does not.
@@ -111,6 +113,7 @@ export interface PlayQuestion {
   prompt: string;
   content: unknown;
   imageId: number | null;
+  generatedSvg: string | null;
 }
 
 export interface AnswerResult {
@@ -159,4 +162,7 @@ export interface ExtractedQuestion {
   // 1-indexed reference to the uploaded worksheet photo (in upload order) that
   // contains a diagram/figure this question depends on, if any.
   imagePage?: number;
+  // AI-generated SVG diagram markup (used when the worksheet photo doesn't
+  // clearly show the diagram, or as a cheap illustrative alternative).
+  diagramSvg?: string;
 }

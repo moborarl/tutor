@@ -1,4 +1,5 @@
 import type { ExtractedQuestion, QuestionType } from '@shared/types';
+import { sanitizeSvg } from '@shared/svg-sanitize';
 
 const VALID_TYPES: QuestionType[] = ['multiple_choice', 'fill_blank', 'matching', 'true_false'];
 
@@ -58,6 +59,7 @@ export function parseImportedJson(raw: string): ImportResult {
       const item = q as Record<string, unknown>;
       const questionType = item.questionType as QuestionType;
       const imagePage = typeof item.imagePage === 'number' && item.imagePage > 0 ? item.imagePage : undefined;
+      const diagramSvg = typeof item.diagramSvg === 'string' ? sanitizeSvg(item.diagramSvg) ?? undefined : undefined;
       questions.push({
         questionType,
         prompt: stripLeadingNumber(item.prompt as string),
@@ -65,6 +67,7 @@ export function parseImportedJson(raw: string): ImportResult {
         answer: unwrapTypeKey(item.answer ?? {}, questionType),
         explanation: typeof item.explanation === 'string' ? item.explanation : undefined,
         imagePage,
+        diagramSvg,
       });
     }
   }

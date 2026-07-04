@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
+import { sanitizeSvg } from '@shared/svg-sanitize';
 
 export const questionRoutes = new Hono<AppEnv>();
 
@@ -36,6 +37,7 @@ questionRoutes.patch('/:id', async (c) => {
       orderIndex?: number;
       explanation?: string;
       imageId?: number | null;
+      generatedSvg?: string | null;
     }>()
     .catch(() => null);
   if (!body) return c.json({ error: 'invalid_body' }, 400);
@@ -82,6 +84,10 @@ questionRoutes.patch('/:id', async (c) => {
     }
     updates.push('image_id = ?');
     values.push(imageId);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'generatedSvg')) {
+    updates.push('generated_svg = ?');
+    values.push(body.generatedSvg === null ? null : sanitizeSvg(body.generatedSvg));
   }
   // Any edit returns the question to draft so it must be re-approved.
   updates.push(`status = 'draft'`);

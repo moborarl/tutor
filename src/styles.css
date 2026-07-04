@@ -235,3 +235,6 @@ table.data th { color: var(--muted); font-weight: 600; }
   background: var(--bg);
   padding: 10px 0;
 }
+
+.generated-svg-preview { max-width: 260px; margin-bottom: 8px; }
+.generated-svg-preview svg { max-width: 100%; height: auto; display: block; }

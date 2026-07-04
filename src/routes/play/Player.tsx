@@ -6,6 +6,7 @@ import { QuestionMultipleChoice } from './components/QuestionMultipleChoice';
 import { QuestionTrueFalse } from './components/QuestionTrueFalse';
 import { QuestionFillBlank } from './components/QuestionFillBlank';
 import { QuestionMatching } from './components/QuestionMatching';
+import { SafeSvg } from '../../lib/SafeSvg';
 
 interface ExerciseData {
   id: number;
@@ -138,13 +139,15 @@ export default function Player() {
         </button>
       )}
 
-      {q.imageId && (
+      {q.imageId ? (
         <img
           src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`}
           alt="รูปประกอบโจทย์"
           className="question-image"
         />
-      )}
+      ) : q.generatedSvg ? (
+        <SafeSvg svg={q.generatedSvg} className="question-image" />
+      ) : null}
 
       <div className="question-prompt">{q.prompt}</div>
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
+import { SafeSvg } from '../../lib/SafeSvg';
+import { ImageCropTool } from './ImageCropTool';
 import type {
   Child,
   ExerciseSetDetail,
@@ -214,6 +216,7 @@ function QuestionEditor({
   const [answerText, setAnswerText] = useState(JSON.stringify(q.answer, null, 2));
   const [explanation, setExplanation] = useState(q.explanation ?? '');
   const [imageId, setImageId] = useState<number | null>(q.imageId);
+  const [cropping, setCropping] = useState(false);
   const [err, setErr] = useState('');
 
   async function save() {
@@ -259,13 +262,31 @@ function QuestionEditor({
 
       {!editing ? (
         <div style={{ marginTop: 10 }}>
-          {q.imageId && (
+          {q.imageId ? (
             <img
               src={`/api/parent/exercise-sets/${setId}/images/${q.imageId}`}
               alt="รูปประกอบโจทย์"
               style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, marginBottom: 8, display: 'block' }}
             />
-          )}
+          ) : q.generatedSvg ? (
+            <div style={{ marginBottom: 8 }}>
+              <div
+                style={{
+                  display: 'inline-block',
+                  padding: '3px 8px',
+                  borderRadius: 999,
+                  background: 'var(--accent-soft)',
+                  color: 'var(--accent)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  marginBottom: 4,
+                }}
+              >
+                🤖 AI สร้าง โปรดตรวจสอบ
+              </div>
+              <SafeSvg svg={q.generatedSvg} className="generated-svg-preview" />
+            </div>
+          ) : null}
           <div style={{ fontWeight: 600 }}>{q.prompt}</div>
           <QuestionPreview q={q} />
           {q.explanation && (
@@ -284,6 +305,12 @@ function QuestionEditor({
           <textarea rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} style={{ fontFamily: 'monospace' }} />
           <label className="muted">คำอธิบายเฉลย (แสดงให้เด็กเห็นหลังตอบ)</label>
           <textarea rows={2} value={explanation} onChange={(e) => setExplanation(e.target.value)} />
+          {q.generatedSvg && !imageId && (
+            <div>
+              <label className="muted">แผนภาพที่ AI สร้างให้ (ยังไม่ได้ยืนยันความถูกต้อง)</label>
+              <SafeSvg svg={q.generatedSvg} className="generated-svg-preview" />
+            </div>
+          )}
           {images.length > 0 && (
             <>
               <label className="muted">รูปประกอบโจทย์ (ถ้าต้องดูแผนภาพถึงจะตอบได้)</label>
@@ -311,7 +338,21 @@ function QuestionEditor({
                     }}
                   />
                 ))}
+                <button type="button" className="secondary" onClick={() => setCropping(true)}>
+                  ✂️ ตัดรูปจากต้นฉบับ
+                </button>
               </div>
+              {cropping && (
+                <ImageCropTool
+                  setId={setId}
+                  images={images}
+                  onCropped={(newImageId) => {
+                    setImageId(newImageId);
+                    setCropping(false);
+                  }}
+                  onClose={() => setCropping(false)}
+                />
+              )}
             </>
           )}
           {err && <div className="error-text">{err}</div>}
