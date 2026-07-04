@@ -104,6 +104,13 @@ export default function Player() {
 
   // Older kids: every question loaded at once in one scrollable page — pick an
   // answer and get feedback immediately, scroll to move between questions.
+  function scrollToNextUnanswered() {
+    const next = exercise!.questions.find((qq) => !answers[qq.id]);
+    if (next) {
+      document.getElementById(`play-q-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   return (
     <div>
       <div className="row sticky-toolbar">
@@ -120,7 +127,7 @@ export default function Player() {
       {exercise.questions.map((q, i) => {
         const result = answers[q.id] ?? null;
         return (
-          <div className="card" key={q.id}>
+          <div className="card" key={q.id} id={`play-q-${q.id}`}>
             <div className="row" style={{ marginBottom: 8 }}>
               <span className="badge draft">ข้อ {i + 1}</span>
               {result && <span className={`badge ${result.isCorrect ? 'correct' : 'wrong'}`}>{result.isCorrect ? 'ถูก' : 'ผิด'}</span>}
@@ -163,9 +170,13 @@ export default function Player() {
         );
       })}
 
-      {allAnswered && (
+      {allAnswered ? (
         <button className="success" onClick={finish} style={{ width: '100%' }}>
           ✓ ตอบครบแล้ว ดูคะแนน 🏁
+        </button>
+      ) : (
+        <button className="floating-next-btn" onClick={scrollToNextUnanswered}>
+          ⏭️ ข้อที่ยังไม่ตอบ
         </button>
       )}
     </div>

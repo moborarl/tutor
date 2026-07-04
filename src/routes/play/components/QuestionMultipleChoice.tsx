@@ -35,7 +35,8 @@ export function QuestionMultipleChoice({
             onAnswer({ selectedIndex: i });
           }}
         >
-          {opt}
+          <span className="option-radio" />
+          <span>{opt}</span>
         </button>
       ))}
     </div>
