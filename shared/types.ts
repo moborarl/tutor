@@ -1,4 +1,5 @@
 // Shared types between the Worker API and the React SPA.
+import type { DiagramSpec } from './diagram';
 
 export type AgeBand = 'young' | 'older';
 
@@ -79,8 +80,9 @@ export interface Question {
   status: 'draft' | 'approved';
   explanation: string | null;
   imageId: number | null;
-  // AI-generated vector diagram (SVG markup), used only when imageId is not set.
-  generatedSvg: string | null;
+  // Structured diagram data, rendered deterministically by our own components.
+  // Only used when imageId is not set (a real photo always takes priority).
+  diagram: DiagramSpec | null;
 }
 
 // Parent review view includes the answer; kid play view does not.
@@ -113,7 +115,7 @@ export interface PlayQuestion {
   prompt: string;
   content: unknown;
   imageId: number | null;
-  generatedSvg: string | null;
+  diagram: DiagramSpec | null;
 }
 
 export interface AnswerResult {
@@ -166,7 +168,7 @@ export interface ExtractedQuestion {
   // 1-indexed reference to the uploaded worksheet photo (in upload order) that
   // contains a diagram/figure this question depends on, if any.
   imagePage?: number;
-  // AI-generated SVG diagram markup (used when the worksheet photo doesn't
-  // clearly show the diagram, or as a cheap illustrative alternative).
-  diagramSvg?: string;
+  // Structured diagram data (e.g. force arrows) for questions that need a
+  // visual — rendered deterministically by our own components, not AI-drawn.
+  diagram?: DiagramSpec;
 }

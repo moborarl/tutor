@@ -1,20 +1,27 @@
 * { box-sizing: border-box; }
 
+/* Neutral, border-first palette (shadcn/ui-inspired) for the parent admin
+   screens — subtle borders instead of heavy shadows, restrained radius, muted
+   accents. --accent stays warm orange since it's also the kid play-mode's
+   primary color (pin pad, feedback) and changing it would touch dozens of
+   inline styles across the play screens for little benefit. */
 :root {
-  --bg: #f7f4ef;
+  --bg: #f6f7f9;
   --card: #ffffff;
-  --ink: #2b2b2b;
-  --muted: #8a857c;
+  --ink: #1a1d23;
+  --muted: #6b7280;
+  --border: #e3e5e9;
   --accent: #ff7a45;
-  --accent-soft: #ffe3d6;
-  --green: #3aa76d;
-  --green-soft: #dcf2e6;
-  --red: #d9534f;
-  --red-soft: #fbe4e3;
-  --blue: #4a7fd4;
-  --blue-soft: #e0eafc;
-  --radius: 16px;
-  font-family: 'Sarabun', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --accent-soft: #ffe9dc;
+  --green: #16a34a;
+  --green-soft: #dcfce7;
+  --red: #dc2626;
+  --red-soft: #fee2e2;
+  --blue: #2563eb;
+  --blue-soft: #dbeafe;
+  --radius: 10px;
+  --radius-sm: 8px;
+  font-family: 'Sarabun', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
@@ -27,27 +34,28 @@ body {
 button {
   font-family: inherit;
   cursor: pointer;
-  border: none;
-  border-radius: 12px;
-  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
   font-size: 15px;
   background: var(--accent);
   color: white;
   font-weight: 600;
-  transition: transform 0.06s ease, opacity 0.15s;
+  transition: transform 0.06s ease, opacity 0.15s, border-color 0.12s;
 }
 button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-button.secondary { background: #eee7dc; color: var(--ink); }
+button.secondary { background: var(--card); color: var(--ink); border-color: var(--border); }
+button.secondary:hover { border-color: #c7cbd1; }
 button.danger { background: var(--red-soft); color: var(--red); }
 button.success { background: var(--green); }
 
 input, select, textarea {
   font-family: inherit;
   font-size: 15px;
-  padding: 10px 12px;
-  border: 1.5px solid #ddd5c8;
-  border-radius: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: white;
   width: 100%;
 }
@@ -56,9 +64,10 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .page { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
 .card {
   background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
-  box-shadow: 0 2px 10px rgba(60, 45, 20, 0.06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   margin-bottom: 16px;
 }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -77,7 +86,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .badge.pending_review { background: var(--accent-soft); color: var(--accent); }
 .badge.published { background: var(--green-soft); color: var(--green); }
 .badge.extraction_failed { background: var(--red-soft); color: var(--red); }
-.badge.draft { background: #f0ece4; color: var(--muted); }
+.badge.draft { background: #eef0f3; color: var(--muted); }
 .badge.approved { background: var(--green-soft); color: var(--green); }
 .badge.correct { background: var(--green-soft); color: var(--green); }
 .badge.wrong { background: var(--red-soft); color: var(--red); }
@@ -227,19 +236,25 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
   box-shadow: 0 2px 10px rgba(60, 45, 20, 0.08);
   overflow: hidden;
 }
-/* AI-generated diagrams render as a raw <svg> child (via SafeSvg), not an <img>.
-   object-fit/max-height on the wrapping div only constrain the div's own box —
-   they do nothing to a nested <svg>, which otherwise renders at whatever literal
-   width/height attributes the AI wrote, ignoring the container entirely and
-   overflowing into surrounding content. Target the svg itself to scale it down. */
-.question-image svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 176px;
-}
 .ui-simple .question-image { max-width: 360px; max-height: 220px; }
-.ui-simple .question-image svg { max-height: 196px; }
+
+/* Structured diagrams (force-arrows, etc.) rendered by our own React
+   components (DiagramView) — always well-formed real SVG, unlike the old
+   AI-hand-written-markup approach, so no defensive overflow clipping needed. */
+.question-diagram {
+  margin: 8px auto;
+  padding: 12px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(60, 45, 20, 0.08);
+  max-width: 340px;
+}
+.question-diagram.wide { max-width: 640px; }
+.diagram-svg { display: block; width: 100%; height: auto; }
+.diagram-grid { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 10px; }
+.diagram-grid-panel strong { display: block; margin-bottom: 4px; font-size: 13px; }
+.ui-simple .question-diagram { max-width: 380px; }
+.ui-simple .question-diagram.wide { max-width: 680px; }
 
 .match-columns { display: flex; gap: 16px; width: 100%; max-width: 560px; justify-content: center; }
 .match-col { display: flex; flex-direction: column; gap: 7px; flex: 1; }
@@ -265,7 +280,7 @@ table.data th { color: var(--muted); font-weight: 600; }
   align-items: center;
   padding: 12px 16px;
   background: white;
-  box-shadow: 0 1px 6px rgba(60, 45, 20, 0.07);
+  border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
@@ -279,9 +294,6 @@ table.data th { color: var(--muted); font-weight: 600; }
   background: var(--bg);
   padding: 10px 0;
 }
-
-.generated-svg-preview { max-width: 260px; margin-bottom: 8px; }
-.generated-svg-preview svg { max-width: 100%; height: auto; display: block; }
 
 .floating-next-btn {
   position: fixed;

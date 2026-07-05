@@ -1,6 +1,6 @@
 import type { ExtractedQuestion, QuestionType } from '@shared/types';
-import { sanitizeSvg } from '@shared/svg-sanitize';
-import { parseJsonWithSvgRepair } from '@shared/json-repair';
+import { validateDiagram } from '@shared/diagram';
+import { parseJsonWithRepair } from '@shared/json-repair';
 
 const VALID_TYPES: QuestionType[] = ['multiple_choice', 'fill_blank', 'matching', 'true_false'];
 
@@ -34,7 +34,7 @@ function stripLeadingNumber(prompt: string): string {
 // Parses and validates JSON pasted by a parent (produced by an external AI chat,
 // e.g. ChatGPT/Claude/Gemini web) against our questions schema.
 export function parseImportedJson(raw: string): ImportResult {
-  const parsed = parseJsonWithSvgRepair(raw);
+  const parsed = parseJsonWithRepair(raw);
   if (parsed === null) {
     return { ok: false, error: 'รูปแบบ JSON ไม่ถูกต้อง ตรวจสอบว่า copy มาครบและไม่มีข้อความอื่นปน' };
   }
@@ -58,7 +58,7 @@ export function parseImportedJson(raw: string): ImportResult {
       const item = q as Record<string, unknown>;
       const questionType = item.questionType as QuestionType;
       const imagePage = typeof item.imagePage === 'number' && item.imagePage > 0 ? item.imagePage : undefined;
-      const diagramSvg = typeof item.diagramSvg === 'string' ? sanitizeSvg(item.diagramSvg) ?? undefined : undefined;
+      const diagram = validateDiagram(item.diagram) ?? undefined;
       questions.push({
         questionType,
         prompt: stripLeadingNumber(item.prompt as string),
@@ -66,7 +66,7 @@ export function parseImportedJson(raw: string): ImportResult {
         answer: unwrapTypeKey(item.answer ?? {}, questionType),
         explanation: typeof item.explanation === 'string' ? item.explanation : undefined,
         imagePage,
-        diagramSvg,
+        diagram,
       });
     }
   }

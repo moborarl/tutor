@@ -6,7 +6,7 @@ import { QuestionMultipleChoice } from './components/QuestionMultipleChoice';
 import { QuestionTrueFalse } from './components/QuestionTrueFalse';
 import { QuestionFillBlank } from './components/QuestionFillBlank';
 import { QuestionMatching } from './components/QuestionMatching';
-import { SafeSvg } from '../../lib/SafeSvg';
+import { DiagramView } from '../../lib/DiagramView';
 
 interface ExerciseData {
   id: number;
@@ -147,9 +147,9 @@ export default function Player() {
 
             {q.imageId ? (
               <img src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`} alt="รูปประกอบโจทย์" className="question-image" />
-            ) : q.generatedSvg ? (
-              <SafeSvg svg={q.generatedSvg} className="question-image" />
-            ) : null}
+            ) : (
+              <DiagramView diagram={q.diagram} />
+            )}
 
             <div className="question-prompt" style={{ textAlign: 'left', margin: '10px 0' }}>{q.prompt}</div>
 
@@ -286,9 +286,9 @@ function SimplePlayer({
           alt="รูปประกอบโจทย์"
           className="question-image"
         />
-      ) : q.generatedSvg ? (
-        <SafeSvg svg={q.generatedSvg} className="question-image" />
-      ) : null}
+      ) : (
+        <DiagramView diagram={q.diagram} />
+      )}
 
       <div className="question-prompt">{q.prompt}</div>
 

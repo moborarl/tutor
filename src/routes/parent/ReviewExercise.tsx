@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
-import { SafeSvg } from '../../lib/SafeSvg';
+import { DiagramView } from '../../lib/DiagramView';
+import { validateDiagram } from '@shared/diagram';
 import { ImageCropTool } from './ImageCropTool';
 import type {
   Child,
@@ -221,22 +222,28 @@ function QuestionEditor({
   const [answerText, setAnswerText] = useState(JSON.stringify(q.answer, null, 2));
   const [explanation, setExplanation] = useState(q.explanation ?? '');
   const [imageId, setImageId] = useState<number | null>(q.imageId);
+  const [diagramText, setDiagramText] = useState(q.diagram ? JSON.stringify(q.diagram, null, 2) : '');
   const [cropping, setCropping] = useState(false);
   const [err, setErr] = useState('');
 
   async function save() {
     setErr('');
-    let content: unknown, answer: unknown;
+    let content: unknown, answer: unknown, diagram: unknown = null;
     try {
       content = JSON.parse(contentText);
       answer = JSON.parse(answerText);
+      if (diagramText.trim()) diagram = JSON.parse(diagramText);
     } catch {
       setErr('รูปแบบ JSON ไม่ถูกต้อง');
       return;
     }
-    await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer, explanation, imageId });
-    setEditing(false);
-    onChanged();
+    try {
+      await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer, explanation, imageId, diagram });
+      setEditing(false);
+      onChanged();
+    } catch {
+      setErr('บันทึกไม่สำเร็จ — ตรวจรูปแบบ diagram JSON อีกครั้ง');
+    }
   }
 
   async function approve() {
@@ -273,7 +280,7 @@ function QuestionEditor({
               alt="รูปประกอบโจทย์"
               style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, marginBottom: 8, display: 'block' }}
             />
-          ) : q.generatedSvg ? (
+          ) : q.diagram ? (
             <div style={{ marginBottom: 8 }}>
               <div
                 style={{
@@ -287,9 +294,9 @@ function QuestionEditor({
                   marginBottom: 4,
                 }}
               >
-                🤖 AI สร้าง โปรดตรวจสอบ
+                🤖 แผนภาพจาก AI
               </div>
-              <SafeSvg svg={q.generatedSvg} className="generated-svg-preview" />
+              <DiagramView diagram={q.diagram} />
             </div>
           ) : null}
           <div style={{ fontWeight: 600 }}>{q.prompt}</div>
@@ -310,11 +317,25 @@ function QuestionEditor({
           <textarea rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} style={{ fontFamily: 'monospace' }} />
           <label className="muted">คำอธิบายเฉลย (แสดงให้เด็กเห็นหลังตอบ)</label>
           <textarea rows={2} value={explanation} onChange={(e) => setExplanation(e.target.value)} />
-          {q.generatedSvg && !imageId && (
-            <div>
-              <label className="muted">แผนภาพที่ AI สร้างให้ (ยังไม่ได้ยืนยันความถูกต้อง)</label>
-              <SafeSvg svg={q.generatedSvg} className="generated-svg-preview" />
-            </div>
+          <label className="muted">แผนภาพ (diagram JSON — เว้นว่างถ้าไม่มี)</label>
+          <textarea
+            rows={3}
+            value={diagramText}
+            onChange={(e) => setDiagramText(e.target.value)}
+            style={{ fontFamily: 'monospace' }}
+            placeholder='{"type":"force-arrows","items":[...]}'
+          />
+          {diagramText.trim() && !imageId && (
+            (() => {
+              let parsed: unknown;
+              try {
+                parsed = JSON.parse(diagramText);
+              } catch {
+                return <div className="error-text">แผนภาพ JSON ไม่ถูกต้อง</div>;
+              }
+              const valid = validateDiagram(parsed);
+              return valid ? <DiagramView diagram={valid} /> : <div className="error-text">รูปแบบ diagram ไม่ตรงกับที่ระบบรองรับ</div>;
+            })()
           )}
           {images.length > 0 && (
             <>

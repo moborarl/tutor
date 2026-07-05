@@ -154,7 +154,7 @@ playRoutes.get('/exercises/:id', requireChildSession, async (c) => {
   if (!assigned) return c.json({ error: 'not_found' }, 404);
 
   const questions = await c.env.DB.prepare(
-    `SELECT id, order_index, question_type, prompt, content_json, image_id, generated_svg
+    `SELECT id, order_index, question_type, prompt, content_json, image_id, diagram_json
      FROM questions WHERE exercise_set_id = ? ORDER BY order_index, id`,
   )
     .bind(id)
@@ -169,7 +169,7 @@ playRoutes.get('/exercises/:id', requireChildSession, async (c) => {
       prompt: q.prompt,
       content: JSON.parse(q.content_json as string),
       imageId: q.image_id ?? null,
-      generatedSvg: q.image_id ? null : q.generated_svg ?? null,
+      diagram: q.image_id ? null : q.diagram_json ? JSON.parse(q.diagram_json as string) : null,
     })),
   });
 });

@@ -5,7 +5,6 @@ import type { ExtractedQuestion } from '@shared/types';
 import { runCloudExtraction } from '../lib/ai-providers';
 import { parseImportedJson } from '../lib/json-import';
 import { randomId } from '../lib/crypto';
-import { sanitizeSvg } from '@shared/svg-sanitize';
 
 export const exerciseRoutes = new Hono<AppEnv>();
 
@@ -22,7 +21,7 @@ async function insertDraftQuestions(
   const stmts = questions.map((q, i) =>
     db
       .prepare(
-        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id, generated_svg)
+        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id, diagram_json)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
@@ -34,7 +33,7 @@ async function insertDraftQuestions(
         JSON.stringify(q.answer ?? {}),
         q.explanation ?? null,
         q.imagePage ? pageToImageId.get(q.imagePage) ?? null : null,
-        sanitizeSvg(q.diagramSvg),
+        q.diagram ? JSON.stringify(q.diagram) : null,
       ),
   );
   await db.batch(stmts);
@@ -264,7 +263,7 @@ exerciseRoutes.get('/:id', async (c) => {
   if (!set) return c.json({ error: 'not_found' }, 404);
 
   const questions = await c.env.DB.prepare(
-    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation, image_id, generated_svg
+    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation, image_id, diagram_json
      FROM questions WHERE exercise_set_id = ? ORDER BY order_index, id`,
   )
     .bind(id)
@@ -303,7 +302,7 @@ exerciseRoutes.get('/:id', async (c) => {
       status: q.status,
       explanation: q.explanation ?? null,
       imageId: q.image_id ?? null,
-      generatedSvg: q.generated_svg ?? null,
+      diagram: q.diagram_json ? JSON.parse(q.diagram_json as string) : null,
     })),
   });
 });
