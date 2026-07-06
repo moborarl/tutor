@@ -14,6 +14,46 @@ interface ExerciseData {
   questions: PlayQuestion[];
 }
 
+// Renders the interactive answer control + inline diagram/photo for one question.
+// Shared by both the young (one-at-a-time) and older (scrollable list) layouts.
+function QuestionBody({
+  exercise,
+  q,
+  result,
+  onAnswer,
+}: {
+  exercise: ExerciseData;
+  q: PlayQuestion;
+  result: AnswerResult | null;
+  onAnswer: (answer: unknown) => void;
+}) {
+  return (
+    <>
+      {q.imageId ? (
+        <img src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`} alt="รูปประกอบโจทย์" className="question-image" />
+      ) : (
+        <DiagramView diagram={q.diagram} />
+      )}
+      {q.questionType === 'multiple_choice' && <QuestionMultipleChoice q={q} result={result} onAnswer={onAnswer} />}
+      {q.questionType === 'true_false' && <QuestionTrueFalse result={result} onAnswer={onAnswer} />}
+      {q.questionType === 'fill_blank' && <QuestionFillBlank q={q} result={result} onAnswer={onAnswer} />}
+      {q.questionType === 'matching' && <QuestionMatching q={q} result={result} onAnswer={onAnswer} />}
+    </>
+  );
+}
+
+// The feedback + explanation block shown after a question is answered.
+function Feedback({ result }: { result: AnswerResult }) {
+  return (
+    <>
+      <div className={`feedback-banner ${result.isCorrect ? 'good' : 'bad'}`}>
+        {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : '❌ ยังไม่ถูก ดูเฉลยนะ'}
+      </div>
+      {result.explanation && <div className="explain-box">💡 {result.explanation}</div>}
+    </>
+  );
+}
+
 export default function Player() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -103,7 +143,6 @@ export default function Player() {
         setIndex={setIndex}
         answers={answers}
         answeredCount={answeredCount}
-        correctCount={correctCount}
         allAnswered={allAnswered}
         total={total}
         onAnswer={(q, answer) => submitAnswer(q, answer, questionStart.current)}
@@ -114,95 +153,108 @@ export default function Player() {
     );
   }
 
-  // Older kids: every question loaded at once in one scrollable page — pick an
-  // answer and get feedback immediately, scroll to move between questions.
-  function scrollToNextUnanswered() {
-    const next = exercise!.questions.find((qq) => !answers[qq.id]);
-    if (next) {
-      document.getElementById(`play-q-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+  return (
+    <OlderPlayer
+      exercise={exercise}
+      answers={answers}
+      answeredCount={answeredCount}
+      correctCount={correctCount}
+      allAnswered={allAnswered}
+      total={total}
+      onAnswer={(q, answer) => submitAnswer(q, answer, Date.now())}
+      onFinish={finish}
+      onExit={() => nav('/play/exercises')}
+    />
+  );
+}
+
+// Older kids: a sticky left sidebar with a clickable question-number grid
+// (colored by answered/correct/wrong) and a scrollable list of every question
+// on the right. Clicking a number scrolls to that question.
+function OlderPlayer({
+  exercise,
+  answers,
+  answeredCount,
+  correctCount,
+  allAnswered,
+  total,
+  onAnswer,
+  onFinish,
+  onExit,
+}: {
+  exercise: ExerciseData;
+  answers: Record<number, AnswerResult>;
+  answeredCount: number;
+  correctCount: number;
+  allAnswered: boolean;
+  total: number;
+  onAnswer: (q: PlayQuestion, answer: unknown) => void;
+  onFinish: () => void;
+  onExit: () => void;
+}) {
+  function jumpTo(questionId: number) {
+    document.getElementById(`play-q-${questionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   return (
-    <div>
-      <div className="row sticky-toolbar">
-        <button className="secondary" onClick={() => nav('/play/exercises')}>← ออก</button>
-        <b className="grow" style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {exercise.title}
-        </b>
-        <span className="muted" style={{ fontSize: 13 }}>
-          ตรวจแล้ว {answeredCount}/{total} · ถูก {correctCount}
-        </span>
-        {allAnswered && <button className="success" onClick={finish}>ดูคะแนน 🏁</button>}
-      </div>
+    <div className="play-older">
+      <aside className="play-older-nav">
+        <button className="secondary" style={{ width: '100%', marginBottom: 10 }} onClick={onExit}>← ออก</button>
+        <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>ตรวจแล้ว {answeredCount}/{total} · ถูก {correctCount}</div>
+        <div className="nav-grid">
+          {exercise.questions.map((qq, i) => {
+            const a = answers[qq.id];
+            const status = a ? (a.isCorrect ? 'correct' : 'wrong') : '';
+            return (
+              <button key={qq.id} className={`question-grid-btn ${status}`} onClick={() => jumpTo(qq.id)}>
+                {i + 1}
+              </button>
+            );
+          })}
+        </div>
+        {allAnswered && (
+          <button className="success" style={{ width: '100%', marginTop: 12 }} onClick={onFinish}>
+            ดูคะแนน 🏁
+          </button>
+        )}
+      </aside>
 
-      {exercise.questions.map((q, i) => {
-        const result = answers[q.id] ?? null;
-        return (
-          <div className="card" key={q.id} id={`play-q-${q.id}`}>
-            <div className="row" style={{ marginBottom: 8 }}>
-              <span className="badge draft">ข้อ {i + 1}</span>
-              {result && <span className={`badge ${result.isCorrect ? 'correct' : 'wrong'}`}>{result.isCorrect ? 'ถูก' : 'ผิด'}</span>}
+      <main className="play-older-main">
+        <h2 className="play-older-title">{exercise.title}</h2>
+        {exercise.questions.map((q, i) => {
+          const result = answers[q.id] ?? null;
+          return (
+            <div className={`card question-card ${result ? (result.isCorrect ? 'is-correct' : 'is-wrong') : ''}`} key={q.id} id={`play-q-${q.id}`}>
+              <div className="row" style={{ marginBottom: 8 }}>
+                <span className="badge draft">ข้อ {i + 1}</span>
+                {result && <span className={`badge ${result.isCorrect ? 'correct' : 'wrong'}`}>{result.isCorrect ? 'ถูก' : 'ผิด'}</span>}
+              </div>
+              <div className="question-prompt" style={{ textAlign: 'left', margin: '4px 0 10px' }}>{q.prompt}</div>
+              <QuestionBody exercise={exercise} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
+              {result && <Feedback result={result} />}
             </div>
-
-            {q.imageId ? (
-              <img src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`} alt="รูปประกอบโจทย์" className="question-image" />
-            ) : (
-              <DiagramView diagram={q.diagram} />
-            )}
-
-            <div className="question-prompt" style={{ textAlign: 'left', margin: '10px 0' }}>{q.prompt}</div>
-
-            {q.questionType === 'multiple_choice' && (
-              <QuestionMultipleChoice q={q} result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
-            )}
-            {q.questionType === 'true_false' && (
-              <QuestionTrueFalse result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
-            )}
-            {q.questionType === 'fill_blank' && (
-              <QuestionFillBlank q={q} result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
-            )}
-            {q.questionType === 'matching' && (
-              <QuestionMatching q={q} result={result} onAnswer={(a) => submitAnswer(q, a, Date.now())} />
-            )}
-
-            {result && (
-              <>
-                <div className={`feedback-banner ${result.isCorrect ? 'good' : 'bad'}`}>
-                  {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : '❌ ยังไม่ถูก ดูเฉลยนะ'}
-                </div>
-                {result.explanation && (
-                  <div className="card" style={{ marginTop: 10, background: '#f0f4f8' }}>
-                    💡 {result.explanation}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        );
-      })}
-
-      {allAnswered ? (
-        <button className="success" onClick={finish} style={{ width: '100%' }}>
-          ✓ ตอบครบแล้ว ดูคะแนน 🏁
-        </button>
-      ) : (
-        <button className="floating-next-btn" onClick={scrollToNextUnanswered}>
-          ⏭️ ข้อที่ยังไม่ตอบ
-        </button>
-      )}
+          );
+        })}
+        {allAnswered && (
+          <button className="success" onClick={onFinish} style={{ width: '100%' }}>
+            ✓ ตอบครบแล้ว ดูคะแนน 🏁
+          </button>
+        )}
+      </main>
     </div>
   );
 }
 
-// Young kids: one big question at a time, with a number grid to jump around.
+// Young kids: one big question at a time. Left column = exit + a vertical
+// progress bar; center = the question and answer controls; right column = the
+// feedback/explanation (kept out of the center flow so answering never pushes
+// the layout around or scrolls the progress bar away).
 function SimplePlayer({
   exercise,
   index,
   setIndex,
   answers,
   answeredCount,
-  correctCount,
   allAnswered,
   total,
   onAnswer,
@@ -215,7 +267,6 @@ function SimplePlayer({
   setIndex: (i: number) => void;
   answers: Record<number, AnswerResult>;
   answeredCount: number;
-  correctCount: number;
   allAnswered: boolean;
   total: number;
   onAnswer: (q: PlayQuestion, answer: unknown) => void;
@@ -245,81 +296,61 @@ function SimplePlayer({
   }
 
   return (
-    <div className="play-root ui-simple">
-      <div className="row" style={{ width: '100%', maxWidth: 640 }}>
-        <button className="secondary" onClick={onExit}>← ออก</button>
-        <div className="grow" style={{ margin: '0 10px' }}>
-          <div className="progress-bar-track">
-            <div className="progress-bar-fill" style={{ width: `${(answeredCount / total) * 100}%` }} />
-          </div>
+    <div className="play-simple">
+      <div className="play-simple-left">
+        <button className="secondary" onClick={onExit}>←</button>
+        <div className="progress-vertical" aria-label={`ความคืบหน้า ${answeredCount} จาก ${total}`}>
+          <div className="progress-vertical-fill" style={{ ['--pv']: `${(answeredCount / total) * 100}%` } as React.CSSProperties} />
         </div>
-        <span style={{ fontWeight: 700 }}>{answeredCount}/{total}</span>
+        <div style={{ fontWeight: 800, fontSize: 15 }}>{answeredCount}/{total}</div>
       </div>
 
-      <div className="question-grid">
-        {exercise.questions.map((qq, i) => {
-          const a = answers[qq.id];
-          const status = a ? (a.isCorrect ? 'correct' : 'wrong') : '';
-          return (
-            <button
-              key={qq.id}
-              className={`question-grid-btn ${status} ${i === index ? 'current' : ''}`}
-              onClick={() => jumpTo(i)}
-            >
-              {i + 1}
+      <div className="play-simple-main">
+        <div className="question-grid">
+          {exercise.questions.map((qq, i) => {
+            const a = answers[qq.id];
+            const status = a ? (a.isCorrect ? 'correct' : 'wrong') : '';
+            return (
+              <button
+                key={qq.id}
+                className={`question-grid-btn ${status} ${i === index ? 'current' : ''}`}
+                onClick={() => jumpTo(i)}
+              >
+                {i + 1}
+              </button>
+            );
+          })}
+        </div>
+
+        {q.imageId ? (
+          <img src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`} alt="รูปประกอบโจทย์" className="question-image" />
+        ) : (
+          <DiagramView diagram={q.diagram} />
+        )}
+        <div className="question-prompt">{q.prompt}</div>
+        {q.questionType === 'multiple_choice' && <QuestionMultipleChoice key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
+        {q.questionType === 'true_false' && <QuestionTrueFalse key={q.id} result={result} onAnswer={(a) => onAnswer(q, a)} />}
+        {q.questionType === 'fill_blank' && <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
+        {q.questionType === 'matching' && <QuestionMatching key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
+      </div>
+
+      <div className="play-simple-side">
+        {result ? (
+          <>
+            <Feedback result={result} />
+            <button style={{ marginTop: 14, width: '100%' }} onClick={goNext}>
+              {index + 1 < total ? 'ข้อต่อไป ▶' : allAnswered ? 'ดูคะแนน 🏁' : 'ไปข้อที่ยังไม่ตอบ ▶'}
             </button>
-          );
-        })}
-      </div>
-
-      <div className="muted" style={{ marginBottom: 6 }}>ตอบถูกแล้ว {correctCount} จาก {answeredCount} ข้อที่ตอบ</div>
-
-      {allAnswered && (
-        <button className="success" onClick={onFinish} style={{ marginBottom: 14 }}>
-          ✓ ตอบครบแล้ว ดูคะแนน 🏁
-        </button>
-      )}
-
-      {q.imageId ? (
-        <img
-          src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`}
-          alt="รูปประกอบโจทย์"
-          className="question-image"
-        />
-      ) : (
-        <DiagramView diagram={q.diagram} />
-      )}
-
-      <div className="question-prompt">{q.prompt}</div>
-
-      {q.questionType === 'multiple_choice' && (
-        <QuestionMultipleChoice key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
-      )}
-      {q.questionType === 'true_false' && (
-        <QuestionTrueFalse key={q.id} result={result} onAnswer={(a) => onAnswer(q, a)} />
-      )}
-      {q.questionType === 'fill_blank' && (
-        <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
-      )}
-      {q.questionType === 'matching' && (
-        <QuestionMatching key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
-      )}
-
-      {result && (
-        <>
-          <div className={`feedback-banner ${result.isCorrect ? 'good' : 'bad'}`}>
-            {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : '❌ ยังไม่ถูก ดูเฉลยนะ'}
-          </div>
-          {result.explanation && (
-            <div className="card" style={{ marginTop: 10, background: '#f0f4f8' }}>
-              💡 {result.explanation}
-            </div>
-          )}
-          <button style={{ marginTop: 18 }} onClick={goNext}>
-            {index + 1 < total ? 'ข้อต่อไป ▶' : allAnswered ? 'ดูคะแนน 🏁' : 'ไปข้อที่ยังไม่ตอบ ▶'}
+          </>
+        ) : (
+          <div className="muted side-hint">เลือกคำตอบทางซ้าย แล้วคำอธิบายจะขึ้นตรงนี้ 👈</div>
+        )}
+        {allAnswered && !result && (
+          <button className="success" style={{ width: '100%', marginTop: 12 }} onClick={onFinish}>
+            ✓ ตอบครบแล้ว ดูคะแนน 🏁
           </button>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -192,6 +192,117 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .feedback-banner.good { background: var(--green-soft); color: var(--green); }
 .feedback-banner.bad { background: var(--red-soft); color: var(--red); }
 
+.explain-box {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #f0f4f8;
+  border-radius: 12px;
+  line-height: 1.55;
+  font-size: 15px;
+}
+
+/* --- Older kids: sticky question-number sidebar + scrollable question list --- */
+.play-older {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 16px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 12px 16px 48px;
+  align-items: start;
+}
+.play-older-nav {
+  position: sticky;
+  top: 12px;
+  background: var(--card);
+  border: 1px solid #e6e9ee;
+  border-radius: 14px;
+  padding: 12px;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+.play-older-nav .nav-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.play-older-main { min-width: 0; }
+.play-older-title { margin: 0 0 12px; font-size: 20px; }
+.question-card.is-correct { border-left: 4px solid var(--green); }
+.question-card.is-wrong { border-left: 4px solid var(--red); }
+
+/* --- Young kids: 3 columns — vertical progress / question / feedback --- */
+.play-simple {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 300px;
+  gap: 16px;
+  height: 100dvh;
+  padding: 14px;
+  background: linear-gradient(160deg, #fff6ec, #f0e9ff);
+  align-items: stretch;
+}
+.play-simple-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+.play-simple-left button { padding: 10px 14px; }
+.play-simple-main {
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.play-simple-side {
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid #e6e9ee;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+.play-simple-side .side-hint { text-align: center; margin-top: 30px; font-size: 15px; line-height: 1.6; }
+
+.progress-vertical {
+  flex: 1;
+  width: 16px;
+  min-height: 120px;
+  background: #eee7dc;
+  border-radius: 999px;
+  position: relative;
+  overflow: hidden;
+}
+.progress-vertical-fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: var(--pv, 0%);
+  background: var(--green);
+  border-radius: 999px;
+  transition: height 0.3s, width 0.3s;
+}
+
+/* iPad portrait and narrower: stack the columns instead of side-by-side. */
+@media (max-width: 820px) {
+  .play-older { grid-template-columns: 1fr; }
+  .play-older-nav { position: static; max-height: none; }
+  .play-older-nav .nav-grid { grid-template-columns: repeat(8, 1fr); }
+  .play-simple {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100dvh;
+  }
+  .play-simple-left { flex-direction: row; padding: 0; align-items: center; }
+  /* progress bar becomes horizontal: fill grows by width instead of height */
+  .progress-vertical { flex: 1; width: auto; height: 12px; min-height: 0; }
+  .progress-vertical-fill { height: 100%; width: var(--pv, 0%); }
+}
+
 .progress-bar-track { background: #eee7dc; border-radius: 999px; height: 10px; overflow: hidden; }
 .progress-bar-fill { background: var(--green); height: 100%; border-radius: 999px; transition: width 0.3s; }
 
