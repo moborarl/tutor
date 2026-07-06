@@ -207,6 +207,37 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .feedback-banner.good { background: var(--green-soft); color: var(--green); }
 .feedback-banner.bad { background: var(--red-soft); color: var(--red); }
 
+/* --- Answer key (shared: review screen + teacher view) --- */
+.answer-key-options { list-style: none; margin: var(--space-2) 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.answer-key-options li { display: flex; align-items: center; gap: var(--space-2); }
+.answer-key-options li.correct { color: var(--green); font-weight: 700; }
+.ak-mark { display: inline-block; width: 16px; color: var(--green); text-align: center; }
+.ak-arrow { color: var(--muted); }
+.answer-key-line { margin-top: var(--space-2); color: var(--muted); }
+.answer-key-line b { color: var(--green); }
+
+/* --- Teacher / printable answer-key view --- */
+.teacher-view { max-width: 800px; margin: 0 auto; padding: var(--space-4); }
+.teacher-head { margin-bottom: var(--space-5); }
+.teacher-head h1 { margin: 0 0 var(--space-1); font-size: 24px; }
+.teacher-sub { margin-top: var(--space-2); }
+.teacher-q { border-bottom: 1px solid var(--border); padding: var(--space-4) 0; }
+.teacher-q-head { display: flex; gap: var(--space-3); align-items: baseline; }
+.teacher-q-num {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--neutral-soft);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.teacher-q-prompt { margin: 0; font-weight: 700; font-size: 16px; line-height: 1.6; }
+
 .explain-box {
   margin-top: 10px;
   padding: 12px 14px;

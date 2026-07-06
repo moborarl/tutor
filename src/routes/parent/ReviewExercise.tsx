@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
 import { DiagramView } from '../../lib/DiagramView';
+import { AnswerKey } from '../../lib/AnswerKey';
 import { validateDiagram } from '@shared/diagram';
 import { ImageCropTool } from './ImageCropTool';
 import type {
@@ -141,6 +142,11 @@ export default function ReviewExercise() {
           <button className="secondary" onClick={() => setShowImage((v) => !v)}>
             {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
           </button>
+          {set.questions.length > 0 && (
+            <button className="secondary" onClick={() => nav(`/parent/exercises/${id}/teacher`)}>
+              📄 ฉบับเฉลย / พิมพ์
+            </button>
+          )}
           {set.questions.length > 0 && set.status === 'pending_review' && (
             <>
               <button className="secondary" onClick={approveAll}>อนุมัติทุกข้อ</button>
@@ -300,7 +306,7 @@ function QuestionEditor({
             </div>
           ) : null}
           <div style={{ fontWeight: 600 }}>{q.prompt}</div>
-          <QuestionPreview q={q} />
+          <AnswerKey q={q} />
           {q.explanation && (
             <div className="muted" style={{ marginTop: 8, padding: 8, background: '#f5f5f5', borderRadius: 6 }}>
               💡 คำอธิบาย: {q.explanation}
@@ -390,39 +396,4 @@ function QuestionEditor({
       )}
     </div>
   );
-}
-
-function QuestionPreview({ q }: { q: QuestionWithAnswer }) {
-  const content = q.content as Record<string, unknown>;
-  const answer = q.answer as Record<string, unknown>;
-
-  if (q.questionType === 'multiple_choice' && Array.isArray(content.options)) {
-    return (
-      <ul style={{ margin: '8px 0' }}>
-        {(content.options as string[]).map((opt, i) => (
-          <li key={i} style={{ fontWeight: i === answer.correctIndex ? 700 : 400, color: i === answer.correctIndex ? 'var(--green)' : 'inherit' }}>
-            {opt} {i === answer.correctIndex && '✓'}
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  if (q.questionType === 'true_false') {
-    return <div className="muted" style={{ marginTop: 6 }}>เฉลย: {answer.value ? 'ถูก ✓' : 'ผิด ✗'}</div>;
-  }
-  if (q.questionType === 'fill_blank' && Array.isArray(answer.answers)) {
-    return <div className="muted" style={{ marginTop: 6 }}>เฉลย: {(answer.answers as string[]).join(' / ')}</div>;
-  }
-  if (q.questionType === 'matching' && Array.isArray(content.left) && Array.isArray(content.right) && Array.isArray(answer.pairs)) {
-    return (
-      <ul style={{ margin: '8px 0' }}>
-        {(content.left as string[]).map((l, i) => (
-          <li key={i}>
-            {l} ↔ {(content.right as string[])[(answer.pairs as number[])[i]] ?? '?'}
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  return null;
 }

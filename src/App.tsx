@@ -7,6 +7,7 @@ import ChildrenList from './routes/parent/ChildrenList';
 import ExerciseList from './routes/parent/ExerciseList';
 import Upload from './routes/parent/Upload';
 import ReviewExercise from './routes/parent/ReviewExercise';
+import TeacherView from './routes/parent/TeacherView';
 import ChildProgress from './routes/parent/ChildProgress';
 import ProfilePicker from './routes/play/ProfilePicker';
 import PlayExerciseList from './routes/play/PlayExerciseList';
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="exercises" element={<ExerciseList />} />
         <Route path="upload" element={<Upload />} />
         <Route path="exercises/:id" element={<ReviewExercise />} />
+        <Route path="exercises/:id/teacher" element={<TeacherView />} />
       </Route>
       <Route path="/play" element={<ProfilePicker />} />
       <Route path="/play/exercises" element={<PlayExerciseList />} />
