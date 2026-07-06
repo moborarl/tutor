@@ -26,6 +26,8 @@ export default function ExerciseList() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [merging, setMerging] = useState(false);
   const [mergeTitle, setMergeTitle] = useState('');
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => {
     api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets').then(setSets);
@@ -40,6 +42,19 @@ export default function ExerciseList() {
     }, 10_000);
     return () => clearInterval(t);
   }, []);
+
+  const handleShare = async (id: number) => {
+    setLoading(true);
+    try {
+      const { token } = await api.post<{ token: string }>(`/api/parent/exercise-sets/${id}/share`);
+      setShareUrl(`${window.location.origin}/parent/import/${token}`);
+      setShareCopied(false);
+    } catch (err) {
+      alert('สร้างลิงก์แชร์ไม่สำเร็จ: ' + String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm('ลบแบบฝึกหัดและรูปภาพ?')) return;
@@ -135,6 +150,22 @@ export default function ExerciseList() {
         </div>
       )}
 
+      {shareUrl && (
+        <div className="card">
+          <h3>ลิงก์แชร์แบบฝึกหัด</h3>
+          <p className="muted">ส่งลิงก์นี้ให้ผู้ปกครองคนอื่น เขาจะคัดลอกแบบฝึกหัดเข้าคลังของตัวเองได้ (ของคุณไม่กระทบ)</p>
+          <div className="row">
+            <input readOnly value={shareUrl} onFocus={(e) => e.target.select()} style={{ flex: 1 }} />
+            <button
+              onClick={async () => { await navigator.clipboard.writeText(shareUrl); setShareCopied(true); }}
+            >
+              {shareCopied ? '✓ คัดลอกแล้ว' : '📋 คัดลอก'}
+            </button>
+            <button className="secondary" onClick={() => setShareUrl(null)}>ปิด</button>
+          </div>
+        </div>
+      )}
+
       {sets.length === 0 && (
         <div className="card muted">ยังไม่มีแบบฝึกหัด อัปโหลดรูปถ่ายแบบฝึกหัดเพื่อเริ่มต้น</div>
       )}
@@ -191,6 +222,14 @@ export default function ExerciseList() {
               </Link>
               <div className="row" style={{ gap: 4 }}>
                 <button
+                  onClick={() => handleShare(s.id)}
+                  disabled={loading}
+                  title="แชร์"
+                  style={{ fontSize: 16, width: 32, height: 32, padding: 0 }}
+                >
+                  🔗
+                </button>
+                <button
                   onClick={() => startEdit(s)}
                   disabled={loading}
                   title="เปลี่ยนชื่อ"
@@ -202,7 +241,7 @@ export default function ExerciseList() {
                   onClick={() => handleDelete(s.id)}
                   disabled={loading}
                   title="ลบ"
-                  style={{ fontSize: 16, width: 32, height: 32, padding: 0, background: '#fee' }}
+                  style={{ fontSize: 16, width: 32, height: 32, padding: 0, background: 'var(--red-soft)' }}
                 >
                   🗑️
                 </button>

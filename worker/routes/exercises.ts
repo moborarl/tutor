@@ -532,3 +532,35 @@ exerciseRoutes.delete('/:id', async (c) => {
 
   return c.json({ ok: true });
 });
+
+// Turn on link-sharing for a set: generate (or reuse) a random token another
+// parent can use to copy the set into their own library.
+exerciseRoutes.post('/:id/share', async (c) => {
+  const { parentId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  const set = await c.env.DB.prepare(
+    'SELECT share_token FROM exercise_sets WHERE id = ? AND parent_id = ?',
+  )
+    .bind(id, parentId)
+    .first<{ share_token: string | null }>();
+  if (!set) return c.json({ error: 'not_found' }, 404);
+
+  let token = set.share_token;
+  if (!token) {
+    token = randomId(20);
+    await c.env.DB.prepare('UPDATE exercise_sets SET share_token = ? WHERE id = ?')
+      .bind(token, id)
+      .run();
+  }
+  return c.json({ token });
+});
+
+// Stop sharing (revokes the link).
+exerciseRoutes.delete('/:id/share', async (c) => {
+  const { parentId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  await c.env.DB.prepare('UPDATE exercise_sets SET share_token = NULL WHERE id = ? AND parent_id = ?')
+    .bind(id, parentId)
+    .run();
+  return c.json({ ok: true });
+});

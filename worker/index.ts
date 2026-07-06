@@ -6,6 +6,7 @@ import { childrenRoutes } from './routes/children';
 import { exerciseRoutes } from './routes/exercises';
 import { questionRoutes } from './routes/questions';
 import { subjectRoutes } from './routes/subjects';
+import { sharedRoutes } from './routes/shared';
 import { playRoutes } from './routes/play';
 import { progressRoutes } from './routes/progress';
 import { internalRoutes } from './routes/internal';
@@ -24,6 +25,7 @@ parent.route('/children', progressRoutes); // GET /children/:id/progress
 parent.route('/exercise-sets', exerciseRoutes);
 parent.route('/questions', questionRoutes);
 parent.route('/subjects', subjectRoutes);
+parent.route('/shared', sharedRoutes); // GET /shared/:token, POST /shared/:token/import
 app.route('/api/parent', parent);
 
 // Kid play flow (mixed guards inside)
