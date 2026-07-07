@@ -265,6 +265,16 @@ function QuestionEditor({
     onChanged();
   }
 
+  async function unapprove() {
+    await api.post(`/api/parent/questions/${q.id}/unapprove`);
+    onChanged();
+  }
+
+  async function detachImage() {
+    await api.patch(`/api/parent/questions/${q.id}`, { imageId: null, diagram: null });
+    onChanged();
+  }
+
   async function remove() {
     await api.delete(`/api/parent/questions/${q.id}`);
     onChanged();
@@ -280,6 +290,8 @@ function QuestionEditor({
         {!editing && (
           <>
             {q.status !== 'approved' && <button className="secondary" onClick={approve}>✓ อนุมัติ</button>}
+            {q.status === 'approved' && <button className="secondary" onClick={unapprove}>ยกเลิกอนุมัติ</button>}
+            {(q.imageId || q.diagram) && <button className="secondary" onClick={detachImage}>ถอดรูป/แผนภาพออก</button>}
             <button className="secondary" onClick={() => setEditing(true)}>แก้ไข</button>
             <button className="danger" onClick={remove}>ลบ</button>
           </>
