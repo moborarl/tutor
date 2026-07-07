@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../lib/api-client';
+import { api, ApiError } from '../../lib/api-client';
 import { parseJsonWithRepair } from '@shared/json-repair';
 import { PROMPT_TEMPLATE } from '@shared/contract';
 import type { Subject, AgeBand } from '@shared/types';
@@ -113,8 +113,14 @@ export default function Upload() {
       if (sid) form.append('subjectId', sid);
       const res = await api.post<{ id: number; status: string }>('/api/parent/exercise-sets', form);
       nav(`/parent/exercises/${res.id}`);
-    } catch {
-      setError('บันทึกไม่สำเร็จ ตรวจสอบ JSON แล้วลองใหม่');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const body = err.body as { message?: unknown; error?: unknown };
+        const detail = typeof body.message === 'string' ? body.message : typeof body.error === 'string' ? body.error : '';
+        setError(detail ? `บันทึกไม่สำเร็จ: ${detail}` : 'บันทึกไม่สำเร็จ ตรวจสอบ JSON แล้วลองใหม่');
+      } else {
+        setError('บันทึกไม่สำเร็จ ตรวจสอบ JSON แล้วลองใหม่');
+      }
       setBusy(false);
     }
   }

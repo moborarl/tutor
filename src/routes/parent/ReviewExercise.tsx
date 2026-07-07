@@ -266,16 +266,19 @@ function QuestionEditor({
   }
 
   async function unapprove() {
+    if (!window.confirm('ยกเลิกอนุมัติข้อนี้? ข้อนี้จะกลับเป็นร่างและต้องอนุมัติใหม่ก่อนเผยแพร่')) return;
     await api.post(`/api/parent/questions/${q.id}/unapprove`);
     onChanged();
   }
 
   async function detachImage() {
+    if (!window.confirm('ถอดรูป/แผนภาพออกจากข้อนี้? ข้อนี้จะกลับเป็นร่างและต้องตรวจใหม่')) return;
     await api.patch(`/api/parent/questions/${q.id}`, { imageId: null, diagram: null });
     onChanged();
   }
 
   async function remove() {
+    if (!window.confirm('ลบข้อนี้ถาวร?')) return;
     await api.delete(`/api/parent/questions/${q.id}`);
     onChanged();
   }
