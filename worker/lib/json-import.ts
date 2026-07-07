@@ -2,7 +2,7 @@ import type { ExtractedQuestion, QuestionType } from '@shared/types';
 import { validateDiagram } from '@shared/diagram';
 import { parseJsonWithRepair } from '@shared/json-repair';
 
-const VALID_TYPES: QuestionType[] = ['multiple_choice', 'fill_blank', 'matching', 'true_false'];
+const VALID_TYPES: QuestionType[] = ['multiple_choice', 'fill_blank', 'matching', 'true_false', 'fraction', 'ordering'];
 
 export type ImportResult =
   | { ok: true; title: string; questions: ExtractedQuestion[] }
