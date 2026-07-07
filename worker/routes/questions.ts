@@ -124,6 +124,15 @@ questionRoutes.post('/:id/approve', async (c) => {
   return c.json({ ok: true });
 });
 
+questionRoutes.post('/:id/unapprove', async (c) => {
+  const { parentId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  const q = await ownedQuestion(c.env.DB, id, parentId);
+  if (!q) return c.json({ error: 'not_found' }, 404);
+  await c.env.DB.prepare(`UPDATE questions SET status = 'draft' WHERE id = ?`).bind(id).run();
+  return c.json({ ok: true });
+});
+
 questionRoutes.delete('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
