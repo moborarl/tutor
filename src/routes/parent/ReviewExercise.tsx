@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
 import { DiagramView } from '../../lib/DiagramView';
 import { AnswerKey } from '../../lib/AnswerKey';
+import { RichText } from '../../lib/RichText';
 import { validateDiagram } from '@shared/diagram';
 import { ImageCropTool } from './ImageCropTool';
 import type {
@@ -312,7 +313,7 @@ function QuestionEditor({
               <DiagramView diagram={q.diagram} />
             </div>
           ) : null}
-          <div style={{ fontWeight: 600 }}>{q.prompt}</div>
+          <div style={{ fontWeight: 600 }}><RichText text={q.prompt} /></div>
           <AnswerKey q={q} />
           {q.explanation && (
             <div className="muted" style={{ marginTop: 8, padding: 8, background: '#f5f5f5', borderRadius: 6 }}>

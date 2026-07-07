@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { AnswerKey } from '../../lib/AnswerKey';
 import { DiagramView } from '../../lib/DiagramView';
+import { RichText } from '../../lib/RichText';
 import type { ExerciseSetDetail } from '@shared/types';
 
 // Read-only "answer key" view for a parent/teacher: every question with its
@@ -39,7 +40,7 @@ export default function TeacherView() {
         <section className="teacher-q" key={q.id}>
           <div className="teacher-q-head">
             <span className="teacher-q-num">{i + 1}</span>
-            <p className="teacher-q-prompt">{q.prompt}</p>
+            <p className="teacher-q-prompt"><RichText text={q.prompt} /></p>
           </div>
 
           {q.imageId ? (

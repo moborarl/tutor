@@ -9,6 +9,7 @@ import { QuestionMatching } from './components/QuestionMatching';
 import { QuestionFraction } from './components/QuestionFraction';
 import { QuestionOrdering } from './components/QuestionOrdering';
 import { DiagramView } from '../../lib/DiagramView';
+import { RichText } from '../../lib/RichText';
 
 interface ExerciseData {
   id: number;
@@ -233,7 +234,7 @@ function OlderPlayer({
                 <span className="badge draft">ข้อ {i + 1}</span>
                 {result && <span className={`badge ${result.isCorrect ? 'correct' : 'wrong'}`}>{result.isCorrect ? 'ถูก' : 'ผิด'}</span>}
               </div>
-              <div className="question-prompt" style={{ textAlign: 'left', margin: '4px 0 10px' }}>{q.prompt}</div>
+              <div className="question-prompt" style={{ textAlign: 'left', margin: '4px 0 10px' }}><RichText text={q.prompt} /></div>
               <QuestionBody exercise={exercise} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
               {result && <Feedback result={result} />}
             </div>
@@ -331,7 +332,7 @@ function SimplePlayer({
         ) : (
           <DiagramView diagram={q.diagram} />
         )}
-        <div className="question-prompt">{q.prompt}</div>
+        <div className="question-prompt"><RichText text={q.prompt} /></div>
         {q.questionType === 'multiple_choice' && <QuestionMultipleChoice key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
         {q.questionType === 'true_false' && <QuestionTrueFalse key={q.id} result={result} onAnswer={(a) => onAnswer(q, a)} />}
         {q.questionType === 'fill_blank' && <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}

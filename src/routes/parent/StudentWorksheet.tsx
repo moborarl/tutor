@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { DiagramView } from '../../lib/DiagramView';
+import { RichText } from '../../lib/RichText';
 import type { ExerciseSetDetail } from '@shared/types';
 
 // Printable worksheet for students (no answers, just questions).
@@ -36,7 +37,7 @@ export default function StudentWorksheet() {
         <section className="teacher-q student-worksheet-q" key={q.id}>
           <div className="teacher-q-head">
             <span className="teacher-q-num">{i + 1}</span>
-            <p className="teacher-q-prompt">{q.prompt}</p>
+            <p className="teacher-q-prompt"><RichText text={q.prompt} /></p>
           </div>
 
           {q.imageId ? (
