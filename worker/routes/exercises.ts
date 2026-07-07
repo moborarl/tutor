@@ -91,70 +91,77 @@ async function extractForSet(
 // free external AI chat, e.g. ChatGPT/Claude/Gemini web) -> R2 photo kept for reference,
 // questions inserted directly as drafts ready for review.
 exerciseRoutes.post('/', async (c) => {
-  const { parentId } = c.get('session');
-  const form = await c.req.formData().catch(() => null);
-  if (!form) return c.json({ error: 'multipart_required' }, 400);
+  try {
+    const { parentId } = c.get('session');
+    const form = await c.req.formData().catch(() => null);
+    if (!form) return c.json({ error: 'multipart_required' }, 400);
 
-  // workers-types FormData.getAll is typed as string[], but binary parts arrive as File at runtime
-  const files = (form.getAll('images') as unknown[]).filter((f): f is File => f instanceof File);
-  if (files.length === 0) return c.json({ error: 'image_required' }, 400);
-  for (const f of files) {
-    if (!IMAGE_TYPES.includes(f.type)) return c.json({ error: 'unsupported_image_type' }, 400);
-    if (f.size > MAX_UPLOAD_BYTES) return c.json({ error: 'image_too_large' }, 400);
+    // workers-types FormData.getAll is typed as string[], but binary parts arrive as File at runtime
+    const files = (form.getAll('images') as unknown[]).filter((f): f is File => f instanceof File);
+    if (files.length === 0) return c.json({ error: 'image_required' }, 400);
+    for (const f of files) {
+      if (!IMAGE_TYPES.includes(f.type)) return c.json({ error: 'unsupported_image_type' }, 400);
+      if (f.size > MAX_UPLOAD_BYTES) return c.json({ error: 'image_too_large' }, 400);
+    }
+
+    const questionsJsonRaw = form.get('questionsJson');
+    if (typeof questionsJsonRaw !== 'string' || !questionsJsonRaw.trim()) {
+      return c.json({ error: 'questions_json_required' }, 400);
+    }
+    const imported = parseImportedJson(questionsJsonRaw);
+    if (!imported.ok) {
+      return c.json({ error: 'invalid_questions_json', message: imported.error }, 400);
+    }
+
+    const ageBand = form.get('ageBand') === 'young' ? 'young' : 'older';
+    const titleRaw = typeof form.get('title') === 'string' ? (form.get('title') as string).trim() : '';
+    const title = titleRaw || imported.title;
+    const subjectIdRaw = form.get('subjectId');
+    const subjectId = subjectIdRaw && !isNaN(Number(subjectIdRaw)) ? Number(subjectIdRaw) : null;
+
+    const uploaded: { r2Key: string; contentType: string }[] = [];
+    for (const f of files) {
+      const r2Key = `worksheets/${parentId}/${randomId(12)}`;
+      await c.env.WORKSHEETS.put(r2Key, await f.arrayBuffer(), {
+        httpMetadata: { contentType: f.type },
+      });
+      uploaded.push({ r2Key, contentType: f.type });
+    }
+
+    const result = await c.env.DB.prepare(
+      `INSERT INTO exercise_sets (parent_id, subject_id, title, age_band, source_image_r2_key, source_image_content_type, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending_review')`,
+    )
+      .bind(parentId, subjectId, title, ageBand, uploaded[0].r2Key, uploaded[0].contentType)
+      .run();
+    const setId = result.meta.last_row_id as number;
+
+    await c.env.DB.batch(
+      uploaded.map((u, i) =>
+        c.env.DB.prepare(
+          `INSERT INTO exercise_images (exercise_set_id, r2_key, content_type, order_index) VALUES (?, ?, ?, ?)`,
+        ).bind(setId, u.r2Key, u.contentType, i),
+      ),
+    );
+
+    // Map each question's 1-indexed "imagePage" (upload order) to the row id we
+    // just inserted, so questions.image_id can point at the right photo.
+    const insertedImages = await c.env.DB.prepare(
+      'SELECT id, order_index FROM exercise_images WHERE exercise_set_id = ? ORDER BY order_index',
+    )
+      .bind(setId)
+      .all<{ id: number; order_index: number }>();
+    const pageToImageId = new Map(insertedImages.results.map((img) => [img.order_index + 1, img.id]));
+
+    await insertDraftQuestions(c.env.DB, setId, imported.questions, pageToImageId);
+
+    return c.json({ id: setId, status: 'pending_review' }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : '';
+    console.error('Upload error:', message, stack);
+    return c.json({ error: 'upload_failed', message, details: stack }, 500);
   }
-
-  const questionsJsonRaw = form.get('questionsJson');
-  if (typeof questionsJsonRaw !== 'string' || !questionsJsonRaw.trim()) {
-    return c.json({ error: 'questions_json_required' }, 400);
-  }
-  const imported = parseImportedJson(questionsJsonRaw);
-  if (!imported.ok) {
-    return c.json({ error: 'invalid_questions_json', message: imported.error }, 400);
-  }
-
-  const ageBand = form.get('ageBand') === 'young' ? 'young' : 'older';
-  const titleRaw = typeof form.get('title') === 'string' ? (form.get('title') as string).trim() : '';
-  const title = titleRaw || imported.title;
-  const subjectIdRaw = form.get('subjectId');
-  const subjectId = subjectIdRaw && !isNaN(Number(subjectIdRaw)) ? Number(subjectIdRaw) : null;
-
-  const uploaded: { r2Key: string; contentType: string }[] = [];
-  for (const f of files) {
-    const r2Key = `worksheets/${parentId}/${randomId(12)}`;
-    await c.env.WORKSHEETS.put(r2Key, await f.arrayBuffer(), {
-      httpMetadata: { contentType: f.type },
-    });
-    uploaded.push({ r2Key, contentType: f.type });
-  }
-
-  const result = await c.env.DB.prepare(
-    `INSERT INTO exercise_sets (parent_id, subject_id, title, age_band, source_image_r2_key, source_image_content_type, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'pending_review')`,
-  )
-    .bind(parentId, subjectId, title, ageBand, uploaded[0].r2Key, uploaded[0].contentType)
-    .run();
-  const setId = result.meta.last_row_id as number;
-
-  await c.env.DB.batch(
-    uploaded.map((u, i) =>
-      c.env.DB.prepare(
-        `INSERT INTO exercise_images (exercise_set_id, r2_key, content_type, order_index) VALUES (?, ?, ?, ?)`,
-      ).bind(setId, u.r2Key, u.contentType, i),
-    ),
-  );
-
-  // Map each question's 1-indexed "imagePage" (upload order) to the row id we
-  // just inserted, so questions.image_id can point at the right photo.
-  const insertedImages = await c.env.DB.prepare(
-    'SELECT id, order_index FROM exercise_images WHERE exercise_set_id = ? ORDER BY order_index',
-  )
-    .bind(setId)
-    .all<{ id: number; order_index: number }>();
-  const pageToImageId = new Map(insertedImages.results.map((img) => [img.order_index + 1, img.id]));
-
-  await insertDraftQuestions(c.env.DB, setId, imported.questions, pageToImageId);
-
-  return c.json({ id: setId, status: 'pending_review' }, 201);
 });
 
 // Merge two or more of this parent's exercise sets into one. The set with the
