@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import type { ExtractedQuestion } from '@shared/types';
+import { insertDraftQuestions } from '../lib/exercise-sets';
+import { isValidQuestionType, validateQuestionPayload } from '../lib/json-import';
 
 // Endpoints for the Raspberry Pi extraction service (bearer-token auth).
 export const internalRoutes = new Hono<AppEnv>();
@@ -80,13 +82,12 @@ internalRoutes.post('/extraction-result', async (c) => {
     return c.json({ ok: true, recorded: 'failure' });
   }
 
-  const valid = body.questions.filter(
-    (q) =>
-      q &&
-      ['multiple_choice', 'fill_blank', 'matching', 'true_false'].includes(q.questionType) &&
-      typeof q.prompt === 'string' &&
-      q.prompt.trim(),
-  );
+  const valid = body.questions.filter((q) => {
+    if (!q || !isValidQuestionType(q.questionType) || typeof q.prompt !== 'string' || !q.prompt.trim()) {
+      return false;
+    }
+    return validateQuestionPayload(q.questionType, q.content ?? {}, q.answer ?? {}).ok;
+  });
   if (valid.length === 0) {
     await c.env.DB.prepare(
       `UPDATE exercise_sets SET status = 'extraction_failed', extraction_error = 'pi returned no valid questions', extraction_provider = 'pi', updated_at = datetime('now') WHERE id = ?`,
@@ -96,23 +97,7 @@ internalRoutes.post('/extraction-result', async (c) => {
     return c.json({ ok: true, recorded: 'failure' });
   }
 
-  await c.env.DB.batch(
-    valid.map((q, i) =>
-      c.env.DB
-        .prepare(
-          `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          body.exerciseSetId,
-          i,
-          q.questionType,
-          q.prompt.trim(),
-          JSON.stringify(q.content ?? {}),
-          JSON.stringify(q.answer ?? {}),
-        ),
-    ),
-  );
+  await insertDraftQuestions(c.env.DB, body.exerciseSetId, valid);
   await c.env.DB.prepare(
     `UPDATE exercise_sets SET status = 'pending_review', extraction_provider = 'pi', extraction_error = NULL,
      title = CASE WHEN title = '' THEN ? ELSE title END, updated_at = datetime('now') WHERE id = ?`,

@@ -2,24 +2,19 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { validateDiagram } from '@shared/diagram';
 import type { QuestionType } from '@shared/types';
+import { isValidQuestionType, validateQuestionPayload } from '../lib/json-import';
 
 export const questionRoutes = new Hono<AppEnv>();
-
-const VALID_TYPES: QuestionType[] = ['multiple_choice', 'fill_blank', 'matching', 'true_false', 'fraction', 'ordering'];
-
-function isValidQuestionType(value: string | undefined): value is QuestionType {
-  return !!value && (VALID_TYPES as string[]).includes(value);
-}
 
 // Ownership check: the question's exercise set must belong to this parent.
 async function ownedQuestion(
   db: D1Database,
   questionId: number,
   parentId: number,
-): Promise<{ id: number; exercise_set_id: number } | null> {
+): Promise<{ id: number; exercise_set_id: number; question_type: QuestionType; content_json: string; answer_json: string } | null> {
   return db
     .prepare(
-      `SELECT q.id, q.exercise_set_id FROM questions q
+      `SELECT q.id, q.exercise_set_id, q.question_type, q.content_json, q.answer_json FROM questions q
        JOIN exercise_sets es ON es.id = q.exercise_set_id
        WHERE q.id = ? AND es.parent_id = ?`,
     )
@@ -47,6 +42,10 @@ questionRoutes.patch('/:id', async (c) => {
     .catch(() => null);
   if (!body) return c.json({ error: 'invalid_body' }, 400);
 
+  let nextType = q.question_type;
+  let nextContent: unknown = JSON.parse(q.content_json);
+  let nextAnswer: unknown = JSON.parse(q.answer_json);
+
   const updates: string[] = [];
   const values: unknown[] = [];
   if (typeof body.prompt === 'string' && body.prompt.trim()) {
@@ -55,16 +54,23 @@ questionRoutes.patch('/:id', async (c) => {
   }
   if (typeof body.questionType === 'string') {
     if (!isValidQuestionType(body.questionType)) return c.json({ error: 'invalid_type' }, 400);
+    nextType = body.questionType;
     updates.push('question_type = ?');
     values.push(body.questionType);
   }
   if (body.content !== undefined) {
+    nextContent = body.content;
     updates.push('content_json = ?');
     values.push(JSON.stringify(body.content));
   }
   if (body.answer !== undefined) {
+    nextAnswer = body.answer;
     updates.push('answer_json = ?');
     values.push(JSON.stringify(body.answer));
+  }
+  if (body.questionType !== undefined || body.content !== undefined || body.answer !== undefined) {
+    const valid = validateQuestionPayload(nextType, nextContent, nextAnswer);
+    if (!valid.ok) return c.json({ error: 'invalid_question_payload', message: valid.error }, 400);
   }
   if (typeof body.orderIndex === 'number') {
     updates.push('order_index = ?');
@@ -143,6 +149,9 @@ questionRoutes.post('/', async (c) => {
   if (!body?.exerciseSetId || !body.prompt?.trim() || !isValidQuestionType(body.questionType)) {
     return c.json({ error: 'invalid_body' }, 400);
   }
+  const valid = validateQuestionPayload(body.questionType, body.content ?? {}, body.answer ?? {});
+  if (!valid.ok) return c.json({ error: 'invalid_question_payload', message: valid.error }, 400);
+
   const set = await c.env.DB.prepare(
     'SELECT id FROM exercise_sets WHERE id = ? AND parent_id = ?',
   )
