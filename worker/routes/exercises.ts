@@ -18,8 +18,12 @@ async function insertDraftQuestions(
   // maps a 1-indexed "imagePage" (upload order) to the actual exercise_images.id
   pageToImageId: Map<number, number> = new Map(),
 ): Promise<void> {
-  const stmts = questions.map((q, i) =>
-    db
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const imageId = q.imagePage ? pageToImageId.get(q.imagePage) ?? null : null;
+    const diagramJson = q.diagram ? JSON.stringify(q.diagram) : null;
+
+    await db
       .prepare(
         `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id, diagram_json)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -32,11 +36,11 @@ async function insertDraftQuestions(
         JSON.stringify(q.content ?? {}),
         JSON.stringify(q.answer ?? {}),
         q.explanation ?? null,
-        q.imagePage ? pageToImageId.get(q.imagePage) ?? null : null,
-        q.diagram ? JSON.stringify(q.diagram) : null,
-      ),
-  );
-  await db.batch(stmts);
+        imageId,
+        diagramJson,
+      )
+      .run();
+  }
 }
 
 // Runs cloud extraction for a set and updates its row. Used by upload + retry.
