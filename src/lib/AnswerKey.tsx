@@ -52,7 +52,20 @@ export function AnswerKey({ q }: { q: QuestionWithAnswer }) {
     const denom = typeof answer.denominator === 'number' ? answer.denominator : '?';
     return (
       <div className="answer-key-line">
-        เฉลย: <b>{num} / {denom}</b>
+        เฉลย:
+        <div
+          style={{
+            display: 'inline-block',
+            marginLeft: 8,
+            textAlign: 'center',
+            verticalAlign: 'middle',
+            padding: '0 8px',
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{num}</div>
+          <div style={{ borderTop: '2px solid var(--ink)', margin: '2px 0' }} />
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{denom}</div>
+        </div>
       </div>
     );
   }
