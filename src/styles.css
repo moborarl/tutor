@@ -459,3 +459,40 @@ table.data th { color: var(--muted); font-weight: 600; }
   z-index: 30;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
 }
+
+/* --- Print (teacher answer-key → paper / PDF) --- */
+@media print {
+  /* Hide app chrome: top nav and any on-screen-only controls. */
+  .nav-bar,
+  .no-print { display: none !important; }
+
+  /* Plain white page, full width — drop the app background and container inset. */
+  body { background: white; }
+  .page { max-width: none; margin: 0; padding: 0; }
+  .teacher-view { max-width: none; padding: 0; }
+  .teacher-head h1 { font-size: 20px; }
+
+  /* Keep each question intact — never split a prompt/answer across a page break. */
+  .teacher-q {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-bottom: 1px solid #ccc;
+  }
+
+  /* Flatten cards for paper (no shadow, thin border). */
+  .card { box-shadow: none; border: 1px solid #ddd; }
+
+  /* Force backgrounds/colors that carry meaning to actually print
+     (question number chip, explanation box, diagram/photo, correct-answer). */
+  .teacher-q-num,
+  .explain-box,
+  .question-diagram,
+  .question-image,
+  .diagram-svg,
+  .answer-key-options li.correct {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page { margin: 16mm 14mm; }
+}
