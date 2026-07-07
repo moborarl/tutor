@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { buildContractMarkdown } from '@shared/contract';
 import type { AppEnv } from './env';
 import { requireParentSession, requirePiToken } from './middleware/auth';
 import { authRoutes } from './routes/auth';
@@ -14,6 +15,14 @@ import { internalRoutes } from './routes/internal';
 const app = new Hono<AppEnv>();
 
 app.get('/api/health', (c) => c.json({ ok: true }));
+
+// Public AI contract: the canonical rules for producing importable exercise
+// JSON. Served as markdown so any AI/agent in the pipeline can fetch the
+// latest version directly (no auth — it contains no user data, and being
+// fetchable is the point). Static text only: zero API-token cost.
+app.get('/contract', (c) =>
+  c.text(buildContractMarkdown(), 200, { 'content-type': 'text/markdown; charset=utf-8' }),
+);
 
 app.route('/api/auth', authRoutes);
 

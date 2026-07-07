@@ -2,54 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { parseJsonWithRepair } from '@shared/json-repair';
+import { PROMPT_TEMPLATE } from '@shared/contract';
 import type { Subject, AgeBand } from '@shared/types';
-
-const PROMPT_TEMPLATE = `คุณคือผู้ช่วยแกะโจทย์จากรูปแบบฝึกหัด กรุณาดูรูปที่แนบมาทุกรูป (อาจมีหลายหน้า) แล้วแกะโจทย์ทุกข้อออกมาเป็น JSON ตาม schema ด้านล่างนี้เป๊ะๆ (ตอบเป็น JSON ล้วนๆ เท่านั้น ห้ามมีข้อความอื่นนอกจาก JSON ห้ามใช้ \`\`\`json หรือ code block ใดๆ ห้ามใส่ key อื่นนอกจากที่ระบุไว้)
-
-รูปแบบ JSON หลัก (โครงสร้างที่ต้องตอบกลับมา):
-{
-  "title": "ชื่อชุดแบบฝึกหัดสั้นๆ",
-  "questions": [ /* array ของโจทย์แต่ละข้อ ดูตัวอย่างแต่ละประเภทด้านล่าง */ ]
-}
-
-ตัวอย่างโจทย์แต่ละประเภท (แต่ละข้อใน "questions" ให้เลือกใช้ 1 แบบตาม questionType โดยใส่ content/answer ตรงๆ ไม่ต้องมี key ครอบซ้ำ):
-
-แบบ multiple_choice (ปรนัย):
-{"questionType":"multiple_choice","prompt":"ข้อความโจทย์","content":{"options":["ตัวเลือก1","ตัวเลือก2","ตัวเลือก3"]},"answer":{"correctIndex":0},"explanation":"เหตุผลที่ตอบข้อนี้"}
-
-แบบ fill_blank (เติมคำ ใช้ ___ แทนช่องว่างใน prompt):
-{"questionType":"fill_blank","prompt":"ท้องฟ้าสีอะไร ___","content":{"hint":"คำใบ้ถ้ามี"},"answer":{"answers":["ฟ้า","สีฟ้า"]},"explanation":"เหตุผลที่ตอบแบบนี้"}
-
-แบบ matching (จับคู่):
-{"questionType":"matching","prompt":"จับคู่ให้ถูกต้อง","content":{"left":["ข้อ1","ข้อ2"],"right":["คำตอบA","คำตอบB"]},"answer":{"pairs":[0,1]},"explanation":"เหตุผลที่จับคู่แบบนี้"}
-
-แบบ true_false (ถูก/ผิด):
-{"questionType":"true_false","prompt":"ข้อความที่ต้องตัดสินว่าถูกหรือผิด","content":{},"answer":{"value":true},"explanation":"เหตุผลที่ถูกหรือผิด"}
-
-ถ้าโจทย์ข้อไหนต้องดูแผนภาพแรง (ลูกศรที่มีขนาด/ทิศทาง) ประกอบถึงจะตอบได้ **ห้ามวาดรูปเอง** ให้ใส่ field "diagram" เป็นข้อมูลตามแบบใดแบบหนึ่งด้านล่างนี้แทน ระบบจะวาดภาพให้เองจากข้อมูลนี้เสมอ (แม่นยำ 100% ไม่มีวันวาดผิด/ตัดจบไม่ครบ):
-
-แบบที่ 1 "force-arrows" — แรงหลายแรงกระทำต่อกล่องเดียว (เช่น "แรง 20 นิวตันสองแรงไปทางซ้าย"):
-"diagram": {"type":"force-arrows","items":[{"direction":"left","magnitude":20},{"direction":"right","magnitude":10}]}
-
-แบบที่ 2 "force-arrows-grid" — เปรียบเทียบหลายกล่อง เช่นโจทย์ถามว่า A/B/C/D ข้อไหนแรงลัพธ์มากที่สุด:
-"diagram": {"type":"force-arrows-grid","panels":[
-  {"label":"A","items":[{"direction":"right","magnitude":10},{"direction":"right","magnitude":10}]},
-  {"label":"B","items":[{"direction":"right","magnitude":40},{"direction":"left","magnitude":10}]}
-]}
-
-แบบที่ 3 "direction-arrows" — ลูกศรรอบกล่อง 4 ทิศทาง เช่นโจทย์ถามทิศทางแรง/แรงเสียดทาน (direction เป็น up/down/left/right เท่านั้น):
-"diagram": {"type":"direction-arrows","arrows":[{"direction":"up","label":"A"},{"direction":"right","label":"C"}]}
-
-ข้อที่ไม่ต้องใช้แผนภาพ (เป็นแค่ข้อความ) ไม่ต้องใส่ field "diagram"
-
-กติกา:
-- แกะทุกข้อที่เห็นในทุกรูป ห้ามข้าม รวมถึงข้อที่มีแผนภาพ/กราฟ/รูปวาดประกอบ
-- ถ้าโจทย์ไม่มีเฉลยในรูป ให้คิดคำตอบที่ถูกต้องเอง
-- ทุกข้อต้องมี "explanation" อธิบายเหตุผลเสมอ เขียนให้เด็กเข้าใจง่าย
-- ใช้ภาษาเดียวกับโจทย์ต้นฉบับ (ไทยหรืออังกฤษ)
-- correctIndex และ pairs เริ่มนับจาก 0
-- ห้ามใส่ key ครอบ เช่น "_multiple_choice" หรือ "multiple_choice" ใน content/answer — ใส่ options/correctIndex/answers/pairs/value ตรงๆ ตามตัวอย่างเท่านั้น
-- ห้ามใส่เลขข้อ (เช่น "1." หรือ "9.") นำหน้าข้อความใน "prompt" ระบบจะเรียงลำดับข้อเองอัตโนมัติ`;
 
 export default function Upload() {
   const nav = useNavigate();
