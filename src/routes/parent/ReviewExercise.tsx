@@ -32,6 +32,7 @@ const TYPE_TH: Record<QuestionType, string> = {
   fill_blank: 'เติมคำ',
   matching: 'จับคู่',
   fraction: 'เศษส่วน',
+  ordering: 'เรียงลำดับ',
 };
 
 export default function ReviewExercise() {

@@ -52,5 +52,10 @@ export function gradeAnswer(
       const [aN, aD] = reduceFraction(a.numerator, a.denominator);
       return gN === aN && gD === aD;
     }
+    case 'ordering': {
+      if (!Array.isArray(g.indices) || !Array.isArray(a.indices)) return false;
+      if (g.indices.length !== a.indices.length) return false;
+      return (a.indices as unknown[]).every((v, i) => (g.indices as unknown[])[i] === v);
+    }
   }
 }

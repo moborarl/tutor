@@ -115,6 +115,30 @@ export default function StudentWorksheet() {
               </div>
             </div>
           )}
+
+          {q.questionType === 'ordering' && (
+            <div style={{ marginTop: 12, marginBottom: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 300 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>เรียงลำดับด้านล่าง (จากน้อยไปมาก):</div>
+                {(q.content as Record<string, unknown>)?.items instanceof Array &&
+                  ((q.content as Record<string, unknown>).items as string[]).map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: 8,
+                        border: '2px dotted var(--border)',
+                        borderRadius: 6,
+                        minHeight: 32,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {item}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </section>
       ))}
     </div>

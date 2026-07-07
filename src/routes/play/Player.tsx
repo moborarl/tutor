@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
-import type { Child, PlayQuestion, AnswerResult } from '@shared/types';
+import type { Child, PlayQuestion, AnswerResult, OrderingContent } from '@shared/types';
 import { QuestionMultipleChoice } from './components/QuestionMultipleChoice';
 import { QuestionTrueFalse } from './components/QuestionTrueFalse';
 import { QuestionFillBlank } from './components/QuestionFillBlank';
 import { QuestionMatching } from './components/QuestionMatching';
 import { QuestionFraction } from './components/QuestionFraction';
+import { QuestionOrdering } from './components/QuestionOrdering';
 import { DiagramView } from '../../lib/DiagramView';
 
 interface ExerciseData {
@@ -40,6 +41,7 @@ function QuestionBody({
       {q.questionType === 'fill_blank' && <QuestionFillBlank q={q} result={result} onAnswer={onAnswer} />}
       {q.questionType === 'matching' && <QuestionMatching q={q} result={result} onAnswer={onAnswer} />}
       {q.questionType === 'fraction' && <QuestionFraction result={result} onAnswer={onAnswer} />}
+      {q.questionType === 'ordering' && <QuestionOrdering content={q.content as OrderingContent} result={result} onAnswer={onAnswer} />}
     </>
   );
 }
@@ -334,6 +336,7 @@ function SimplePlayer({
         {q.questionType === 'true_false' && <QuestionTrueFalse key={q.id} result={result} onAnswer={(a) => onAnswer(q, a)} />}
         {q.questionType === 'fill_blank' && <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
         {q.questionType === 'matching' && <QuestionMatching key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
+        {q.questionType === 'ordering' && <QuestionOrdering key={q.id} content={q.content as OrderingContent} result={result} onAnswer={(a) => onAnswer(q, a)} />}
       </div>
 
       <div className="play-simple-side">

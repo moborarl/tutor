@@ -47,5 +47,26 @@ export function AnswerKey({ q }: { q: QuestionWithAnswer }) {
       </ul>
     );
   }
+  if (q.questionType === 'fraction') {
+    const num = typeof answer.numerator === 'number' ? answer.numerator : '?';
+    const denom = typeof answer.denominator === 'number' ? answer.denominator : '?';
+    return (
+      <div className="answer-key-line">
+        เฉลย: <b>{num} / {denom}</b>
+      </div>
+    );
+  }
+  if (q.questionType === 'ordering' && Array.isArray(content.items) && Array.isArray(answer.indices)) {
+    return (
+      <ul className="answer-key-options">
+        {(answer.indices as number[]).map((idx, pos) => (
+          <li key={pos} className="correct">
+            <span className="ak-mark">✓</span>
+            <span>{pos + 1}. {(content.items as string[])[idx] ?? '?'}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
   return null;
 }

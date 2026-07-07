@@ -13,7 +13,7 @@ export type ExerciseSetStatus =
 
 export type ExtractionProvider = 'claude' | 'other_cloud' | 'pi';
 
-export type QuestionType = 'multiple_choice' | 'fill_blank' | 'matching' | 'true_false' | 'fraction';
+export type QuestionType = 'multiple_choice' | 'fill_blank' | 'matching' | 'true_false' | 'fraction' | 'ordering';
 
 export interface Child {
   id: number;
@@ -76,6 +76,15 @@ export interface FractionContent {}
 export interface FractionAnswer {
   numerator: number;
   denominator: number;
+}
+
+// Child drags items into correct order; accepts any correct arrangement
+export interface OrderingContent {
+  items: string[];
+}
+export interface OrderingAnswer {
+  // indices[i] = index of the i-th item in the correct order
+  indices: number[];
 }
 
 export interface Question {
