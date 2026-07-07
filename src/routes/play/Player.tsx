@@ -6,6 +6,7 @@ import { QuestionMultipleChoice } from './components/QuestionMultipleChoice';
 import { QuestionTrueFalse } from './components/QuestionTrueFalse';
 import { QuestionFillBlank } from './components/QuestionFillBlank';
 import { QuestionMatching } from './components/QuestionMatching';
+import { QuestionFraction } from './components/QuestionFraction';
 import { DiagramView } from '../../lib/DiagramView';
 
 interface ExerciseData {
@@ -38,6 +39,7 @@ function QuestionBody({
       {q.questionType === 'true_false' && <QuestionTrueFalse result={result} onAnswer={onAnswer} />}
       {q.questionType === 'fill_blank' && <QuestionFillBlank q={q} result={result} onAnswer={onAnswer} />}
       {q.questionType === 'matching' && <QuestionMatching q={q} result={result} onAnswer={onAnswer} />}
+      {q.questionType === 'fraction' && <QuestionFraction result={result} onAnswer={onAnswer} />}
     </>
   );
 }

@@ -8,6 +8,7 @@ import ExerciseList from './routes/parent/ExerciseList';
 import Upload from './routes/parent/Upload';
 import ReviewExercise from './routes/parent/ReviewExercise';
 import TeacherView from './routes/parent/TeacherView';
+import StudentWorksheet from './routes/parent/StudentWorksheet';
 import ImportShared from './routes/parent/ImportShared';
 import ChildProgress from './routes/parent/ChildProgress';
 import ProfilePicker from './routes/play/ProfilePicker';
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="upload" element={<Upload />} />
         <Route path="exercises/:id" element={<ReviewExercise />} />
         <Route path="exercises/:id/teacher" element={<TeacherView />} />
+        <Route path="exercises/:id/student" element={<StudentWorksheet />} />
         <Route path="import/:token" element={<ImportShared />} />
       </Route>
       <Route path="/play" element={<ProfilePicker />} />

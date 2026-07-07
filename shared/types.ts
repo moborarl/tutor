@@ -13,7 +13,7 @@ export type ExerciseSetStatus =
 
 export type ExtractionProvider = 'claude' | 'other_cloud' | 'pi';
 
-export type QuestionType = 'multiple_choice' | 'fill_blank' | 'matching' | 'true_false';
+export type QuestionType = 'multiple_choice' | 'fill_blank' | 'matching' | 'true_false' | 'fraction';
 
 export interface Child {
   id: number;
@@ -69,6 +69,13 @@ export interface MatchingAnswer {
 export interface TrueFalseContent {}
 export interface TrueFalseAnswer {
   value: boolean;
+}
+
+// Child enters numerator + denominator separately; accepts reduced forms (2/4 = 1/2)
+export interface FractionContent {}
+export interface FractionAnswer {
+  numerator: number;
+  denominator: number;
 }
 
 export interface Question {

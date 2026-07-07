@@ -9,7 +9,7 @@
 // When the schema changes (e.g. a new diagram type), bump CONTRACT_VERSION and
 // note it in the CHANGELOG section at the bottom of the markdown.
 
-export const CONTRACT_VERSION = 1;
+export const CONTRACT_VERSION = 2;
 
 // The core prompt: paste into an AI chat together with worksheet photos (or let
 // an agent fetch it). Kept in Thai because worksheet content is Thai-first and
@@ -35,6 +35,9 @@ export const PROMPT_TEMPLATE = `คุณคือผู้ช่วยแกะ
 
 แบบ true_false (ถูก/ผิด):
 {"questionType":"true_false","prompt":"ข้อความที่ต้องตัดสินว่าถูกหรือผิด","content":{},"answer":{"value":true},"explanation":"เหตุผลที่ถูกหรือผิด"}
+
+แบบ fraction (เศษส่วน — เด็กกรอกตัวเศษและตัวส่วน):
+{"questionType":"fraction","prompt":"เศษส่วนที่เท่ากับ 1/2 คืออะไร","content":{},"answer":{"numerator":1,"denominator":2},"explanation":"เศษส่วนอื่นเช่น 2/4, 3/6 ก็ถูก"}
 
 ถ้าโจทย์ข้อไหนต้องดูแผนภาพแรง (ลูกศรที่มีขนาด/ทิศทาง) ประกอบถึงจะตอบได้ **ห้ามวาดรูปเอง** ให้ใส่ field "diagram" เป็นข้อมูลตามแบบใดแบบหนึ่งด้านล่างนี้แทน ระบบจะวาดภาพให้เองจากข้อมูลนี้เสมอ (แม่นยำ 100% ไม่มีวันวาดผิด/ตัดจบไม่ครบ):
 
@@ -103,5 +106,6 @@ ${PROMPT_TEMPLATE}
 ## ประวัติเวอร์ชัน
 
 - v1 — สี่ประเภทโจทย์ (multiple_choice / fill_blank / matching / true_false) + แผนภาพ 3 แบบ (force-arrows / force-arrows-grid / direction-arrows)
+- v2 — เพิ่ม fraction type (เด็กกรอกตัวเศษและตัวส่วน)
 `;
 }

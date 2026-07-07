@@ -31,6 +31,7 @@ const TYPE_TH: Record<QuestionType, string> = {
   true_false: 'ถูก/ผิด',
   fill_blank: 'เติมคำ',
   matching: 'จับคู่',
+  fraction: 'เศษส่วน',
 };
 
 export default function ReviewExercise() {
@@ -143,9 +144,14 @@ export default function ReviewExercise() {
             {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
           </button>
           {set.questions.length > 0 && (
-            <button className="secondary" onClick={() => nav(`/parent/exercises/${id}/teacher`)}>
-              📄 ฉบับเฉลย / พิมพ์
-            </button>
+            <>
+              <button className="secondary" onClick={() => nav(`/parent/exercises/${id}/teacher`)}>
+                📄 ฉบับเฉลย
+              </button>
+              <button className="secondary" onClick={() => nav(`/parent/exercises/${id}/student`)}>
+                📋 แบบฝึกหัดสำหรับเด็ก
+              </button>
+            </>
           )}
           {set.questions.length > 0 && set.status === 'pending_review' && (
             <>

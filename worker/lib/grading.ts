@@ -1,5 +1,17 @@
 import type { QuestionType } from '@shared/types';
 
+function gcd(a: number, b: number): number {
+  return b === 0 ? Math.abs(a) : gcd(b, a % b);
+}
+
+// Reduce fraction to lowest terms.
+function reduceFraction(n: number, d: number): [number, number] {
+  if (d === 0) return [n, 0];
+  const g = gcd(n, d);
+  const sign = d < 0 ? -1 : 1;
+  return [sign * (n / g), Math.abs(d) / g];
+}
+
 // Server-side grading: compares a submitted answer against the stored answer_json.
 export function gradeAnswer(
   questionType: QuestionType,
@@ -31,6 +43,14 @@ export function gradeAnswer(
       if (!Array.isArray(g.pairs) || !Array.isArray(a.pairs)) return false;
       if (g.pairs.length !== a.pairs.length) return false;
       return (a.pairs as unknown[]).every((v, i) => (g.pairs as unknown[])[i] === v);
+    }
+    case 'fraction': {
+      if (typeof g.numerator !== 'number' || typeof g.denominator !== 'number') return false;
+      if (typeof a.numerator !== 'number' || typeof a.denominator !== 'number') return false;
+      // Accept reduced forms: 2/4 = 1/2, etc.
+      const [gN, gD] = reduceFraction(g.numerator, g.denominator);
+      const [aN, aD] = reduceFraction(a.numerator, a.denominator);
+      return gN === aN && gD === aD;
     }
   }
 }
