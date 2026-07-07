@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { validateDiagram } from '@shared/diagram';
+import type { QuestionType } from '@shared/types';
 
 export const questionRoutes = new Hono<AppEnv>();
 
-const VALID_TYPES = ['multiple_choice', 'fill_blank', 'matching', 'true_false'];
+const VALID_TYPES: QuestionType[] = ['multiple_choice', 'fill_blank', 'matching', 'true_false', 'fraction', 'ordering'];
+
+function isValidQuestionType(value: string | undefined): value is QuestionType {
+  return !!value && (VALID_TYPES as string[]).includes(value);
+}
 
 // Ownership check: the question's exercise set must belong to this parent.
 async function ownedQuestion(
@@ -49,7 +54,7 @@ questionRoutes.patch('/:id', async (c) => {
     values.push(body.prompt.trim());
   }
   if (typeof body.questionType === 'string') {
-    if (!VALID_TYPES.includes(body.questionType)) return c.json({ error: 'invalid_type' }, 400);
+    if (!isValidQuestionType(body.questionType)) return c.json({ error: 'invalid_type' }, 400);
     updates.push('question_type = ?');
     values.push(body.questionType);
   }
@@ -135,7 +140,7 @@ questionRoutes.post('/', async (c) => {
       explanation?: string;
     }>()
     .catch(() => null);
-  if (!body?.exerciseSetId || !body.prompt?.trim() || !VALID_TYPES.includes(body.questionType ?? '')) {
+  if (!body?.exerciseSetId || !body.prompt?.trim() || !isValidQuestionType(body.questionType)) {
     return c.json({ error: 'invalid_body' }, 400);
   }
   const set = await c.env.DB.prepare(

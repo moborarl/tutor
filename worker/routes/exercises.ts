@@ -1,47 +1,15 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { AppEnv } from '../env';
-import type { ExtractedQuestion } from '@shared/types';
 import { runCloudExtraction } from '../lib/ai-providers';
 import { parseImportedJson } from '../lib/json-import';
+import { insertDraftQuestions } from '../lib/exercise-sets';
 import { randomId } from '../lib/crypto';
 
 export const exerciseRoutes = new Hono<AppEnv>();
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
-async function insertDraftQuestions(
-  db: D1Database,
-  exerciseSetId: number,
-  questions: ExtractedQuestion[],
-  // maps a 1-indexed "imagePage" (upload order) to the actual exercise_images.id
-  pageToImageId: Map<number, number> = new Map(),
-): Promise<void> {
-  for (let i = 0; i < questions.length; i++) {
-    const q = questions[i];
-    const imageId = q.imagePage ? pageToImageId.get(q.imagePage) ?? null : null;
-    const diagramJson = q.diagram ? JSON.stringify(q.diagram) : null;
-
-    await db
-      .prepare(
-        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id, diagram_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        exerciseSetId,
-        i,
-        q.questionType,
-        q.prompt,
-        JSON.stringify(q.content ?? {}),
-        JSON.stringify(q.answer ?? {}),
-        q.explanation ?? null,
-        imageId,
-        diagramJson,
-      )
-      .run();
-  }
-}
 
 // Runs cloud extraction for a set and updates its row. Used by upload + retry.
 async function extractForSet(
@@ -98,7 +66,6 @@ exerciseRoutes.post('/', async (c) => {
 
     // workers-types FormData.getAll is typed as string[], but binary parts arrive as File at runtime
     const files = (form.getAll('images') as unknown[]).filter((f): f is File => f instanceof File);
-    if (files.length === 0) return c.json({ error: 'image_required' }, 400);
     for (const f of files) {
       if (!IMAGE_TYPES.includes(f.type)) return c.json({ error: 'unsupported_image_type' }, 400);
       if (f.size > MAX_UPLOAD_BYTES) return c.json({ error: 'image_too_large' }, 400);
@@ -132,17 +99,19 @@ exerciseRoutes.post('/', async (c) => {
       `INSERT INTO exercise_sets (parent_id, subject_id, title, age_band, source_image_r2_key, source_image_content_type, status)
        VALUES (?, ?, ?, ?, ?, ?, 'pending_review')`,
     )
-      .bind(parentId, subjectId, title, ageBand, uploaded[0].r2Key, uploaded[0].contentType)
+      .bind(parentId, subjectId, title, ageBand, uploaded[0]?.r2Key ?? '', uploaded[0]?.contentType ?? 'image/jpeg')
       .run();
     const setId = result.meta.last_row_id as number;
 
-    await c.env.DB.batch(
-      uploaded.map((u, i) =>
-        c.env.DB.prepare(
-          `INSERT INTO exercise_images (exercise_set_id, r2_key, content_type, order_index) VALUES (?, ?, ?, ?)`,
-        ).bind(setId, u.r2Key, u.contentType, i),
-      ),
-    );
+    if (uploaded.length > 0) {
+      await c.env.DB.batch(
+        uploaded.map((u, i) =>
+          c.env.DB.prepare(
+            `INSERT INTO exercise_images (exercise_set_id, r2_key, content_type, order_index) VALUES (?, ?, ?, ?)`,
+          ).bind(setId, u.r2Key, u.contentType, i),
+        ),
+      );
+    }
 
     // Map each question's 1-indexed "imagePage" (upload order) to the row id we
     // just inserted, so questions.image_id can point at the right photo.
@@ -160,7 +129,7 @@ exerciseRoutes.post('/', async (c) => {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : '';
     console.error('Upload error:', message, stack);
-    return c.json({ error: 'upload_failed', message, details: stack }, 500);
+    return c.json({ error: 'upload_failed', message }, 500);
   }
 });
 
@@ -532,7 +501,7 @@ exerciseRoutes.delete('/:id', async (c) => {
     .bind(id)
     .all<{ r2_key: string }>();
 
-  const r2Keys = new Set([set.source_image_r2_key, ...images.results.map((img) => img.r2_key)]);
+  const r2Keys = new Set([set.source_image_r2_key, ...images.results.map((img) => img.r2_key)].filter(Boolean));
   await Promise.all([...r2Keys].map((key) => c.env.WORKSHEETS.delete(key)));
 
   // Hard delete: remove all questions first (cascade not guaranteed), then the set

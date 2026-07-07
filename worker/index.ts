@@ -11,6 +11,8 @@ import { sharedRoutes } from './routes/shared';
 import { playRoutes } from './routes/play';
 import { progressRoutes } from './routes/progress';
 import { internalRoutes } from './routes/internal';
+import { ingestRoutes } from './routes/ingest';
+import { ingestTokenRoutes } from './routes/ingest-token';
 
 const app = new Hono<AppEnv>();
 
@@ -35,10 +37,17 @@ parent.route('/exercise-sets', exerciseRoutes);
 parent.route('/questions', questionRoutes);
 parent.route('/subjects', subjectRoutes);
 parent.route('/shared', sharedRoutes); // GET /shared/:token, POST /shared/:token/import
+parent.route('/ingest-token', ingestTokenRoutes); // GET/POST/DELETE the parent's AI ingest token
 app.route('/api/parent', parent);
 
 // Kid play flow (mixed guards inside)
 app.route('/api/play', playRoutes);
+
+// Public AI push channel: POST /api/ingest/:token — an external AI/agent submits
+// exercise JSON straight into a parent's library (lands in pending_review). Auth
+// is the per-parent token in the path, so this is intentionally outside the
+// parent-session guard.
+app.route('/api/ingest', ingestRoutes);
 
 // Pi extraction service
 const internal = new Hono<AppEnv>();

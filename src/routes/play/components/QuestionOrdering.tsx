@@ -32,6 +32,14 @@ export function QuestionOrdering({
     setDraggedIdx(null);
   }
 
+  function moveItem(fromIdx: number, toIdx: number) {
+    if (result || toIdx < 0 || toIdx >= order.length) return;
+    const newOrder = [...order];
+    const [item] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, item);
+    setOrder(newOrder);
+  }
+
   function submit() {
     if (result) return;
     // order is already indices; just send it
@@ -89,11 +97,35 @@ export function QuestionOrdering({
               cursor: 'grab',
               opacity: draggedIdx === positionInOrder ? 0.5 : 1,
               fontWeight: 700,
-              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
               userSelect: 'none',
             }}
           >
-            {positionInOrder + 1}. {items[idx]}
+            <span style={{ flex: 1, textAlign: 'left' }}>
+              {positionInOrder + 1}. {items[idx]}
+            </span>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => moveItem(positionInOrder, positionInOrder - 1)}
+              disabled={positionInOrder === 0}
+              style={{ padding: '6px 10px', minWidth: 40 }}
+              aria-label="เลื่อนขึ้น"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => moveItem(positionInOrder, positionInOrder + 1)}
+              disabled={positionInOrder === order.length - 1}
+              style={{ padding: '6px 10px', minWidth: 40 }}
+              aria-label="เลื่อนลง"
+            >
+              ↓
+            </button>
           </div>
         ))}
       </div>
