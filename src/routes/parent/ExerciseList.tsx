@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import type { ExerciseSetSummary } from '@shared/types';
@@ -16,6 +17,34 @@ const PROVIDER_TH: Record<string, string> = {
   other_cloud: 'Cloud AI สำรอง',
   pi: 'Raspberry Pi',
 };
+
+function statusColor(status: string) {
+  if (status === 'published') return 'green';
+  if (status === 'pending_review') return 'amber';
+  if (status === 'processing' || status === 'extracting') return 'blue';
+  if (status === 'extraction_failed') return 'red';
+  return 'gray';
+}
+
+function DeleteSetButton({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger>
+        <Button variant="soft" color="red" disabled={disabled} title="ลบ">ลบ</Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="420px">
+        <AlertDialog.Title>ลบแบบฝึกหัดนี้?</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          แบบฝึกหัดและรูปภาพที่เกี่ยวข้องจะถูกลบออกจากบัญชีนี้
+        </AlertDialog.Description>
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action><Button color="red" onClick={onConfirm}>ลบ</Button></AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
 
 export default function ExerciseList() {
   const nav = useNavigate();
@@ -57,7 +86,6 @@ export default function ExerciseList() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('ลบแบบฝึกหัดและรูปภาพ?')) return;
     setLoading(true);
     try {
       await api.delete(`/api/parent/exercise-sets/${id}`);
@@ -118,62 +146,66 @@ export default function ExerciseList() {
   };
 
   return (
-    <div>
-      <div className="row" style={{ marginBottom: 16 }}>
-        <h2 className="grow">แบบฝึกหัด</h2>
-        <Link to="/parent/upload"><button>+ อัปโหลดรูป</button></Link>
+    <div className="parent-stack">
+      <div className="page-heading">
+        <div>
+          <Heading as="h2" size="6">แบบฝึกหัด</Heading>
+          <Text color="gray" size="2">จัดการชุดโจทย์ ตรวจ อนุมัติ แชร์ และมอบหมายให้ลูก</Text>
+        </div>
+        <Link to="/parent/upload"><Button>อัปโหลด / สร้างใหม่</Button></Link>
       </div>
 
       {selected.size >= 2 && (
-        <div className="card" style={{ marginBottom: 16, padding: 12 }}>
-          <div className="row">
-            <span className="grow">เลือก {selected.size} ชุด</span>
-            <button onClick={openMerge} disabled={loading}>🔗 รวมชุด</button>
-          </div>
-        </div>
+        <Card className="selection-bar">
+          <Flex align="center" gap="3" wrap="wrap">
+            <Text className="grow" weight="medium">เลือก {selected.size} ชุด</Text>
+            <Button onClick={openMerge} disabled={loading}>รวมชุด</Button>
+          </Flex>
+        </Card>
       )}
 
       {merging && (
-        <div className="card">
-          <h3>รวม {selected.size} ชุดเป็นชุดเดียว</h3>
-          <p className="muted">โจทย์และรูปทุกหน้าจะถูกรวมกัน สถานะจะกลับเป็น "รอตรวจ" ให้ตรวจซ้ำก่อนเผยแพร่</p>
+        <Card className="parent-panel">
+          <Heading as="h3" size="4">รวม {selected.size} ชุดเป็นชุดเดียว</Heading>
+          <Text as="p" color="gray" size="2">โจทย์และรูปทุกหน้าจะถูกรวมกัน สถานะจะกลับเป็น "รอตรวจ" ให้ตรวจซ้ำก่อนเผยแพร่</Text>
           <input
             placeholder="ชื่อชุดที่รวมแล้ว"
             value={mergeTitle}
             onChange={(e) => setMergeTitle(e.target.value)}
             style={{ marginBottom: 12 }}
           />
-          <div className="row">
-            <button onClick={confirmMerge} disabled={loading}>ยืนยันรวมชุด</button>
-            <button className="secondary" onClick={() => setMerging(false)} disabled={loading}>ยกเลิก</button>
-          </div>
-        </div>
+          <Flex gap="2" wrap="wrap">
+            <Button onClick={confirmMerge} disabled={loading}>ยืนยันรวมชุด</Button>
+            <Button variant="soft" color="gray" onClick={() => setMerging(false)} disabled={loading}>ยกเลิก</Button>
+          </Flex>
+        </Card>
       )}
 
       {shareUrl && (
-        <div className="card">
-          <h3>ลิงก์แชร์แบบฝึกหัด</h3>
-          <p className="muted">ส่งลิงก์นี้ให้ผู้ปกครองคนอื่น เขาจะคัดลอกแบบฝึกหัดเข้าคลังของตัวเองได้ (ของคุณไม่กระทบ)</p>
+        <Card className="parent-panel">
+          <Heading as="h3" size="4">ลิงก์แชร์แบบฝึกหัด</Heading>
+          <Text as="p" color="gray" size="2">ส่งลิงก์นี้ให้ผู้ปกครองคนอื่น เขาจะคัดลอกแบบฝึกหัดเข้าคลังของตัวเองได้</Text>
           <div className="row">
             <input readOnly value={shareUrl} onFocus={(e) => e.target.select()} style={{ flex: 1 }} />
-            <button
+            <Button
               onClick={async () => { await navigator.clipboard.writeText(shareUrl); setShareCopied(true); }}
             >
-              {shareCopied ? '✓ คัดลอกแล้ว' : '📋 คัดลอก'}
-            </button>
-            <button className="secondary" onClick={() => setShareUrl(null)}>ปิด</button>
+              {shareCopied ? 'คัดลอกแล้ว' : 'คัดลอก'}
+            </Button>
+            <Button variant="soft" color="gray" onClick={() => setShareUrl(null)}>ปิด</Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {sets.length === 0 && (
-        <div className="card muted">ยังไม่มีแบบฝึกหัด อัปโหลดรูปถ่ายแบบฝึกหัดเพื่อเริ่มต้น</div>
+        <Card><Text color="gray">ยังไม่มีแบบฝึกหัด อัปโหลดรูปถ่ายแบบฝึกหัดเพื่อเริ่มต้น</Text></Card>
       )}
 
-      {sets.map((s) => (
-        <div key={s.id}>
+      <div className="exercise-list">
+        {sets.map((s) => (
+        <div key={s.id} className="exercise-list-item">
           {editingId === s.id ? (
-            <div className="card" style={{ padding: 16 }}>
+            <Card className="exercise-card">
               <div className="row" style={{ marginBottom: 12 }}>
                 <input
                   type="text"
@@ -182,20 +214,21 @@ export default function ExerciseList() {
                   placeholder="ชื่อแบบฝึกหัด"
                   style={{ flex: 1, marginRight: 8 }}
                 />
-                <button onClick={() => handleRename(s.id, editTitle)} disabled={loading} style={{ marginRight: 4 }}>
+                <Button onClick={() => handleRename(s.id, editTitle)} disabled={loading}>
                   บันทึก
-                </button>
-                <button onClick={() => setEditingId(null)} disabled={loading}>
+                </Button>
+                <Button variant="soft" color="gray" onClick={() => setEditingId(null)} disabled={loading}>
                   ยกเลิก
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           ) : (
             // Checkbox and action buttons are siblings of the Link, not nested inside
             // it — nesting a checkbox inside an <a> is unreliable on touch devices
             // (iPad Safari can still navigate on tap even with stopPropagation), so
             // keeping them fully outside removes any ambiguity.
-            <div className="card row">
+            <Card className="exercise-card">
+              <div className="exercise-card-row">
               <input
                 type="checkbox"
                 checked={selected.has(s.id)}
@@ -205,51 +238,48 @@ export default function ExerciseList() {
               />
               <Link
                 to={`/parent/exercises/${s.id}`}
-                className="grow row"
+                className="grow"
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
-                <div className="grow">
-                  <div style={{ fontWeight: 700 }}>{s.title || `ชุดที่ ${s.id}`}</div>
-                  <div className="muted">
+                <div>
+                  <Text as="div" weight="bold">{s.title || `ชุดที่ ${s.id}`}</Text>
+                  <Text as="div" color="gray" size="2">
                     {s.subjectName ?? 'ไม่ระบุวิชา'} · {s.questionCount} ข้อ ·{' '}
                     {s.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
                     {s.extractionProvider && ` · แกะโดย ${PROVIDER_TH[s.extractionProvider]}`}
-                  </div>
+                  </Text>
                 </div>
-                <span className={`badge ${s.status}`} style={{ marginRight: 8 }}>
-                  {STATUS_TH[s.status] ?? s.status}
-                </span>
               </Link>
-              <div className="row" style={{ gap: 4 }}>
-                <button
+              <Badge color={statusColor(s.status)} variant="soft">
+                {STATUS_TH[s.status] ?? s.status}
+              </Badge>
+              <div className="exercise-actions">
+                <Button
+                  variant="soft"
+                  color="gray"
                   onClick={() => handleShare(s.id)}
                   disabled={loading}
                   title="แชร์"
-                  style={{ fontSize: 16, width: 32, height: 32, padding: 0 }}
                 >
-                  🔗
-                </button>
-                <button
+                  แชร์
+                </Button>
+                <Button
+                  variant="soft"
+                  color="gray"
                   onClick={() => startEdit(s)}
                   disabled={loading}
                   title="เปลี่ยนชื่อ"
-                  style={{ fontSize: 16, width: 32, height: 32, padding: 0 }}
                 >
-                  ✎
-                </button>
-                <button
-                  onClick={() => handleDelete(s.id)}
-                  disabled={loading}
-                  title="ลบ"
-                  style={{ fontSize: 16, width: 32, height: 32, padding: 0, background: 'var(--red-soft)' }}
-                >
-                  🗑️
-                </button>
+                  แก้ชื่อ
+                </Button>
+                <DeleteSetButton disabled={loading} onConfirm={() => handleDelete(s.id)} />
               </div>
-            </div>
+              </div>
+            </Card>
           )}
         </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

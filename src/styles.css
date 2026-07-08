@@ -516,6 +516,182 @@ table.data th { color: var(--muted); font-weight: 600; }
 .nav-bar a { text-decoration: none; color: var(--ink); font-weight: 600; padding: 6px 12px; border-radius: 8px; }
 .nav-bar a.active { background: var(--accent-soft); color: var(--accent); }
 
+.parent-shell {
+  min-height: 100vh;
+}
+
+.parent-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+}
+
+.parent-brand {
+  font-weight: 850;
+  margin-right: 8px;
+  letter-spacing: 0;
+}
+
+.parent-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.page-heading h2 {
+  margin: 0 0 4px;
+}
+
+.parent-panel,
+.selection-bar {
+  padding: 18px;
+}
+
+.parent-panel.compact {
+  padding: 12px 14px;
+}
+
+.exercise-list,
+.progress-set-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exercise-card {
+  padding: 14px;
+}
+
+.exercise-card-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.exercise-actions,
+.child-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.upload-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.section-label {
+  display: block;
+  font-weight: 750;
+  margin-bottom: 12px;
+}
+
+.prompt-panel {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.children-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.child-card {
+  padding: 14px;
+}
+
+.child-card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.child-avatar {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  font-size: 32px;
+}
+
+.child-progress-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 18px;
+}
+
+.progress-set-row {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.progress-set-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .page-heading,
+  .exercise-card-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .exercise-card-row {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .exercise-actions,
+  .child-actions,
+  .page-heading > a,
+  .page-heading button {
+    width: 100%;
+  }
+
+  .exercise-actions button,
+  .child-actions button,
+  .page-heading a,
+  .page-heading a button {
+    width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sticky-toolbar {
   position: sticky;
   top: 0;

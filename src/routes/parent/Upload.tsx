@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AlertDialog, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
 import { parseJsonWithRepair } from '@shared/json-repair';
@@ -48,7 +49,6 @@ export default function Upload() {
   }
 
   async function revokeToken() {
-    if (!confirm('ปิดลิงก์นี้? AI ที่ถือ token เดิมจะส่งเข้าระบบไม่ได้อีก')) return;
     setTokenBusy(true);
     try {
       await api.delete('/api/parent/ingest-token');
@@ -126,28 +126,33 @@ export default function Upload() {
   }
 
   return (
-    <div>
-      <h2>สร้างแบบฝึกหัดใหม่</h2>
+    <div className="parent-stack">
+      <div className="page-heading">
+        <div>
+          <Heading as="h2" size="6">สร้างแบบฝึกหัดใหม่</Heading>
+          <Text color="gray" size="2">วาง JSON จาก AI, แนบรูปต้นฉบับ หรือให้ AI ส่งเข้าระบบเองผ่านลิงก์ลับ</Text>
+        </div>
+      </div>
 
-      <div className="card">
-        <h3>ขั้นที่ 1: ให้ AI แกะโจทย์ (ฟรี)</h3>
-        <p className="muted">
+      <Card className="parent-panel">
+        <Heading as="h3" size="4">ขั้นที่ 1: ให้ AI แกะโจทย์</Heading>
+        <Text as="p" color="gray" size="2">
           เปิด <a href="https://chatgpt.com" target="_blank" rel="noreferrer">ChatGPT</a>,{' '}
           <a href="https://claude.ai" target="_blank" rel="noreferrer">Claude.ai</a> หรือ{' '}
           <a href="https://gemini.google.com" target="_blank" rel="noreferrer">Gemini</a> (แบบฟรี ไม่เสียเงิน)
           แล้ว copy คำสั่งด้านล่าง
-        </p>
+        </Text>
         <textarea readOnly rows={6} value={PROMPT_TEMPLATE} style={{ fontFamily: 'monospace', fontSize: '.85rem' }} />
-        <button type="button" className="secondary" style={{ marginTop: 8 }} onClick={copyPrompt}>
-          {copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกคำสั่งนี้'}
-        </button>
-      </div>
+        <Button type="button" variant="soft" color="gray" style={{ marginTop: 8 }} onClick={copyPrompt}>
+          {copied ? 'คัดลอกแล้ว' : 'คัดลอกคำสั่งนี้'}
+        </Button>
+      </Card>
 
-      <div className="card">
-        <h3>ขั้นที่ 2: ตั้งค่า + ส่งเข้าระบบ</h3>
+      <Card className="parent-panel">
+        <Heading as="h3" size="4">ขั้นที่ 2: ตั้งค่า + ส่งเข้าระบบ</Heading>
 
-        <div style={{ marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid #e6c6b0' }}>
-          <label style={{ display: 'block', fontWeight: 700, marginBottom: 12 }}>⚙️ ตั้งค่าพื้นฐาน</label>
+        <div className="upload-section">
+          <label className="section-label">ตั้งค่าพื้นฐาน</label>
           <div className="row" style={{ gap: 12, marginBottom: 12 }}>
             <select value={ageBand} onChange={(e) => setAgeBand(e.target.value as AgeBand)} style={{ flex: 1 }}>
               <option value="young">สำหรับเด็กเล็ก</option>
@@ -168,8 +173,8 @@ export default function Upload() {
           />
         </div>
 
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'block', fontWeight: 700, marginBottom: 12 }}>✏️ ตัวเลือก A: Paste JSON + อัปโหลดรูป</label>
+        <div className="upload-section">
+          <label className="section-label">ตัวเลือก A: Paste JSON + อัปโหลดรูป</label>
           <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label className="muted" style={{ fontSize: '.9rem' }}>อัปโหลดรูป (ไม่จำเป็น)</label>
             <input
@@ -201,40 +206,50 @@ export default function Upload() {
               onChange={(e) => setTitle(e.target.value)}
             />
             {error && <div className="error-text">{error}</div>}
-            <button type="submit" disabled={!questionsJson.trim() || busy}>
-              {busy ? 'กำลังบันทึก...' : '➜ สร้างแบบฝึกหัด'}
-            </button>
+            <Button type="submit" disabled={!questionsJson.trim() || busy}>
+              {busy ? 'กำลังบันทึก...' : 'สร้างแบบฝึกหัด'}
+            </Button>
           </form>
         </div>
 
         <div>
-          <label style={{ display: 'block', fontWeight: 700, marginBottom: 12 }}>🚀 ตัวเลือก B: ให้ AI ส่งเอง (ingest)</label>
-          <p className="muted" style={{ fontSize: '.9rem', marginBottom: 12 }}>
+          <label className="section-label">ตัวเลือก B: ให้ AI ส่งเอง (ingest)</label>
+          <Text as="p" color="gray" size="2">
             สร้างลิงก์ลับประจำบัญชี → copy prompt template → ปะเนื้อหา → ส่งให้ AI อ่านกติกา + POST JSON กลับมา
-          </p>
+          </Text>
 
           {!ingestToken ? (
-            <button type="button" className="secondary" onClick={generateToken} disabled={tokenBusy}>
-              {tokenBusy ? 'กำลังสร้าง...' : '🔑 สร้างลิงก์สำหรับ AI'}
-            </button>
+            <Button type="button" variant="soft" color="gray" onClick={generateToken} disabled={tokenBusy}>
+              {tokenBusy ? 'กำลังสร้าง...' : 'สร้างลิงก์สำหรับ AI'}
+            </Button>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-                <button type="button" className="secondary" onClick={copyIngestUrl}>
-                  {urlCopied ? '✓ คัดลอก URL' : '📋 คัดลอก URL'}
-                </button>
-                <button type="button" className="secondary" onClick={generateToken} disabled={tokenBusy}>
-                  🔄 หมุน
-                </button>
-                <button type="button" className="danger" onClick={revokeToken} disabled={tokenBusy}>
-                  ปิด
-                </button>
+                <Button type="button" variant="soft" color="gray" onClick={copyIngestUrl}>
+                  {urlCopied ? 'คัดลอก URL แล้ว' : 'คัดลอก URL'}
+                </Button>
+                <Button type="button" variant="soft" color="gray" onClick={generateToken} disabled={tokenBusy}>
+                  หมุน token
+                </Button>
+                <AlertDialog.Root>
+                  <AlertDialog.Trigger>
+                    <Button type="button" variant="soft" color="red" disabled={tokenBusy}>ปิดลิงก์</Button>
+                  </AlertDialog.Trigger>
+                  <AlertDialog.Content maxWidth="420px">
+                    <AlertDialog.Title>ปิดลิงก์สำหรับ AI?</AlertDialog.Title>
+                    <AlertDialog.Description size="2">AI ที่ถือ token เดิมจะส่งเข้าระบบไม่ได้อีก</AlertDialog.Description>
+                    <Flex gap="3" justify="end" mt="4">
+                      <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+                      <AlertDialog.Action><Button color="red" onClick={revokeToken}>ปิดลิงก์</Button></AlertDialog.Action>
+                    </Flex>
+                  </AlertDialog.Content>
+                </AlertDialog.Root>
               </div>
 
-              <div style={{ background: '#f9f5f0', border: '1px solid #e6c6b0', borderRadius: 8, padding: 12 }}>
-                <p className="muted" style={{ fontSize: '.8rem', margin: '0 0 8px 0', fontWeight: 700 }}>
-                  📋 Prompt template (copy & paste)
-                </p>
+              <div className="prompt-panel">
+                <Text as="div" color="gray" size="1" weight="bold" mb="2">
+                  Prompt template (copy & paste)
+                </Text>
                 <textarea
                   readOnly
                   rows={14}
@@ -257,9 +272,8 @@ ${ingestUrl}
 - POST ไปที่ลิงก์ด้านบน`}
                   style={{ fontFamily: 'monospace', fontSize: '.75rem', padding: 10 }}
                 />
-                <button
+                <Button
                   type="button"
-                  className="secondary"
                   style={{ marginTop: 8, width: '100%' }}
                   onClick={async () => {
                     const prompt = `คุณคือครูสอน${subjectName ? subjectName : '[วิชา]'} ชั้น${ageBand === 'young' ? 'ประถมต้น' : 'ประถมปลาย'} ที่มีความเชียวชาญด้านการออกแบบแบบฝึกหัด
@@ -280,11 +294,11 @@ ${ingestUrl}
 - สร้าง JSON
 - POST ไปที่ลิงก์ด้านบน`;
                     await navigator.clipboard.writeText(prompt);
-                    alert('✓ คัดลอก prompt template แล้ว');
+                    alert('คัดลอก prompt template แล้ว');
                   }}
                 >
-                  ➜ คัดลอก prompt template
-                </button>
+                  คัดลอก prompt template
+                </Button>
               </div>
 
               <p className="muted" style={{ fontSize: '.75rem' }}>
@@ -293,7 +307,7 @@ ${ingestUrl}
             </div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

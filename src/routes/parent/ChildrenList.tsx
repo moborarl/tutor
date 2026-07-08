@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AlertDialog, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import type { Child, AgeBand } from '@shared/types';
@@ -36,7 +37,6 @@ export default function ChildrenList() {
   };
 
   const handleDeleteSingle = async (id: number) => {
-    if (!confirm('ลบลูกนี้ทั้งข้อมูลความก้าวหน้า?')) return;
     setLoading(true);
     try {
       await api.delete(`/api/parent/children/${id}`);
@@ -50,7 +50,6 @@ export default function ChildrenList() {
 
   const handleDeleteBulk = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`ลบ ${selected.size} ลูก ทั้งข้อมูลความก้าวหน้า?`)) return;
     setLoading(true);
     try {
       await Promise.all(Array.from(selected).map((id) => api.delete(`/api/parent/children/${id}`)));
@@ -64,33 +63,42 @@ export default function ChildrenList() {
   };
 
   return (
-    <div>
-      <div className="row" style={{ marginBottom: 16 }}>
-        <h2 className="grow">ลูกๆ</h2>
-        <button onClick={() => { setEditing(null); setShowForm(true); }}>+ เพิ่มลูก</button>
+    <div className="parent-stack">
+      <div className="page-heading">
+        <div>
+          <Heading as="h2" size="6">ลูกๆ</Heading>
+          <Text color="gray" size="2">จัดการโปรไฟล์ PIN และติดตามความคืบหน้าของแต่ละคน</Text>
+        </div>
+        <Button onClick={() => { setEditing(null); setShowForm(true); }}>เพิ่มลูก</Button>
       </div>
 
       {children.length > 0 && selected.size > 0 && (
-        <div className="card" style={{ marginBottom: 16, padding: 12 }}>
-          <div className="row">
-            <span className="grow">เลือก {selected.size} ลูก</span>
-            <button
-              onClick={handleDeleteBulk}
-              disabled={loading}
-              style={{ background: '#fee' }}
-            >
-              🗑️ ลบ {selected.size} ลูก
-            </button>
-          </div>
-        </div>
+        <Card className="selection-bar">
+          <Flex align="center" gap="3" wrap="wrap">
+            <Text className="grow" weight="medium">เลือก {selected.size} ลูก</Text>
+            <AlertDialog.Root>
+              <AlertDialog.Trigger>
+                <Button color="red" variant="soft" disabled={loading}>ลบ {selected.size} ลูก</Button>
+              </AlertDialog.Trigger>
+              <AlertDialog.Content maxWidth="420px">
+                <AlertDialog.Title>ลบ {selected.size} โปรไฟล์?</AlertDialog.Title>
+                <AlertDialog.Description size="2">ข้อมูลความก้าวหน้าของโปรไฟล์ที่เลือกจะถูกลบด้วย</AlertDialog.Description>
+                <Flex gap="3" justify="end" mt="4">
+                  <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+                  <AlertDialog.Action><Button color="red" onClick={handleDeleteBulk}>ลบ</Button></AlertDialog.Action>
+                </Flex>
+              </AlertDialog.Content>
+            </AlertDialog.Root>
+          </Flex>
+        </Card>
       )}
 
       {children.length === 0 && !showForm && (
-        <div className="card muted">ยังไม่มีโปรไฟล์ลูก กด "+ เพิ่มลูก" เพื่อเริ่มต้น</div>
+        <Card><Text color="gray">ยังไม่มีโปรไฟล์ลูก กด “เพิ่มลูก” เพื่อเริ่มต้น</Text></Card>
       )}
 
       {children.length > 0 && (
-        <div className="card" style={{ marginBottom: 12, padding: 12 }}>
+        <Card className="parent-panel compact">
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input
               type="checkbox"
@@ -100,11 +108,13 @@ export default function ChildrenList() {
             />
             <span>เลือกทั้งหมด</span>
           </label>
-        </div>
+        </Card>
       )}
 
-      {children.map((ch) => (
-        <div className="card row" key={ch.id} style={{ alignItems: 'center' }}>
+      <div className="children-grid">
+        {children.map((ch) => (
+        <Card className="child-card" key={ch.id}>
+          <div className="child-card-main">
           <input
             type="checkbox"
             checked={selected.has(ch.id)}
@@ -112,27 +122,36 @@ export default function ChildrenList() {
             disabled={loading}
             style={{ width: 20, height: 20, cursor: 'pointer' }}
           />
-          <span style={{ fontSize: 40, marginLeft: 8 }}>{ch.avatar}</span>
+          <span className="child-avatar">{ch.avatar}</span>
           <div className="grow">
-            <div style={{ fontWeight: 700 }}>{ch.name}</div>
-            <div className="muted">{ch.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}</div>
+            <Text as="div" weight="bold">{ch.name}</Text>
+            <Text as="div" color="gray" size="2">{ch.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}</Text>
           </div>
+          </div>
+          <div className="child-actions">
           <Link to={`/parent/children/${ch.id}/progress`}>
-            <button className="secondary" disabled={loading}>ดู Progress</button>
+            <Button variant="soft" color="gray" disabled={loading}>ดู Progress</Button>
           </Link>
-          <button className="secondary" onClick={() => { setEditing(ch); setShowForm(true); }} disabled={loading}>
+          <Button variant="soft" color="gray" onClick={() => { setEditing(ch); setShowForm(true); }} disabled={loading}>
             แก้ไข
-          </button>
-          <button
-            className="secondary"
-            onClick={() => handleDeleteSingle(ch.id)}
-            disabled={loading}
-            style={{ background: '#fee' }}
-          >
-            🗑️
-          </button>
-        </div>
-      ))}
+          </Button>
+          <AlertDialog.Root>
+            <AlertDialog.Trigger>
+              <Button variant="soft" color="red" disabled={loading}>ลบ</Button>
+            </AlertDialog.Trigger>
+            <AlertDialog.Content maxWidth="420px">
+              <AlertDialog.Title>ลบ {ch.name}?</AlertDialog.Title>
+              <AlertDialog.Description size="2">ข้อมูลความก้าวหน้าของโปรไฟล์นี้จะถูกลบด้วย</AlertDialog.Description>
+              <Flex gap="3" justify="end" mt="4">
+                <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+                <AlertDialog.Action><Button color="red" onClick={() => handleDeleteSingle(ch.id)}>ลบ</Button></AlertDialog.Action>
+              </Flex>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
+          </div>
+        </Card>
+        ))}
+      </div>
 
       {showForm && (
         <ChildForm
@@ -171,21 +190,22 @@ function ChildForm({ child, onDone, onCancel }: { child: Child | null; onDone: (
   }
 
   return (
-    <div className="card">
-      <h3>{child ? `แก้ไข ${child.name}` : 'เพิ่มลูก'}</h3>
+    <Card className="parent-panel">
+      <Heading as="h3" size="4">{child ? `แก้ไข ${child.name}` : 'เพิ่มลูก'}</Heading>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <input placeholder="ชื่อเล่น" value={name} onChange={(e) => setName(e.target.value)} required />
         <div className="row">
           {AVATARS.map((a) => (
-            <button
+            <Button
               key={a}
               type="button"
-              className="secondary"
+              variant={a === avatar ? 'solid' : 'soft'}
+              color={a === avatar ? 'indigo' : 'gray'}
               style={{ fontSize: 24, padding: 8, outline: a === avatar ? '3px solid var(--accent)' : 'none' }}
               onClick={() => setAvatar(a)}
             >
               {a}
-            </button>
+            </Button>
           ))}
         </div>
         <select value={ageBand} onChange={(e) => setAgeBand(e.target.value as AgeBand)}>
@@ -200,10 +220,10 @@ function ChildForm({ child, onDone, onCancel }: { child: Child | null; onDone: (
         />
         {error && <div className="error-text">{error}</div>}
         <div className="row">
-          <button type="submit">บันทึก</button>
-          <button type="button" className="secondary" onClick={onCancel}>ยกเลิก</button>
+          <Button type="submit">บันทึก</Button>
+          <Button type="button" variant="soft" color="gray" onClick={onCancel}>ยกเลิก</Button>
         </div>
       </form>
-    </div>
+    </Card>
   );
 }
