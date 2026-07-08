@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
+import { ChildAvatar } from '../../components/ChildAvatar';
 import type { ChildProgress as ChildProgressData } from '@shared/types';
 
 function pct(v: number | null): string {
@@ -50,7 +51,7 @@ export default function ChildProgress() {
     <div className="parent-stack">
       <div className="page-heading">
         <div className="child-progress-title">
-          <span style={{ fontSize: 44 }}>{data.child.avatar}</span>
+          <ChildAvatar child={data.child} size="md" />
           <div>
             <Heading as="h2" size="6">{data.child.name}</Heading>
             <Text color="gray" size="2">{data.child.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}</Text>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
+import { ChildAvatar } from '../../components/ChildAvatar';
 import type { Child } from '@shared/types';
 
 export default function ProfilePicker() {
@@ -104,7 +105,7 @@ export default function ProfilePicker() {
         <div className="profile-grid">
           {children.map((ch) => (
             <button key={ch.id} className="profile-tile" onClick={() => { setPicked(ch); setError(''); }}>
-              <span className="avatar">{ch.avatar}</span>
+              <ChildAvatar child={ch} size="lg" />
               <span>{ch.name}</span>
             </button>
           ))}
@@ -164,7 +165,7 @@ export default function ProfilePicker() {
         </button>
         <Link to="/parent"><button className="secondary">ผู้ปกครอง</button></Link>
       </div>
-      <div className="pin-avatar">{picked.avatar}</div>
+      <div className="pin-avatar"><ChildAvatar child={picked} size="lg" /></div>
       <h2>สวัสดี {picked.name}! ใส่ PIN 4 ตัวนะ</h2>
       <div className="pin-dots">
         {[0, 1, 2, 3].map((i) => (

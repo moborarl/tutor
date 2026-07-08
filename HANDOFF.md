@@ -1,5 +1,48 @@
 # HANDOFF — Kids Tutor
 
+## Implementation ล่าสุด (2026-07-08 รอบ explorer/theme)
+
+ทำแล้วใน working tree รอบนี้:
+
+1. หน้า `ดูแลข้อมูล > แบบฝึกหัด`
+   - checkbox เล็กลงและไม่กินพื้นที่ row (`compact-checkbox`)
+   - column ชื่อวิชา/ชื่อแบบฝึกหัดกว้างขึ้น
+   - เอาปุ่ม `ลบ` รายแถวออก ใช้เฉพาะ `ลบที่เลือก` ด้านบน
+   - ปรับ row เป็น grid ชัดเจน ลดอาการบีบ
+
+2. Theme เป็น earth tone green
+   - ลดสีส้มแรง
+   - ใช้ sage/olive green เป็น primary accent
+   - พื้นหลังเป็นเขียวเทาอ่อน, card เป็น off-white เขียวอ่อน, border เป็นเขียวเทา
+   - left tree เป็น green soft/professional
+   - คงสี correct/wrong/delete ให้ชัด
+   - คง print page เป็นขาวสำหรับพิมพ์
+
+3. หน้า `แบบฝึกหัด` เป็น 2-pane tree จริง
+   - ซ้าย: `วิชา > เด็กเล็ก/เด็กโต > แบบฝึกหัด`
+   - ขวา:
+     - เลือกวิชา = summary วิชานั้น
+     - เลือกเด็กเล็ก/เด็กโต = list แบบฝึกหัดในกลุ่มนั้น
+     - เลือกแบบฝึกหัด = รายละเอียด + ปุ่มแก้ไข/ตรวจ/เผยแพร่/เก็บเข้าคลัง
+
+4. หน้า `เด็ก` เป็น 2-pane tree pattern
+   - ซ้าย: `สมาชิกครอบครัว > เด็ก > ความคืบหน้า / แบบฝึกหัดที่มอบหมาย / ตั้งค่าโปรไฟล์`
+   - ขวา:
+     - progress by subject
+     - assigned exercises
+     - edit/delete child profile
+
+5. Design system เล็ก ๆ เพื่อใช้ซ้ำ
+   - เพิ่ม `src/components/ChildAvatar.tsx`: แทน emoji ล้วนด้วย avatar ในกรอบ consistent + tone สีประจำเด็ก
+   - avatar picker เป็น grid ในหน้าเพิ่ม/แก้เด็ก
+   - เพิ่ม `src/components/TreePanel.tsx` สำหรับ tree navigation ซ้าย
+   - เพิ่ม `src/components/ExplorerLayout.tsx` สำหรับ layout ซ้าย tree + ขวา workspace
+   - ใช้ซ้ำในแบบฝึกหัด management และ children management แล้ว
+
+ตรวจแล้ว:
+- `npm.cmd test` ผ่าน 12/12
+- `$env:WRANGLER_WRITE_LOGS='false'; npm.cmd run build` ผ่าน
+
 > อัปเดตล่าสุด 2026-07-08: รอบนี้เพิ่ม UX/management/progress/super-admin แล้ว โค้ดยังไม่ได้ commit เพราะเครื่อง agent สร้าง `.git/index.lock` ไม่ได้ (`Permission denied`) ต้องให้ผู้ใช้รัน git เอง
 
 ## ล่าสุดที่สุด (2026-07-08 รอบ polish)

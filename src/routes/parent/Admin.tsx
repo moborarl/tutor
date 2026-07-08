@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { api, ApiError } from '../../lib/api-client';
+import { ChildAvatar } from '../../components/ChildAvatar';
 
 type AdminSection = 'overview' | 'profile' | 'password' | 'sets' | 'children' | 'r2' | 'cleanup';
 type SetFilter = 'all' | string;
@@ -383,7 +384,7 @@ export default function Admin() {
                 <div className="family-child-list">
                   {profile.children.map((child) => (
                     <div key={child.id} className="family-child-row">
-                      <span className="child-avatar">{child.avatar}</span>
+                      <ChildAvatar child={child} />
                       <div className="grow">
                         <Text as="div" weight="bold">{child.name}</Text>
                         <Text as="div" color="gray" size="2">
@@ -453,6 +454,7 @@ export default function Admin() {
                 {filteredSets.map((s) => (
                   <div key={s.id} className={`admin-row selectable-row ${selectedSetIds.includes(s.id) ? 'selected' : ''}`}>
                     <input
+                      className="compact-checkbox"
                       type="checkbox"
                       checked={selectedSetIds.includes(s.id)}
                       onChange={(e) => toggleSet(s.id, e.target.checked)}
@@ -463,13 +465,6 @@ export default function Admin() {
                       <Text as="div" color="gray" size="2">{s.subjectName ?? 'ไม่ระบุวิชา'} · {ageBandLabel(s.ageBand)} · {s.questionCount} ข้อ · มอบหมาย {s.assignedCount}</Text>
                     </div>
                     <Badge variant="soft">{s.status}</Badge>
-                    <ConfirmDanger
-                      label="ลบ"
-                      title="ลบแบบฝึกหัดนี้?"
-                      description="จะลบโจทย์ รูปภาพ การมอบหมาย และประวัติการทำของชุดนี้"
-                      disabled={busy}
-                      onConfirm={() => deleteSelectedSets([s.id])}
-                    />
                   </div>
                 ))}
                 {filteredSets.length === 0 && <Text color="gray">ไม่มีแบบฝึกหัดในโฟลเดอร์นี้</Text>}
@@ -483,7 +478,7 @@ export default function Admin() {
               <div className="admin-list">
                 {summary.children.map((ch) => (
                   <div key={ch.id} className="admin-row">
-                    <span className="child-avatar">{ch.avatar}</span>
+                    <ChildAvatar child={ch} />
                     <div className="grow">
                       <Text as="div" weight="bold">{ch.name}</Text>
                       <Text as="div" color="gray" size="2">{ageBandLabel(ch.ageBand)} · มอบหมาย {ch.assignedCount} · ทำแล้ว {ch.attemptCount}</Text>
