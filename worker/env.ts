@@ -7,6 +7,7 @@ export interface Env {
   ANTHROPIC_API_KEY?: string; // Optional paid fallback (Claude)
   PI_WORKER_TOKEN?: string;
   OPENAI_API_KEY?: string; // Reserved for future use
+  SUPER_ADMIN_TOKEN?: string;
 }
 
 export interface SessionInfo {

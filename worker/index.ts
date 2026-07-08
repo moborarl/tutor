@@ -14,6 +14,7 @@ import { internalRoutes } from './routes/internal';
 import { ingestRoutes } from './routes/ingest';
 import { ingestTokenRoutes } from './routes/ingest-token';
 import { adminRoutes } from './routes/admin';
+import { superAdminRoutes } from './routes/super-admin';
 
 const app = new Hono<AppEnv>();
 
@@ -41,6 +42,8 @@ parent.route('/shared', sharedRoutes); // GET /shared/:token, POST /shared/:toke
 parent.route('/ingest-token', ingestTokenRoutes); // GET/POST/DELETE the parent's AI ingest token
 parent.route('/admin', adminRoutes);
 app.route('/api/parent', parent);
+
+app.route('/api/super-admin', superAdminRoutes);
 
 // Kid play flow (mixed guards inside)
 app.route('/api/play', playRoutes);

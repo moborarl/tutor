@@ -157,6 +157,13 @@ export interface ProgressSetRow {
   hasInProgress: boolean;
 }
 
+export interface SubjectProgressRow {
+  subjectName: string;
+  assignedCount: number;
+  completedAttempts: number;
+  bestScore: number | null;
+}
+
 export interface RecentAttemptRow {
   attemptId: number;
   exerciseSetTitle: string;
@@ -170,6 +177,7 @@ export interface ChildProgress {
   child: Child;
   totalCompletedAttempts: number;
   averageScore: number | null;
+  subjects: SubjectProgressRow[];
   sets: ProgressSetRow[];
   recentAttempts: RecentAttemptRow[];
 }

@@ -36,9 +36,23 @@ export default function PlayProgress() {
             <div className="muted">ทำเสร็จแล้ว</div>
           </div>
           <div className="card">
-            <div className="play-progress-number good">{pct(data.averageScore)}</div>
-            <div className="muted">คะแนนเฉลี่ย</div>
+            <div className="play-progress-number">{data.subjects.length}</div>
+            <div className="muted">วิชาที่ฝึกอยู่</div>
           </div>
+        </div>
+
+        <div className="card">
+          <h3>ความคืบหน้าตามวิชา</h3>
+          {data.subjects.length === 0 && <div className="muted">ยังไม่มีข้อมูลตามวิชา</div>}
+          {data.subjects.map((s) => (
+            <div key={s.subjectName} className="play-progress-row">
+              <div className="grow">
+                <b>{s.subjectName}</b>
+                <div className="muted">{s.assignedCount} ชุด · ทำเสร็จ {s.completedAttempts} ครั้ง</div>
+              </div>
+              <b className="good-text">{pct(s.bestScore)}</b>
+            </div>
+          ))}
         </div>
 
         <div className="card">

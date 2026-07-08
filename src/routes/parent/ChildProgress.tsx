@@ -52,10 +52,27 @@ export default function ChildProgress() {
           <Text color="gray" size="2">ครั้งที่ทำเสร็จ</Text>
         </Card>
         <Card className="stat-card">
-          <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--green)' }}>{pct(data.averageScore)}</div>
-          <Text color="gray" size="2">คะแนนเฉลี่ย</Text>
+          <div style={{ fontSize: 32, fontWeight: 800 }}>{data.subjects.length}</div>
+          <Text color="gray" size="2">วิชาที่มีแบบฝึกหัด</Text>
         </Card>
       </div>
+
+      <Card className="parent-panel">
+        <Heading as="h3" size="4">ความคืบหน้าตามวิชา</Heading>
+        {data.subjects.length === 0 && <Text color="gray">ยังไม่มีข้อมูลตามวิชา</Text>}
+        <div className="subject-progress-grid">
+          {data.subjects.map((s) => (
+            <div key={s.subjectName} className="subject-progress-card">
+              <Text as="div" weight="bold">{s.subjectName}</Text>
+              <Text as="div" color="gray" size="2">{s.assignedCount} ชุด · ทำเสร็จ {s.completedAttempts} ครั้ง</Text>
+              <div className="progress-bar-track" style={{ marginTop: 8 }}>
+                <div className="progress-bar-fill" style={{ width: `${(s.bestScore ?? 0) * 100}%` }} />
+              </div>
+              <Text as="div" size="2" weight="bold" style={{ color: 'var(--green)', marginTop: 6 }}>คะแนนดีที่สุด {pct(s.bestScore)}</Text>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <Card className="parent-panel">
         <Heading as="h3" size="4">รายชุดแบบฝึกหัด</Heading>

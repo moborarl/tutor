@@ -171,6 +171,22 @@ export default function ExerciseList() {
     if (filterStatus && s.status !== filterStatus) return false;
     return true;
   });
+  const subjectSummary = [...sets.reduce((map, s) => {
+    const name = s.subjectName ?? 'ไม่ระบุวิชา';
+    const existing = map.get(name) ?? { subjectName: name, young: 0, older: 0, total: 0 };
+    existing[s.ageBand] += 1;
+    existing.total += 1;
+    map.set(name, existing);
+    return map;
+  }, new Map<string, { subjectName: string; young: number; older: number; total: number }>()).values()]
+    .sort((a, b) => a.subjectName.localeCompare(b.subjectName, 'th'));
+  const groupedSets = [...filteredSets.reduce((map, s) => {
+    const name = s.subjectName ?? 'ไม่ระบุวิชา';
+    if (!map.has(name)) map.set(name, []);
+    map.get(name)!.push(s);
+    return map;
+  }, new Map<string, ExerciseSetSummary[]>()).entries()]
+    .sort(([a], [b]) => a.localeCompare(b, 'th'));
 
   return (
     <div className="parent-stack">
@@ -229,6 +245,24 @@ export default function ExerciseList() {
       )}
 
       {sets.length > 0 && (
+        <Card className="subject-summary-panel">
+          <Heading as="h3" size="4">สรุปตามวิชา</Heading>
+          <div className="subject-summary-grid">
+            {subjectSummary.map((s) => (
+              <div key={s.subjectName} className="subject-summary-card">
+                <Text as="div" weight="bold">{s.subjectName}</Text>
+                <Text as="div" color="gray" size="2">รวม {s.total} ชุด</Text>
+                <div className="subject-summary-counts">
+                  <Badge color="blue" variant="soft">เด็กเล็ก {s.young}</Badge>
+                  <Badge color="green" variant="soft">เด็กโต {s.older}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {sets.length > 0 && (
         <Card className="management-filters">
           <input placeholder="ค้นหาชื่อหรือวิชา" value={query} onChange={(e) => setQuery(e.target.value)} />
           <select value={filterSubject} onChange={(e) => setFilterSubject(e.target.value)}>
@@ -252,8 +286,11 @@ export default function ExerciseList() {
       )}
 
       <div className="exercise-list">
-        {filteredSets.map((s) => (
-        <div key={s.id} className="exercise-list-item">
+        {groupedSets.map(([subjectName, subjectSets]) => (
+        <div key={subjectName} className="subject-group">
+          <Heading as="h3" size="4">{subjectName}</Heading>
+          {subjectSets.map((s) => (
+          <div key={s.id} className="exercise-list-item">
           {editingId === s.id ? (
             <Card className="exercise-card">
               <div className="row" style={{ marginBottom: 12 }}>
@@ -335,6 +372,8 @@ export default function ExerciseList() {
               </div>
             </Card>
           )}
+          </div>
+          ))}
         </div>
         ))}
         {sets.length > 0 && filteredSets.length === 0 && (

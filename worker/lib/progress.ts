@@ -51,10 +51,32 @@ export async function loadChildProgress(
     .bind(childId)
     .all();
 
+  const subjects = await db.prepare(
+    `SELECT COALESCE(s.name, 'ไม่ระบุวิชา') AS subject_name,
+            COUNT(DISTINCT es.id) AS assigned_count,
+            COUNT(a.id) AS completed_attempts,
+            MAX(a.score) AS best_score
+     FROM assignments asg
+     JOIN exercise_sets es ON es.id = asg.exercise_set_id
+     LEFT JOIN subjects s ON s.id = es.subject_id
+     LEFT JOIN attempts a ON a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'completed'
+     WHERE asg.child_id = ? AND es.status = 'published'
+     GROUP BY COALESCE(s.name, 'ไม่ระบุวิชา')
+     ORDER BY subject_name`,
+  )
+    .bind(childId, childId)
+    .all();
+
   return {
     child: { id: child.id, name: child.name, avatar: child.avatar, ageBand: child.age_band as 'young' | 'older' },
     totalCompletedAttempts: overall?.completed ?? 0,
     averageScore: overall?.avg_score ?? null,
+    subjects: subjects.results.map((r) => ({
+      subjectName: String(r.subject_name ?? 'ไม่ระบุวิชา'),
+      assignedCount: Number(r.assigned_count ?? 0),
+      completedAttempts: Number(r.completed_attempts ?? 0),
+      bestScore: r.best_score == null ? null : Number(r.best_score),
+    })),
     sets: sets.results.map((r) => ({
       exerciseSetId: Number(r.id),
       title: String(r.title ?? ''),

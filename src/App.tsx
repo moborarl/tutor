@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './routes/Landing';
+import SuperAdmin from './routes/SuperAdmin';
 import Login from './routes/parent/Login';
 import Signup from './routes/parent/Signup';
 import ParentLayout from './routes/parent/ParentLayout';
@@ -21,6 +22,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/super-admin" element={<SuperAdmin />} />
       <Route path="/parent/login" element={<Login />} />
       <Route path="/parent/signup" element={<Signup />} />
       <Route path="/parent" element={<ParentLayout />}>

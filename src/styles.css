@@ -576,6 +576,43 @@ table.data th { color: var(--muted); font-weight: 600; }
   padding: 14px;
 }
 
+.subject-summary-panel {
+  padding: 16px;
+}
+
+.subject-summary-grid,
+.subject-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.subject-summary-card,
+.subject-progress-card {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.subject-summary-counts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.subject-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subject-group h3 {
+  margin: 8px 0 0;
+}
+
 .exercise-card {
   padding: 14px;
 }

@@ -30,7 +30,6 @@ interface AdminSummary {
     ageBand: string;
     assignedCount: number;
     attemptCount: number;
-    averageScore: number | null;
   }>;
 }
 
@@ -38,10 +37,6 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function pct(v: number | null) {
-  return v == null ? '—' : `${Math.round(v * 100)}%`;
 }
 
 function ConfirmDanger({
@@ -156,7 +151,7 @@ export default function Admin() {
               <span className="child-avatar">{ch.avatar}</span>
               <div className="grow">
                 <Text as="div" weight="bold">{ch.name}</Text>
-                <Text as="div" color="gray" size="2">{ch.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'} · มอบหมาย {ch.assignedCount} · attempts {ch.attemptCount} · เฉลี่ย {pct(ch.averageScore)}</Text>
+                <Text as="div" color="gray" size="2">{ch.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'} · มอบหมาย {ch.assignedCount} · ทำแล้ว {ch.attemptCount}</Text>
               </div>
               <ConfirmDanger
                 label="ลบ"
