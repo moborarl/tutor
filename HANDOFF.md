@@ -55,6 +55,99 @@ git commit -m "Polish loading states and responsive UI"
 git push origin main
 ```
 
+## ล่าสุดที่สุดอีก (2026-07-08 รอบ R2 file manager)
+
+ผู้ใช้ถามว่า "ทำให้ manage ไฟล์ R2 โดยตรงได้ไหม" แล้วเพิ่มใน working tree:
+
+- เพิ่ม API parent สำหรับจัดการไฟล์ R2 ในบัญชีตัวเอง
+  - `GET /api/parent/admin/r2-files`
+    - list เฉพาะ prefix `worksheets/{parentId}/`
+    - คืน `{ files, cursor }`
+    - page size 50
+  - `DELETE /api/parent/admin/r2-files`
+    - body `{ key, confirmKey }`
+    - ต้อง key อยู่ใต้ `worksheets/{parentId}/`
+    - ต้อง confirmKey ตรงกับ key ก่อนลบ
+- เพิ่ม API super-admin สำหรับจัดการไฟล์ R2 ข้ามบัญชี
+  - `GET /api/super-admin/r2-files?prefix=...&cursor=...`
+    - list ได้ทั้ง bucket หรือกรอง prefix
+    - page size 100
+  - `DELETE /api/super-admin/r2-files`
+    - body `{ key, confirmKey }`
+    - ต้อง confirmKey ตรงกับ key ก่อนลบ
+- เพิ่ม UI หน้า `/parent/admin`
+  - section `ไฟล์ R2`
+  - โหลดรายการ/รีเฟรช/โหลดเพิ่ม
+  - แสดง key, size, uploaded time
+  - ลบทีละไฟล์โดยต้องพิมพ์ key ยืนยัน
+- เพิ่ม UI หน้า `/super-admin`
+  - section `ไฟล์ R2`
+  - ช่อง prefix เช่น `worksheets/123/`
+  - list/delete แบบข้ามบัญชี
+- ขยาย `src/lib/api-client.ts` ให้ `api.delete(path, body?)` ส่ง JSON body ได้
+- เพิ่ม CSS `.r2-file-row` และ `.r2-file-key` เพื่อให้ key ยาวไม่ดัน layout แตก
+
+ข้อควรระวัง:
+
+- การลบไฟล์ R2 โดยตรงไม่ลบ row ใน D1
+- ถ้าไฟล์ยังถูกอ้างโดย `exercise_sets.source_image_r2_key` หรือ `exercise_images.r2_key` รูปในแบบฝึกหัดจะหาย
+- ใช้สำหรับ cleanup ไฟล์ที่มั่นใจว่าไม่ใช้แล้ว หรือแก้ storage ที่ค้าง
+
+ตรวจแล้ว:
+
+- `npm.cmd test` ผ่าน 12/12
+- `$env:WRANGLER_WRITE_LOGS='false'; npm.cmd run build` ผ่าน
+- `git diff --check` ผ่าน มีแค่ warning LF/CRLF ปกติบน Windows
+
+ไฟล์ที่เปลี่ยนในรอบนี้:
+
+- `HANDOFF.md`
+- `src/lib/api-client.ts`
+- `src/routes/SuperAdmin.tsx`
+- `src/routes/parent/Admin.tsx`
+- `src/styles.css`
+- `worker/routes/admin.ts`
+- `worker/routes/super-admin.ts`
+
+คำสั่ง commit/push รอบนี้:
+
+```powershell
+git add HANDOFF.md src\lib\api-client.ts src\routes\SuperAdmin.tsx src\routes\parent\Admin.tsx src\styles.css worker\routes\admin.ts worker\routes\super-admin.ts
+git commit -m "Add direct R2 file management"
+git push origin main
+```
+
+## ล่าสุดที่สุดเพิ่ม (2026-07-08 รอบสลับ parent/play)
+
+ผู้ใช้เสนอว่าควรมี link/channel สำหรับสลับ parent กับ play แล้วทำเพิ่ม:
+
+- หน้า parent nav (`src/routes/parent/ParentLayout.tsx`)
+  - เพิ่ม link `โหมดเด็ก` ไป `/play`
+- หน้าเลือกเด็ก (`src/routes/play/ProfilePicker.tsx`)
+  - เพิ่มปุ่ม `ผู้ปกครอง` ไป `/parent/exercises`
+  - หน้าใส่ PIN มี action bar ที่มี `เลือกใหม่` และ `ผู้ปกครอง`
+- หน้าเด็กดูรายการแบบฝึกหัด (`src/routes/play/PlayExerciseList.tsx`)
+  - เพิ่มปุ่ม `ผู้ปกครอง` ใน topbar
+- หน้าเด็กดูความคืบหน้า (`src/routes/play/PlayProgress.tsx`)
+  - เพิ่มปุ่ม `ผู้ปกครอง`
+- CSS (`src/styles.css`)
+  - เพิ่ม `.mode-switch-link`, `.parent-mode-link`, `.play-mode-actions`
+  - ปรับ `.kid-topbar` ให้รองรับปุ่มเพิ่มบน desktop/mobile
+
+ตรวจแล้ว:
+
+- `npm.cmd test` ผ่าน 12/12
+- `$env:WRANGLER_WRITE_LOGS='false'; npm.cmd run build` ผ่าน
+- `git diff --check` ผ่าน มีแค่ warning LF/CRLF ปกติบน Windows
+
+ถ้า commit รวมกับรอบ R2 ให้ใช้คำสั่ง:
+
+```powershell
+git add HANDOFF.md src\lib\api-client.ts src\routes\SuperAdmin.tsx src\routes\parent\Admin.tsx src\routes\parent\ParentLayout.tsx src\routes\play\PlayExerciseList.tsx src\routes\play\PlayProgress.tsx src\routes\play\ProfilePicker.tsx src\styles.css worker\routes\admin.ts worker\routes\super-admin.ts
+git commit -m "Add R2 file management and mode switching"
+git push origin main
+```
+
 ## ล่าสุดมากกว่า (2026-07-08 รอบ product hardening)
 
 ผู้ใช้สั่ง "งาน product ต่อไปที่น่าทำ do it all" แล้วทำเพิ่มใน working tree:

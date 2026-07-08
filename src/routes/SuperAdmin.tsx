@@ -22,10 +22,20 @@ interface SuperAdminSummary {
   }>;
 }
 
+interface R2FileRow {
+  key: string;
+  size: number;
+  uploaded: string;
+}
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {
@@ -71,12 +81,51 @@ function DeleteParentDialog({
   );
 }
 
+function DeleteR2Dialog({
+  file,
+  busy,
+  onDelete,
+}: {
+  file: R2FileRow;
+  busy: boolean;
+  onDelete: (key: string) => Promise<void>;
+}) {
+  const [confirmKey, setConfirmKey] = useState('');
+  const canDelete = confirmKey === file.key && !busy;
+  return (
+    <AlertDialog.Root onOpenChange={(open) => { if (!open) setConfirmKey(''); }}>
+      <AlertDialog.Trigger><Button variant="soft" color="red" disabled={busy}>ลบไฟล์</Button></AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="520px">
+        <AlertDialog.Title>ลบไฟล์ R2 นี้?</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          การลบไฟล์นี้มีผลข้ามบัญชีถ้าไฟล์ยังถูกใช้อยู่ พิมพ์ key ให้ตรงเพื่อยืนยัน
+        </AlertDialog.Description>
+        <Text as="div" size="1" color="gray" style={{ marginTop: 12, wordBreak: 'break-all' }}>{file.key}</Text>
+        <input
+          style={{ marginTop: 12 }}
+          placeholder="พิมพ์ key ให้ตรง"
+          value={confirmKey}
+          onChange={(e) => setConfirmKey(e.target.value)}
+        />
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action><Button color="red" disabled={!canDelete} onClick={() => onDelete(file.key)}>ลบไฟล์</Button></AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 export default function SuperAdmin() {
   const [token, setToken] = useState(sessionStorage.getItem('superAdminToken') ?? '');
   const [summary, setSummary] = useState<SuperAdminSummary | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const [r2Prefix, setR2Prefix] = useState('');
+  const [r2Files, setR2Files] = useState<R2FileRow[]>([]);
+  const [r2Cursor, setR2Cursor] = useState<string | null>(null);
+  const [r2Loading, setR2Loading] = useState(false);
 
   async function load() {
     setError('');
@@ -100,6 +149,39 @@ export default function SuperAdmin() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ confirmEmail }),
       });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadR2Files(reset = false) {
+    setR2Loading(true);
+    try {
+      const params = new URLSearchParams();
+      if (r2Prefix.trim()) params.set('prefix', r2Prefix.trim());
+      if (!reset && r2Cursor) params.set('cursor', r2Cursor);
+      const queryString = params.toString();
+      const data = await request<{ files: R2FileRow[]; cursor: string | null }>(
+        `/api/super-admin/r2-files${queryString ? `?${queryString}` : ''}`,
+        token,
+      );
+      setR2Files((prev) => reset ? data.files : [...prev, ...data.files]);
+      setR2Cursor(data.cursor);
+    } finally {
+      setR2Loading(false);
+    }
+  }
+
+  async function deleteR2File(key: string) {
+    setBusy(true);
+    try {
+      await request('/api/super-admin/r2-files', token, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ key, confirmKey: key }),
+      });
+      setR2Files((files) => files.filter((file) => file.key !== key));
       await load();
     } finally {
       setBusy(false);
@@ -160,6 +242,36 @@ export default function SuperAdmin() {
                 </div>
               ))}
             </div>
+          </Card>
+
+          <Card className="parent-panel">
+            <Flex align="center" gap="3" wrap="wrap">
+              <div className="grow">
+                <Heading as="h3" size="4">ไฟล์ R2</Heading>
+                <Text color="gray" size="2">ดูและลบไฟล์โดยตรง ใช้ prefix เพื่อเจาะบัญชี เช่น worksheets/123/</Text>
+              </div>
+              <input placeholder="prefix เช่น worksheets/123/" value={r2Prefix} onChange={(e) => setR2Prefix(e.target.value)} />
+              <Button variant="soft" color="gray" onClick={() => loadR2Files(true)} disabled={!token || r2Loading}>
+                {r2Files.length === 0 ? 'โหลดรายการไฟล์' : 'รีเฟรช'}
+              </Button>
+            </Flex>
+            <div className="admin-list">
+              {r2Files.map((file) => (
+                <div key={file.key} className="admin-row r2-file-row">
+                  <div className="grow">
+                    <Text as="div" weight="bold" className="r2-file-key">{file.key}</Text>
+                    <Text as="div" color="gray" size="2">{formatBytes(file.size)} · อัปโหลด {formatDate(file.uploaded)}</Text>
+                  </div>
+                  <DeleteR2Dialog file={file} busy={busy} onDelete={deleteR2File} />
+                </div>
+              ))}
+              {r2Files.length === 0 && <Text color="gray">ยังไม่ได้โหลดรายการไฟล์</Text>}
+            </div>
+            {r2Cursor && (
+              <Button variant="soft" color="gray" onClick={() => loadR2Files(false)} disabled={r2Loading}>
+                โหลดเพิ่ม
+              </Button>
+            )}
           </Card>
         </>
       )}

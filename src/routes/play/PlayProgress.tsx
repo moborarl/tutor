@@ -42,6 +42,7 @@ export default function PlayProgress() {
             <div className="muted">ดูคะแนนและแบบฝึกหัดที่เคยทำ</div>
           </div>
           <Link to="/play/exercises"><button className="secondary">กลับ</button></Link>
+          <Link to="/parent/exercises"><button className="secondary">ผู้ปกครอง</button></Link>
         </div>
 
         <div className="play-progress-stats">

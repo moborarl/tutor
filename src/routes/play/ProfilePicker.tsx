@@ -91,6 +91,9 @@ export default function ProfilePicker() {
   if (!picked) {
     return (
       <div className="play-root">
+        <Link to="/parent/exercises" className="parent-mode-link">
+          <button className="secondary">ผู้ปกครอง</button>
+        </Link>
         <h1 className="kid-page-title">หนูคือใครเอ่ย? 👋</h1>
         <div className="profile-grid">
           {children.map((ch) => (
@@ -145,9 +148,12 @@ export default function ProfilePicker() {
 
   return (
     <div className="play-root">
-      <button className="secondary play-back-button" onClick={() => { setPicked(null); setPin(''); setError(''); }}>
-        ← เลือกใหม่
-      </button>
+      <div className="play-mode-actions">
+        <button className="secondary play-back-button" onClick={() => { setPicked(null); setPin(''); setError(''); }}>
+          ← เลือกใหม่
+        </button>
+        <Link to="/parent/exercises"><button className="secondary">ผู้ปกครอง</button></Link>
+      </div>
       <div className="pin-avatar">{picked.avatar}</div>
       <h2>สวัสดี {picked.name}! ใส่ PIN 4 ตัวนะ</h2>
       <div className="pin-dots">

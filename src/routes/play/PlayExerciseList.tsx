@@ -51,6 +51,7 @@ export default function PlayExerciseList() {
         <h2>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
         <Link to="/play/progress"><button className="secondary">ดูความคืบหน้า</button></Link>
         <button className="secondary" onClick={switchProfile}>สลับคน</button>
+        <Link to="/parent/exercises"><button className="secondary">ผู้ปกครอง</button></Link>
       </div>
 
       {exercises === null && !loadError && (

@@ -19,6 +19,14 @@ async function listParentR2(env: AppEnv['Bindings'], parentId: number) {
   return { objectCount, totalBytes };
 }
 
+function r2FileRow(obj: R2Object) {
+  return {
+    key: obj.key,
+    size: obj.size,
+    uploaded: obj.uploaded.toISOString(),
+  };
+}
+
 async function deleteSet(db: D1Database, bucket: R2Bucket, parentId: number, setId: number) {
   const set = await db.prepare('SELECT source_image_r2_key FROM exercise_sets WHERE id = ? AND parent_id = ?')
     .bind(setId, parentId)
@@ -133,6 +141,30 @@ adminRoutes.get('/summary', async (c) => {
       averageScore: ch.avg_score == null ? null : Number(ch.avg_score),
     })),
   });
+});
+
+adminRoutes.get('/r2-files', async (c) => {
+  const { parentId } = c.get('session');
+  const cursor = c.req.query('cursor') || undefined;
+  const page = await c.env.WORKSHEETS.list({
+    prefix: `worksheets/${parentId}/`,
+    cursor,
+    limit: 50,
+  });
+  return c.json({
+    files: page.objects.map(r2FileRow),
+    cursor: page.truncated ? page.cursor : null,
+  });
+});
+
+adminRoutes.delete('/r2-files', async (c) => {
+  const { parentId } = c.get('session');
+  const body = await c.req.json<{ key?: string; confirmKey?: string }>().catch(() => null);
+  const key = body?.key ?? '';
+  if (!key || body?.confirmKey !== key) return c.json({ error: 'confirmation_required' }, 400);
+  if (!key.startsWith(`worksheets/${parentId}/`)) return c.json({ error: 'not_allowed' }, 403);
+  await c.env.WORKSHEETS.delete(key);
+  return c.json({ ok: true });
 });
 
 adminRoutes.delete('/attempts', async (c) => {

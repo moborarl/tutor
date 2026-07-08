@@ -25,6 +25,14 @@ async function listAllR2(env: AppEnv['Bindings']) {
   return { objectCount, totalBytes };
 }
 
+function r2FileRow(obj: R2Object) {
+  return {
+    key: obj.key,
+    size: obj.size,
+    uploaded: obj.uploaded.toISOString(),
+  };
+}
+
 async function deleteParentData(env: AppEnv['Bindings'], parentId: number) {
   const prefix = `worksheets/${parentId}/`;
   let cursor: string | undefined;
@@ -82,6 +90,24 @@ superAdminRoutes.get('/summary', async (c) => {
       attemptCount: Number(p.attempt_count ?? 0),
     })),
   });
+});
+
+superAdminRoutes.get('/r2-files', async (c) => {
+  const cursor = c.req.query('cursor') || undefined;
+  const prefix = c.req.query('prefix') || undefined;
+  const page = await c.env.WORKSHEETS.list({ prefix, cursor, limit: 100 });
+  return c.json({
+    files: page.objects.map(r2FileRow),
+    cursor: page.truncated ? page.cursor : null,
+  });
+});
+
+superAdminRoutes.delete('/r2-files', async (c) => {
+  const body = await c.req.json<{ key?: string; confirmKey?: string }>().catch(() => null);
+  const key = body?.key ?? '';
+  if (!key || body?.confirmKey !== key) return c.json({ error: 'confirmation_required' }, 400);
+  await c.env.WORKSHEETS.delete(key);
+  return c.json({ ok: true });
 });
 
 superAdminRoutes.delete('/parents/:id', async (c) => {
