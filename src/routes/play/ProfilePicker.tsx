@@ -6,6 +6,7 @@ import type { Child } from '@shared/types';
 export default function ProfilePicker() {
   const nav = useNavigate();
   const [children, setChildren] = useState<Child[] | null>(null);
+  const [familyName, setFamilyName] = useState('ครอบครัว');
   const [picked, setPicked] = useState<Child | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -17,9 +18,14 @@ export default function ProfilePicker() {
   const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
-    api
-      .get<Child[]>('/api/play/children')
-      .then(setChildren)
+    Promise.all([
+      api.get<{ familyName: string }>('/api/play/family'),
+      api.get<Child[]>('/api/play/children'),
+    ])
+      .then(([family, childRows]) => {
+        setFamilyName(family.familyName || 'ครอบครัว');
+        setChildren(childRows);
+      })
       .catch(() => setNeedLogin(true));
   }, []);
 
@@ -91,10 +97,10 @@ export default function ProfilePicker() {
   if (!picked) {
     return (
       <div className="play-root">
-        <Link to="/parent/exercises" className="parent-mode-link">
-          <button className="secondary">ผู้ปกครอง</button>
-        </Link>
-        <h1 className="kid-page-title">หนูคือใครเอ่ย? 👋</h1>
+        <div className="family-home-heading">
+          <h1 className="kid-page-title">{familyName}</h1>
+          <h2 className="family-member-title">สมาชิกครอบครัว</h2>
+        </div>
         <div className="profile-grid">
           {children.map((ch) => (
             <button key={ch.id} className="profile-tile" onClick={() => { setPicked(ch); setError(''); }}>
@@ -102,6 +108,10 @@ export default function ProfilePicker() {
               <span>{ch.name}</span>
             </button>
           ))}
+          <Link to="/parent" className="profile-tile parent-profile-tile">
+            <span className="avatar">👤</span>
+            <span>ผู้ปกครอง</span>
+          </Link>
         </div>
         {children.length === 0 && (
           <div className="state-card empty-state">
@@ -152,7 +162,7 @@ export default function ProfilePicker() {
         <button className="secondary play-back-button" onClick={() => { setPicked(null); setPin(''); setError(''); }}>
           ← เลือกใหม่
         </button>
-        <Link to="/parent/exercises"><button className="secondary">ผู้ปกครอง</button></Link>
+        <Link to="/parent"><button className="secondary">ผู้ปกครอง</button></Link>
       </div>
       <div className="pin-avatar">{picked.avatar}</div>
       <h2>สวัสดี {picked.name}! ใส่ PIN 4 ตัวนะ</h2>

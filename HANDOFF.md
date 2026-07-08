@@ -499,3 +499,16 @@ kids-tutor/
 ```
 
 ดูเพิ่ม: `README.md` (setup), `DESIGN.md` (design system/tokens), `shared/contract.ts` (กติกา AI แกะโจทย์)
+# อัปเดตล่าสุดจาก Codex (2026-07-08)
+
+- ปรับหน้า `/parent/admin` ให้ใช้ layout แบบ folder tree ด้านซ้าย + workspace ด้านขวา เพื่อให้ concept ใกล้กับหน้า management อื่น ๆ
+- ในหน้า `ดูแลข้อมูล > แบบฝึกหัด` เลือกแบบฝึกหัดได้หลายชุด แล้วกด `ลบที่เลือก` เพื่อลบพร้อมกันได้
+- เพิ่ม backend endpoint `DELETE /api/parent/admin/exercise-sets` รับ `{ ids: number[] }` สำหรับ bulk delete แบบฝึกหัด โดยจำกัดสูงสุด 100 ชุดต่อครั้ง
+- เพิ่ม responsive CSS ให้ tree layout กลายเป็นแนวตั้งบนหน้าจอเล็ก
+- ปรับ information architecture รอบครอบครัว:
+  - `/play` เป็น family homepage แสดงชื่อครอบครัว, หัวข้อ `สมาชิกครอบครัว`, tile เด็ก และ tile `ผู้ปกครอง`
+  - `/parent` เป็นหน้า `ดูแลข้อมูล` หลัก รวมภาพรวมครอบครัว, โปรไฟล์ครอบครัว, เปลี่ยนรหัสผ่าน, แบบฝึกหัด, เด็ก, R2, ล้างข้อมูล
+  - `/parent/admin` redirect กลับ `/parent`
+  - เอาคำว่า `โหมดเด็ก` ออกจาก navigation แล้ว
+- ปรับ visual theme ให้สบายตาขึ้น: ลดพื้นขาวจัดเป็น off-white/soft gray ทั้ง parent, play, cards, forms, navigation, tree, review panels และ Radix Card/Dialog override (คง print page เป็นขาวสำหรับพิมพ์)
+- ตรวจแล้ว: `npm test` ผ่าน 12/12, `npm run build` ผ่าน (มี warning เรื่อง Wrangler log permission นอก workspace เหมือนเดิม)

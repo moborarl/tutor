@@ -186,6 +186,22 @@ adminRoutes.delete('/attempts', async (c) => {
   return c.json({ ok: true });
 });
 
+adminRoutes.delete('/exercise-sets', async (c) => {
+  const { parentId } = c.get('session');
+  const body = await c.req.json<{ ids?: unknown }>().catch(() => null);
+  if (!Array.isArray(body?.ids)) return c.json({ error: 'invalid_ids' }, 400);
+
+  const ids = [...new Set(body.ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+  if (ids.length === 0) return c.json({ error: 'invalid_ids' }, 400);
+  if (ids.length > 100) return c.json({ error: 'too_many_ids' }, 400);
+
+  let deleted = 0;
+  for (const id of ids) {
+    if (await deleteSet(c.env.DB, c.env.WORKSHEETS, parentId, id)) deleted += 1;
+  }
+  return c.json({ ok: true, deleted });
+});
+
 adminRoutes.delete('/exercise-sets/:id', async (c) => {
   const { parentId } = c.get('session');
   const ok = await deleteSet(c.env.DB, c.env.WORKSHEETS, parentId, Number(c.req.param('id')));

@@ -12,6 +12,16 @@ const MAX_PIN_FAILS = 5;
 
 // --- Profile selection (requires parent session, not child) ---
 
+playRoutes.get('/family', requireParentSession, async (c) => {
+  const { parentId } = c.get('session');
+  const parent = await c.env.DB.prepare('SELECT email, family_name FROM parents WHERE id = ?')
+    .bind(parentId)
+    .first<{ email: string; family_name: string | null }>();
+  if (!parent) return c.json({ error: 'not_found' }, 404);
+  const fallbackName = `${(parent.email.split('@')[0] || 'Family')} family`;
+  return c.json({ familyName: parent.family_name || fallbackName });
+});
+
 playRoutes.get('/children', requireParentSession, async (c) => {
   const { parentId } = c.get('session');
   const rows = await c.env.DB.prepare(

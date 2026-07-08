@@ -4,7 +4,6 @@ import SuperAdmin from './routes/SuperAdmin';
 import Login from './routes/parent/Login';
 import Signup from './routes/parent/Signup';
 import ParentLayout from './routes/parent/ParentLayout';
-import FamilyHome from './routes/parent/FamilyHome';
 import ChildrenList from './routes/parent/ChildrenList';
 import ExerciseList from './routes/parent/ExerciseList';
 import Upload from './routes/parent/Upload';
@@ -27,10 +26,10 @@ export default function App() {
       <Route path="/parent/login" element={<Login />} />
       <Route path="/parent/signup" element={<Signup />} />
       <Route path="/parent" element={<ParentLayout />}>
-        <Route index element={<FamilyHome />} />
+        <Route index element={<Admin />} />
         <Route path="children" element={<ChildrenList />} />
         <Route path="children/:id/progress" element={<ChildProgress />} />
-        <Route path="admin" element={<Admin />} />
+        <Route path="admin" element={<Navigate to="/parent" replace />} />
         <Route path="exercises" element={<ExerciseList />} />
         <Route path="upload" element={<Upload />} />
         <Route path="exercises/:id" element={<ReviewExercise />} />
