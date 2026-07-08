@@ -204,14 +204,28 @@ function OlderPlayer({
   return (
     <div className="play-older">
       <aside className="play-older-nav">
-        <button className="secondary" style={{ width: '100%', marginBottom: 10 }} onClick={onExit}>← ออก</button>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>ตรวจแล้ว {answeredCount}/{total} · ถูก {correctCount}</div>
+        <button className="secondary play-older-exit" onClick={onExit}>← ออก</button>
+        <div className="play-older-progress">
+          <div>
+            <div className="play-older-progress-label">ตรวจแล้ว</div>
+            <div className="play-older-progress-count">{answeredCount}/{total}</div>
+          </div>
+          <div>
+            <div className="play-older-progress-label">ถูก</div>
+            <div className="play-older-progress-count good">{correctCount}</div>
+          </div>
+        </div>
         <div className="nav-grid">
           {exercise.questions.map((qq, i) => {
             const a = answers[qq.id];
             const status = a ? (a.isCorrect ? 'correct' : 'wrong') : '';
             return (
-              <button key={qq.id} className={`question-grid-btn ${status}`} onClick={() => jumpTo(qq.id)}>
+              <button
+                key={qq.id}
+                className={`question-grid-btn ${status}`}
+                aria-label={`ข้อ ${i + 1}${a ? (a.isCorrect ? ' ถูก' : ' ผิด') : ''}`}
+                onClick={() => jumpTo(qq.id)}
+              >
                 {i + 1}
               </button>
             );
