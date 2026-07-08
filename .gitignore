@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .tmp-tests/
+.npm-cache/
 .wrangler/
 .dev.vars
 *.local

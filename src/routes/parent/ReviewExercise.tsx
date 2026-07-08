@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { AlertDialog, Badge as RadixBadge, Button, Callout, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
 import { DiagramView } from '../../lib/DiagramView';
@@ -35,6 +37,54 @@ const TYPE_TH: Record<QuestionType, string> = {
   fraction: 'เศษส่วน',
   ordering: 'เรียงลำดับ',
 };
+
+function statusColor(status: string) {
+  if (status === 'approved' || status === 'published') return 'green';
+  if (status === 'pending_review') return 'amber';
+  if (status === 'processing' || status === 'extracting') return 'blue';
+  if (status === 'extraction_failed') return 'red';
+  return 'gray';
+}
+
+function ConfirmButton({
+  children,
+  title,
+  description,
+  confirmLabel,
+  color = 'gray',
+  disabled,
+  onConfirm,
+}: {
+  children: ReactNode;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  color?: 'gray' | 'red' | 'orange' | 'green';
+  disabled?: boolean;
+  onConfirm: () => void | Promise<void>;
+}) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger>
+        <Button variant="soft" color={color} disabled={disabled}>
+          {children}
+        </Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="420px">
+        <AlertDialog.Title>{title}</AlertDialog.Title>
+        <AlertDialog.Description size="2">{description}</AlertDialog.Description>
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel>
+            <Button variant="soft" color="gray">ยกเลิก</Button>
+          </AlertDialog.Cancel>
+          <AlertDialog.Action>
+            <Button color={color} onClick={onConfirm}>{confirmLabel}</Button>
+          </AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
 
 export default function ReviewExercise() {
   const { id } = useParams();
@@ -78,7 +128,6 @@ export default function ReviewExercise() {
   async function unapproveAll() {
     const targets = set!.questions.filter((q) => q.status === 'approved');
     if (targets.length === 0) return;
-    if (!window.confirm(`ยกเลิกอนุมัติ ${targets.length} ข้อ?`)) return;
     await Promise.all(targets.map((q) => api.post(`/api/parent/questions/${q.id}/unapprove`)));
     load();
   }
@@ -86,7 +135,6 @@ export default function ReviewExercise() {
   async function detachAllVisuals() {
     const targets = set!.questions.filter((q) => q.imageId || q.diagram);
     if (targets.length === 0) return;
-    if (!window.confirm(`ถอดรูป/แผนภาพออกจาก ${targets.length} ข้อ? ข้อเหล่านี้จะกลับเป็นร่าง`)) return;
     await Promise.all(targets.map((q) => api.patch(`/api/parent/questions/${q.id}`, { imageId: null, diagram: null })));
     load();
   }
@@ -129,19 +177,21 @@ export default function ReviewExercise() {
   return (
     <div className="review-root">
       {set.extractionError && set.status !== 'pending_review' && set.status !== 'published' && (
-        <div className="review-alert review-alert-danger">
-          <div className="error-text">{set.extractionError}</div>
-          <div className="row" style={{ marginTop: 10 }}>
-            <button onClick={retry}>ลองแกะใหม่</button>
-            <button className="secondary" onClick={addManualQuestion}>สร้างโจทย์เอง</button>
-          </div>
-        </div>
+        <Callout.Root color="red" className="review-alert">
+          <Callout.Text>
+            <div className="error-text">{set.extractionError}</div>
+            <Flex gap="2" mt="3" wrap="wrap">
+              <Button onClick={retry}>ลองแกะใหม่</Button>
+              <Button variant="soft" color="gray" onClick={addManualQuestion}>สร้างโจทย์เอง</Button>
+            </Flex>
+          </Callout.Text>
+        </Callout.Root>
       )}
 
       {(set.status === 'processing' || set.status === 'extracting') && (
-        <div className="review-alert muted">
-          ⏳ {STATUS_TH[set.status]} — หน้านี้จะรีเฟรชอัตโนมัติ
-        </div>
+        <Callout.Root color="blue" className="review-alert">
+          <Callout.Text>{STATUS_TH[set.status]} — หน้านี้จะรีเฟรชอัตโนมัติ</Callout.Text>
+        </Callout.Root>
       )}
 
       {/* Compact sticky header: title+status stay pinned while scrolling through
@@ -149,45 +199,62 @@ export default function ReviewExercise() {
       <div className="sticky-toolbar review-toolbar">
         <div className="review-toolbar-main">
           <div className="review-title-block">
-            <h2>{set.title || `ชุดที่ ${set.id}`}</h2>
-            <span className="muted">
+            <Heading as="h2" size="4">{set.title || `ชุดที่ ${set.id}`}</Heading>
+            <Text as="span" size="2" color="gray">
               {set.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
               {set.extractionProvider && ` · ${PROVIDER_TH[set.extractionProvider]}`}
-            </span>
+            </Text>
           </div>
-          <span className={`badge ${set.status}`}>{STATUS_TH[set.status] ?? set.status}</span>
+          <RadixBadge color={statusColor(set.status)} variant="soft">{STATUS_TH[set.status] ?? set.status}</RadixBadge>
         </div>
         <div className="toolbar-actions">
-          <button className="secondary" onClick={() => setShowImage((v) => !v)}>
+          <Button variant="soft" color="gray" onClick={() => setShowImage((v) => !v)}>
             {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
-          </button>
+          </Button>
           {set.questions.length > 0 && (
             <>
-              <button className="secondary" onClick={() => nav(`/parent/exercises/${id}/teacher`)}>
-                📄 ฉบับเฉลย
-              </button>
-              <button className="secondary" onClick={() => nav(`/parent/exercises/${id}/student`)}>
-                📋 แบบฝึกหัดสำหรับเด็ก
-              </button>
+              <Button variant="soft" color="gray" onClick={() => nav(`/parent/exercises/${id}/teacher`)}>
+                ฉบับเฉลย
+              </Button>
+              <Button variant="soft" color="gray" onClick={() => nav(`/parent/exercises/${id}/student`)}>
+                แบบฝึกหัดสำหรับเด็ก
+              </Button>
             </>
           )}
           {set.questions.length > 0 && set.status === 'pending_review' && (
             <>
-              <button className="secondary" onClick={approveAll}>อนุมัติทุกข้อ</button>
-              <button className="secondary" onClick={unapproveAll}>ยกเลิกอนุมัติทุกข้อ</button>
-              <button className="secondary" onClick={detachAllVisuals}>ถอดรูป/แผนภาพทุกข้อ</button>
-              <button className="success" onClick={publish} disabled={!allApproved}>เผยแพร่</button>
+              <Button variant="soft" color="green" onClick={approveAll}>อนุมัติทุกข้อ</Button>
+              <ConfirmButton
+                title="ยกเลิกอนุมัติทุกข้อ?"
+                description={`ข้อที่อนุมัติแล้ว ${set.questions.filter((q) => q.status === 'approved').length} ข้อจะกลับเป็นร่าง และต้องอนุมัติใหม่ก่อนเผยแพร่`}
+                confirmLabel="ยกเลิกอนุมัติ"
+                onConfirm={unapproveAll}
+                disabled={set.questions.every((q) => q.status !== 'approved')}
+              >
+                ยกเลิกอนุมัติทุกข้อ
+              </ConfirmButton>
+              <ConfirmButton
+                title="ถอดรูป/แผนภาพทุกข้อ?"
+                description={`ข้อที่มีรูปหรือแผนภาพ ${set.questions.filter((q) => q.imageId || q.diagram).length} ข้อจะกลับเป็นร่างเพื่อตรวจใหม่`}
+                confirmLabel="ถอดออก"
+                color="orange"
+                onConfirm={detachAllVisuals}
+                disabled={set.questions.every((q) => !q.imageId && !q.diagram)}
+              >
+                ถอดรูป/แผนภาพทุกข้อ
+              </ConfirmButton>
+              <Button color="green" onClick={publish} disabled={!allApproved}>เผยแพร่</Button>
             </>
           )}
           {set.status === 'pending_review' && (
-            <button className="secondary" onClick={addManualQuestion}>+ เพิ่มโจทย์เอง</button>
+            <Button variant="soft" color="gray" onClick={addManualQuestion}>เพิ่มโจทย์เอง</Button>
           )}
         </div>
       </div>
       {msg && <div className="muted" style={{ marginBottom: 10 }}>{msg}</div>}
 
       {showImage && (
-        <div className="source-image-panel">
+        <Card className="source-image-panel">
           {set.images.map((img) => (
             <img
               key={img.id}
@@ -196,7 +263,7 @@ export default function ReviewExercise() {
               style={{ maxWidth: '100%', borderRadius: 10, marginBottom: 12, display: 'block' }}
             />
           ))}
-        </div>
+        </Card>
       )}
 
       {set.questions.map((q, i) => (
@@ -204,16 +271,18 @@ export default function ReviewExercise() {
       ))}
 
       {(set.status === 'published' || set.status === 'pending_review') && (
-        <div className="assignment-card">
-          <h3>มอบหมายให้ลูก</h3>
+        <Card className="assignment-card">
+          <Heading as="h3" size="4">มอบหมายให้ลูก</Heading>
           {children.length === 0 && (
             <div className="muted">ยังไม่มีโปรไฟล์ลูก — <a href="#" onClick={(e) => { e.preventDefault(); nav('/parent/children'); }}>เพิ่มลูกก่อน</a></div>
           )}
           <div className="row">
             {children.map((ch) => (
-              <button
+              <Button
                 key={ch.id}
-                className={`secondary child-toggle ${assignIds.has(ch.id) ? 'selected' : ''}`}
+                variant={assignIds.has(ch.id) ? 'solid' : 'soft'}
+                color={assignIds.has(ch.id) ? 'green' : 'gray'}
+                className={`child-toggle ${assignIds.has(ch.id) ? 'selected' : ''}`}
                 style={{ outline: assignIds.has(ch.id) ? '3px solid var(--green)' : 'none' }}
                 onClick={() => {
                   const next = new Set(assignIds);
@@ -222,14 +291,14 @@ export default function ReviewExercise() {
                 }}
               >
                 {ch.avatar} {ch.name}
-              </button>
+              </Button>
             ))}
-            {children.length > 0 && <button onClick={saveAssignments}>บันทึกการมอบหมาย</button>}
+            {children.length > 0 && <Button onClick={saveAssignments}>บันทึกการมอบหมาย</Button>}
           </div>
           {set.status !== 'published' && (
             <div className="muted" style={{ marginTop: 8 }}>เด็กจะเห็นแบบฝึกหัดนี้หลังกด "เผยแพร่" แล้วเท่านั้น</div>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -284,37 +353,61 @@ function QuestionEditor({
   }
 
   async function unapprove() {
-    if (!window.confirm('ยกเลิกอนุมัติข้อนี้? ข้อนี้จะกลับเป็นร่างและต้องอนุมัติใหม่ก่อนเผยแพร่')) return;
     await api.post(`/api/parent/questions/${q.id}/unapprove`);
     onChanged();
   }
 
   async function detachImage() {
-    if (!window.confirm('ถอดรูป/แผนภาพออกจากข้อนี้? ข้อนี้จะกลับเป็นร่างและต้องตรวจใหม่')) return;
     await api.patch(`/api/parent/questions/${q.id}`, { imageId: null, diagram: null });
     onChanged();
   }
 
   async function remove() {
-    if (!window.confirm('ลบข้อนี้ถาวร?')) return;
     await api.delete(`/api/parent/questions/${q.id}`);
     onChanged();
   }
 
   return (
-    <div className="review-question-card">
+    <Card className="review-question-card">
       <div className="question-header">
         <b className="question-number">ข้อ {index + 1}</b>
-        <span className="badge draft">{TYPE_TH[q.questionType]}</span>
-        <span className={`badge ${q.status}`}>{q.status === 'approved' ? 'อนุมัติแล้ว' : 'ร่าง'}</span>
+        <RadixBadge color="gray" variant="soft">{TYPE_TH[q.questionType]}</RadixBadge>
+        <RadixBadge color={statusColor(q.status)} variant="soft">{q.status === 'approved' ? 'อนุมัติแล้ว' : 'ร่าง'}</RadixBadge>
         <span className="grow" />
         {!editing && (
           <div className="question-actions">
-            {q.status !== 'approved' && <button className="secondary" onClick={approve}>✓ อนุมัติ</button>}
-            {q.status === 'approved' && <button className="secondary" onClick={unapprove}>ยกเลิกอนุมัติ</button>}
-            {(q.imageId || q.diagram) && <button className="secondary" onClick={detachImage}>ถอดรูป/แผนภาพออก</button>}
-            <button className="secondary" onClick={() => setEditing(true)}>แก้ไข</button>
-            <button className="danger" onClick={remove}>ลบ</button>
+            {q.status !== 'approved' && <Button variant="soft" color="green" onClick={approve}>อนุมัติ</Button>}
+            {q.status === 'approved' && (
+              <ConfirmButton
+                title="ยกเลิกอนุมัติข้อนี้?"
+                description="ข้อนี้จะกลับเป็นร่างและต้องอนุมัติใหม่ก่อนเผยแพร่"
+                confirmLabel="ยกเลิกอนุมัติ"
+                onConfirm={unapprove}
+              >
+                ยกเลิกอนุมัติ
+              </ConfirmButton>
+            )}
+            {(q.imageId || q.diagram) && (
+              <ConfirmButton
+                title="ถอดรูป/แผนภาพออก?"
+                description="ข้อนี้จะกลับเป็นร่างและต้องตรวจใหม่"
+                confirmLabel="ถอดออก"
+                color="orange"
+                onConfirm={detachImage}
+              >
+                ถอดรูป/แผนภาพออก
+              </ConfirmButton>
+            )}
+            <Button variant="soft" color="gray" onClick={() => setEditing(true)}>แก้ไข</Button>
+            <ConfirmButton
+              title="ลบข้อนี้ถาวร?"
+              description="เมื่อลบแล้วจะกู้คืนจากหน้านี้ไม่ได้"
+              confirmLabel="ลบ"
+              color="red"
+              onConfirm={remove}
+            >
+              ลบ
+            </ConfirmButton>
           </div>
         )}
       </div>
@@ -429,7 +522,7 @@ function QuestionEditor({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
