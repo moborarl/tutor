@@ -64,7 +64,7 @@ export default function ChildrenList() {
   const treeItems = useMemo<TreeNodeItem[]>(() => {
     const items: TreeNodeItem[] = [{ id: 'home', label: 'สมาชิกครอบครัว', icon: '⌂', count: children.length }];
     for (const child of children) {
-      items.push({ id: nodeId({ kind: 'child', childId: child.id, view: 'progress' }), label: child.name, icon: <ChildAvatar child={child} size="sm" />, count: progressCache[child.id]?.sets.length });
+      items.push({ id: nodeId({ kind: 'child', childId: child.id, view: 'progress' }), label: child.name, icon: '•', count: progressCache[child.id]?.sets.length });
       items.push({ id: nodeId({ kind: 'child', childId: child.id, view: 'progress' }), label: 'ความคืบหน้า', icon: '▸', depth: 1 });
       items.push({ id: nodeId({ kind: 'child', childId: child.id, view: 'assigned' }), label: 'แบบฝึกหัดที่มอบหมาย', icon: '▸', depth: 1 });
       items.push({ id: nodeId({ kind: 'child', childId: child.id, view: 'settings' }), label: 'ตั้งค่าโปรไฟล์', icon: '▸', depth: 1 });
@@ -302,9 +302,10 @@ function ChildForm({ child, onDone, onCancel }: { child: Child | null; onDone: (
               type="button"
               className={`avatar-picker-option ${avatar === option.key ? 'selected' : ''}`}
               onClick={() => setAvatar(option.key)}
+              title={option.label}
+              aria-label={option.label}
             >
               <ChildAvatar avatar={option.key} name={name || option.label} size="sm" />
-              <span>{option.label}</span>
             </button>
           ))}
         </div>

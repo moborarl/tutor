@@ -22,19 +22,16 @@ const PROVIDER_TH: Record<string, string> = {
 
 type ExerciseNode =
   | { kind: 'subject'; subjectName: string }
-  | { kind: 'age'; subjectName: string; ageBand: AgeBand }
-  | { kind: 'set'; setId: number };
+  | { kind: 'age'; subjectName: string; ageBand: AgeBand };
 
 function nodeId(node: ExerciseNode) {
   if (node.kind === 'subject') return `subject:${node.subjectName}`;
-  if (node.kind === 'age') return `age:${node.subjectName}:${node.ageBand}`;
-  return `set:${node.setId}`;
+  return `age:${node.subjectName}:${node.ageBand}`;
 }
 
 function parseNode(id: string): ExerciseNode {
   const [kind, subjectName, ageBand] = id.split(':');
   if (kind === 'age') return { kind: 'age', subjectName, ageBand: ageBand as AgeBand };
-  if (kind === 'set') return { kind: 'set', setId: Number(subjectName) };
   return { kind: 'subject', subjectName };
 }
 
@@ -75,6 +72,7 @@ export default function ExerciseList() {
   const [sets, setSets] = useState<ExerciseSetSummary[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [activeId, setActiveId] = useState('subject:ทั้งหมด');
+  const [activeSetId, setActiveSetId] = useState<number | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -128,23 +126,20 @@ export default function ExerciseList() {
     for (const group of subjectGroups) {
       items.push({ id: nodeId({ kind: 'subject', subjectName: group.subjectName }), label: group.subjectName, icon: '▸', count: group.young.length + group.older.length });
       items.push({ id: nodeId({ kind: 'age', subjectName: group.subjectName, ageBand: 'young' }), label: 'เด็กเล็ก', icon: '•', count: group.young.length, depth: 1 });
-      for (const set of group.young) items.push({ id: nodeId({ kind: 'set', setId: set.id }), label: set.title || `ชุดที่ ${set.id}`, icon: '·', depth: 2 });
       items.push({ id: nodeId({ kind: 'age', subjectName: group.subjectName, ageBand: 'older' }), label: 'เด็กโต', icon: '•', count: group.older.length, depth: 1 });
-      for (const set of group.older) items.push({ id: nodeId({ kind: 'set', setId: set.id }), label: set.title || `ชุดที่ ${set.id}`, icon: '·', depth: 2 });
     }
     return items;
   }, [sets, subjectGroups]);
 
   const activeNode = parseNode(activeId);
-  const activeSet = activeNode.kind === 'set' ? sets.find((set) => set.id === activeNode.setId) ?? null : null;
+  const activeSet = activeSetId == null ? null : sets.find((set) => set.id === activeSetId) ?? null;
   const visibleSets = useMemo(() => {
-    if (activeNode.kind === 'set') return activeSet ? [activeSet] : [];
     if (activeNode.kind === 'subject') {
       if (activeNode.subjectName === 'ทั้งหมด') return sets;
       return sets.filter((set) => (set.subjectName ?? 'ไม่ระบุวิชา') === activeNode.subjectName);
     }
     return sets.filter((set) => (set.subjectName ?? 'ไม่ระบุวิชา') === activeNode.subjectName && set.ageBand === activeNode.ageBand);
-  }, [activeNode, activeSet, sets]);
+  }, [activeNode, sets]);
 
   const summary = {
     total: visibleSets.length,
@@ -202,6 +197,7 @@ export default function ExerciseList() {
       await api.delete(`/api/parent/exercise-sets/${id}`);
       setSets((current) => current.filter((set) => set.id !== id));
       setActiveId('subject:ทั้งหมด');
+      setActiveSetId(null);
     } catch (err) {
       alert('เก็บเข้าคลังไม่สำเร็จ: ' + String(err));
     } finally {
@@ -274,7 +270,7 @@ export default function ExerciseList() {
 
       {sets.length > 0 && (
         <ExplorerLayout
-          tree={<TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={setActiveId} />}
+          tree={<TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={(id) => { setActiveId(id); setActiveSetId(null); }} />}
         >
           {selected.size >= 2 && (
             <Card className="selection-bar">
@@ -314,9 +310,7 @@ export default function ExerciseList() {
                 <Heading as="h3" size="4">
                   {activeNode.kind === 'subject'
                     ? activeNode.subjectName
-                    : activeNode.kind === 'age'
-                      ? `${activeNode.subjectName} · ${ageBandLabel(activeNode.ageBand)}`
-                      : 'ไม่พบแบบฝึกหัด'}
+                    : `${activeNode.subjectName} · ${ageBandLabel(activeNode.ageBand)}`}
                 </Heading>
                 <div className="stats-grid admin-stats" style={{ marginTop: 12 }}>
                   <Card className="stat-card"><div className="stat-value">{summary.total}</div><Text color="gray" size="2">ทั้งหมด</Text></Card>
@@ -331,7 +325,7 @@ export default function ExerciseList() {
                 selected={selected}
                 loading={loading}
                 onToggle={toggleSelected}
-                onOpen={(id) => setActiveId(nodeId({ kind: 'set', setId: id }))}
+                onOpen={setActiveSetId}
               />
             </>
           )}

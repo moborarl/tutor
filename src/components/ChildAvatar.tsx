@@ -1,30 +1,32 @@
 import type { Child } from '@shared/types';
 
 export const CHILD_AVATAR_OPTIONS = [
-  { key: 'lion', label: 'สิงโต', icon: '♌', tone: 'amber' },
-  { key: 'panda', label: 'แพนด้า', icon: '●●', tone: 'stone' },
-  { key: 'rocket', label: 'จรวด', icon: '✦', tone: 'blue' },
-  { key: 'star', label: 'ดาว', icon: '★', tone: 'yellow' },
-  { key: 'bear', label: 'หมี', icon: '●', tone: 'brown' },
-  { key: 'fox', label: 'ฟ็อกซ์', icon: '◆', tone: 'orange' },
-  { key: 'frog', label: 'กบ', icon: '✿', tone: 'green' },
-  { key: 'whale', label: 'วาฬ', icon: '≈', tone: 'teal' },
-  { key: 'unicorn', label: 'ยูนิคอร์น', icon: '◇', tone: 'violet' },
-  { key: 'rainbow', label: 'รุ้ง', icon: '◒', tone: 'rose' },
+  { key: 'flamingo', label: 'ฟลามิงโก', icon: '🦩', tone: 'rose' },
+  { key: 'panda', label: 'แพนด้า', icon: '🐼', tone: 'yellow' },
+  { key: 'sloth', label: 'สล็อต', icon: '🦥', tone: 'teal' },
+  { key: 'tiger', label: 'เสือ', icon: '🐯', tone: 'orange' },
+  { key: 'elephant', label: 'ช้าง', icon: '🐘', tone: 'stone' },
+  { key: 'lemur', label: 'ลีเมอร์', icon: '🐒', tone: 'violet' },
+  { key: 'panther', label: 'เสือดำ', icon: '🐈‍⬛', tone: 'amber' },
+  { key: 'giraffe', label: 'ยีราฟ', icon: '🦒', tone: 'green' },
+  { key: 'toucan', label: 'ทูแคน', icon: '🐧', tone: 'violet' },
+  { key: 'horse', label: 'ม้า', icon: '🐴', tone: 'yellow' },
+  { key: 'zebra', label: 'ม้าลาย', icon: '🦓', tone: 'teal' },
+  { key: 'parrot', label: 'นกแก้ว', icon: '🦜', tone: 'rose' },
 ] as const;
 
 const EMOJI_TO_KEY: Record<string, string> = {
-  '🦁': 'lion',
+  '🦁': 'tiger',
   '🐼': 'panda',
-  '🚀': 'rocket',
-  '⭐': 'star',
-  '🐣': 'star',
-  '🐻': 'bear',
-  '🦊': 'fox',
-  '🐸': 'frog',
-  '🐬': 'whale',
-  '🦄': 'unicorn',
-  '🌈': 'rainbow',
+  '🚀': 'toucan',
+  '⭐': 'horse',
+  '🐣': 'flamingo',
+  '🐻': 'panda',
+  '🦊': 'tiger',
+  '🐸': 'sloth',
+  '🐬': 'zebra',
+  '🦄': 'horse',
+  '🌈': 'parrot',
 };
 
 export function normalizeAvatar(value?: string) {
@@ -45,14 +47,11 @@ export function ChildAvatar({
   name?: string;
   size?: 'sm' | 'md' | 'lg';
 }) {
-  const displayName = name ?? child?.name ?? '';
   const option = normalizeAvatar(avatar ?? child?.avatar);
-  const initials = displayName.trim().slice(0, 1).toUpperCase();
+  const displayName = name ?? child?.name ?? option.label;
   return (
     <span className={`modern-child-avatar avatar-${option.tone} avatar-${size}`} title={displayName || option.label}>
       <span className="avatar-symbol">{option.icon}</span>
-      {initials && <span className="avatar-initial">{initials}</span>}
     </span>
   );
 }
-

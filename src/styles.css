@@ -1073,13 +1073,13 @@ table.data th { color: var(--muted); font-weight: 600; }
 .avatar-lg { width: 72px; height: 72px; }
 
 .avatar-symbol {
-  font-size: 19px;
+  font-size: 22px;
   line-height: 1;
-  opacity: 0.85;
+  opacity: 0.96;
 }
 
-.avatar-md .avatar-symbol { font-size: 25px; }
-.avatar-lg .avatar-symbol { font-size: 34px; }
+.avatar-md .avatar-symbol { font-size: 31px; }
+.avatar-lg .avatar-symbol { font-size: 42px; }
 
 .avatar-initial {
   position: absolute;
@@ -1118,17 +1118,18 @@ table.data th { color: var(--muted); font-weight: 600; }
 
 .avatar-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+  gap: 12px;
 }
 
 .avatar-picker-option {
-  display: flex;
+  display: grid;
+  place-items: center;
+  min-height: 64px;
   align-items: center;
-  gap: 8px;
-  padding: 10px;
+  padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--surface);
   color: var(--ink);
   font-weight: 750;
