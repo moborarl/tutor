@@ -127,9 +127,9 @@ export default function ReviewExercise() {
   }
 
   return (
-    <div>
+    <div className="review-root">
       {set.extractionError && set.status !== 'pending_review' && set.status !== 'published' && (
-        <div className="card" style={{ background: 'var(--red-soft)' }}>
+        <div className="review-alert review-alert-danger">
           <div className="error-text">{set.extractionError}</div>
           <div className="row" style={{ marginTop: 10 }}>
             <button onClick={retry}>ลองแกะใหม่</button>
@@ -139,25 +139,25 @@ export default function ReviewExercise() {
       )}
 
       {(set.status === 'processing' || set.status === 'extracting') && (
-        <div className="card muted">
+        <div className="review-alert muted">
           ⏳ {STATUS_TH[set.status]} — หน้านี้จะรีเฟรชอัตโนมัติ
         </div>
       )}
 
       {/* Compact sticky header: title+status stay pinned while scrolling through
           many questions, but stay small so they don't eat into the visible area. */}
-      <div className="sticky-toolbar" style={{ marginBottom: 14 }}>
-        <div className="row" style={{ marginBottom: 8 }}>
-          <b className="grow" style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {set.title || `ชุดที่ ${set.id}`}
-          </b>
-          <span className="muted" style={{ fontSize: 12 }}>
-            {set.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
-            {set.extractionProvider && ` · ${PROVIDER_TH[set.extractionProvider]}`}
-          </span>
+      <div className="sticky-toolbar review-toolbar">
+        <div className="review-toolbar-main">
+          <div className="review-title-block">
+            <h2>{set.title || `ชุดที่ ${set.id}`}</h2>
+            <span className="muted">
+              {set.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
+              {set.extractionProvider && ` · ${PROVIDER_TH[set.extractionProvider]}`}
+            </span>
+          </div>
           <span className={`badge ${set.status}`}>{STATUS_TH[set.status] ?? set.status}</span>
         </div>
-        <div className="row">
+        <div className="toolbar-actions">
           <button className="secondary" onClick={() => setShowImage((v) => !v)}>
             {showImage ? 'ซ่อนรูปต้นฉบับ' : 'ดูรูปต้นฉบับ'}
           </button>
@@ -187,7 +187,7 @@ export default function ReviewExercise() {
       {msg && <div className="muted" style={{ marginBottom: 10 }}>{msg}</div>}
 
       {showImage && (
-        <div className="card">
+        <div className="source-image-panel">
           {set.images.map((img) => (
             <img
               key={img.id}
@@ -204,7 +204,7 @@ export default function ReviewExercise() {
       ))}
 
       {(set.status === 'published' || set.status === 'pending_review') && (
-        <div className="card">
+        <div className="assignment-card">
           <h3>มอบหมายให้ลูก</h3>
           {children.length === 0 && (
             <div className="muted">ยังไม่มีโปรไฟล์ลูก — <a href="#" onClick={(e) => { e.preventDefault(); nav('/parent/children'); }}>เพิ่มลูกก่อน</a></div>
@@ -213,7 +213,7 @@ export default function ReviewExercise() {
             {children.map((ch) => (
               <button
                 key={ch.id}
-                className="secondary"
+                className={`secondary child-toggle ${assignIds.has(ch.id) ? 'selected' : ''}`}
                 style={{ outline: assignIds.has(ch.id) ? '3px solid var(--green)' : 'none' }}
                 onClick={() => {
                   const next = new Set(assignIds);
@@ -302,60 +302,47 @@ function QuestionEditor({
   }
 
   return (
-    <div className="card">
-      <div className="row">
-        <b>ข้อ {index + 1}</b>
+    <div className="review-question-card">
+      <div className="question-header">
+        <b className="question-number">ข้อ {index + 1}</b>
         <span className="badge draft">{TYPE_TH[q.questionType]}</span>
         <span className={`badge ${q.status}`}>{q.status === 'approved' ? 'อนุมัติแล้ว' : 'ร่าง'}</span>
         <span className="grow" />
         {!editing && (
-          <>
+          <div className="question-actions">
             {q.status !== 'approved' && <button className="secondary" onClick={approve}>✓ อนุมัติ</button>}
             {q.status === 'approved' && <button className="secondary" onClick={unapprove}>ยกเลิกอนุมัติ</button>}
             {(q.imageId || q.diagram) && <button className="secondary" onClick={detachImage}>ถอดรูป/แผนภาพออก</button>}
             <button className="secondary" onClick={() => setEditing(true)}>แก้ไข</button>
             <button className="danger" onClick={remove}>ลบ</button>
-          </>
+          </div>
         )}
       </div>
 
       {!editing ? (
-        <div style={{ marginTop: 10 }}>
+        <div className="question-body">
           {q.imageId ? (
             <img
+              className="question-visual"
               src={`/api/parent/exercise-sets/${setId}/images/${q.imageId}`}
               alt="รูปประกอบโจทย์"
-              style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, marginBottom: 8, display: 'block' }}
             />
           ) : q.diagram ? (
-            <div style={{ marginBottom: 8 }}>
-              <div
-                style={{
-                  display: 'inline-block',
-                  padding: '3px 8px',
-                  borderRadius: 999,
-                  background: 'var(--accent-soft)',
-                  color: 'var(--accent)',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  marginBottom: 4,
-                }}
-              >
-                🤖 แผนภาพจาก AI
-              </div>
+            <div className="diagram-preview">
+              <div className="ai-diagram-pill">แผนภาพจาก AI</div>
               <DiagramView diagram={q.diagram} />
             </div>
           ) : null}
-          <div style={{ fontWeight: 600 }}><RichText text={q.prompt} /></div>
+          <div className="question-prompt-review"><RichText text={q.prompt} /></div>
           <AnswerKey q={q} />
           {q.explanation && (
-            <div className="muted" style={{ marginTop: 8, padding: 8, background: '#f5f5f5', borderRadius: 6 }}>
+            <div className="explain-box muted">
               💡 คำอธิบาย: {q.explanation}
             </div>
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+        <div className="question-editor-panel">
           <label className="muted">โจทย์</label>
           <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
           <label className="muted">เนื้อหา (content JSON)</label>
@@ -494,7 +481,7 @@ function StructuredQuestionEditor({
     const options = stringList(content.options);
     const correctIndex = typeof answer.correctIndex === 'number' ? answer.correctIndex : 0;
     return (
-      <div className="card" style={{ padding: 12 }}>
+      <div className="structured-editor-panel">
         <b>ตัวช่วยแก้ปรนัย</b>
         {options.map((opt, i) => (
           <div key={i} style={fieldStyle}>
@@ -535,7 +522,7 @@ function StructuredQuestionEditor({
 
   if (questionType === 'true_false') {
     return (
-      <div className="card" style={{ padding: 12 }}>
+      <div className="structured-editor-panel">
         <b>ตัวช่วยแก้ถูก/ผิด</b>
         <select value={answer.value === false ? 'false' : 'true'} onChange={(e) => updateAnswer({ ...answer, value: e.target.value === 'true' })}>
           <option value="true">ถูก</option>
@@ -548,7 +535,7 @@ function StructuredQuestionEditor({
   if (questionType === 'fill_blank') {
     const answers = stringList(answer.answers);
     return (
-      <div className="card" style={{ padding: 12 }}>
+      <div className="structured-editor-panel">
         <b>ตัวช่วยแก้เติมคำ</b>
         {answers.map((ans, i) => (
           <div key={i} style={fieldStyle}>
@@ -577,7 +564,7 @@ function StructuredQuestionEditor({
     const numerator = typeof answer.numerator === 'number' ? answer.numerator : 0;
     const denominator = typeof answer.denominator === 'number' ? answer.denominator : 1;
     return (
-      <div className="card" style={{ padding: 12 }}>
+      <div className="structured-editor-panel">
         <b>ตัวช่วยแก้เศษส่วน</b>
         <div style={fieldStyle}>
           <input type="number" value={numerator} onChange={(e) => updateAnswer({ ...answer, numerator: Number(e.target.value) })} />
@@ -593,7 +580,7 @@ function StructuredQuestionEditor({
     const indices = numberList(answer.indices);
     const normalized = indices.length === items.length ? indices : items.map((_, i) => i);
     return (
-      <div className="card" style={{ padding: 12 }}>
+      <div className="structured-editor-panel">
         <b>ตัวช่วยแก้เรียงลำดับ</b>
         <div className="muted">รายการที่เด็กเห็น</div>
         {items.map((item, i) => (
@@ -660,7 +647,7 @@ function StructuredQuestionEditor({
     const right = stringList(content.right);
     const pairs = numberList(answer.pairs);
     return (
-      <div className="card" style={{ padding: 12 }}>
+      <div className="structured-editor-panel">
         <b>ตัวช่วยแก้จับคู่</b>
         {left.map((leftItem, i) => (
           <div key={i} style={fieldStyle}>
