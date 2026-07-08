@@ -6,13 +6,14 @@ import type { Child, PlayExercise } from '@shared/types';
 export default function PlayExerciseList() {
   const nav = useNavigate();
   const [exercises, setExercises] = useState<PlayExercise[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const child: Child | null = JSON.parse(sessionStorage.getItem('activeChild') ?? 'null');
 
   useEffect(() => {
     api
       .get<PlayExercise[]>('/api/play/exercises')
       .then(setExercises)
-      .catch(() => nav('/play'));
+      .catch(() => setLoadError(true));
   }, [nav]);
 
   async function switchProfile() {
@@ -45,18 +46,32 @@ export default function PlayExerciseList() {
 
   return (
     <div className={`play-root ${uiSimple ? 'ui-simple' : ''}`}>
-      <div className="row" style={{ width: '100%', maxWidth: 640 }}>
-        <span style={{ fontSize: 40 }}>{child?.avatar ?? '🙂'}</span>
-        <h2 className="grow" style={{ margin: 0 }}>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
+      <div className="kid-topbar">
+        <span className="kid-topbar-avatar">{child?.avatar ?? '🙂'}</span>
+        <h2>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
         <Link to="/play/progress"><button className="secondary">ดูความคืบหน้า</button></Link>
         <button className="secondary" onClick={switchProfile}>สลับคน</button>
       </div>
 
-      {exercises === null && <p>กำลังโหลด...</p>}
+      {exercises === null && !loadError && (
+        <div className="state-card">
+          <div className="state-spinner" />
+          <b>กำลังโหลดแบบฝึกหัด</b>
+          <span>รอสักครู่นะ</span>
+        </div>
+      )}
+      {loadError && (
+        <div className="state-card error-state">
+          <b>โหลดแบบฝึกหัดไม่สำเร็จ</b>
+          <span>ลองกลับไปเลือกโปรไฟล์ใหม่อีกครั้ง</span>
+          <button className="secondary" onClick={() => nav('/play')}>กลับไปเลือกโปรไฟล์</button>
+        </div>
+      )}
       {exercises?.length === 0 && (
-        <div style={{ marginTop: 50, textAlign: 'center' }}>
-          <div style={{ fontSize: 60 }}>🎉</div>
-          <h3>ยังไม่มีแบบฝึกหัดจ้า รอผู้ปกครองมอบหมายนะ</h3>
+        <div className="state-card empty-state">
+          <div className="state-illustration">🎉</div>
+          <h3>ยังไม่มีแบบฝึกหัด</h3>
+          <span>รอผู้ปกครองมอบหมายแบบฝึกหัดให้นะ</span>
         </div>
       )}
 
@@ -72,22 +87,22 @@ export default function PlayExerciseList() {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%', maxWidth: 640, marginTop: 20 }}>
+      <div className="kid-exercise-list">
         {groupedExercises.map(([subjectName, items]) => (
           <div key={subjectName} className="kid-subject-section">
             <h3>{subjectName}</h3>
             {items.map((ex) => (
           <Link key={ex.id} to={`/play/exercises/${ex.id}`} style={{ textDecoration: 'none' }}>
-            <div className="card row" style={{ marginBottom: 0 }}>
-              <div style={{ fontSize: 36 }}>{ex.bestScore != null && ex.bestScore >= 0.999 ? '🌟' : '📝'}</div>
+            <div className="card row kid-exercise-card">
+              <div className="kid-exercise-icon">{ex.bestScore != null && ex.bestScore >= 0.999 ? '🌟' : '📝'}</div>
               <div className="grow">
-                <div style={{ fontWeight: 700, fontSize: uiSimple ? 22 : 17 }}>{ex.title || 'แบบฝึกหัด'}</div>
+                <div className="kid-exercise-title">{ex.title || 'แบบฝึกหัด'}</div>
                 <div className="muted">
                   {ex.subjectName ? `${ex.subjectName} · ` : ''}{ex.questionCount} ข้อ
                   {ex.bestScore != null && ` · คะแนนดีสุด ${Math.round(ex.bestScore * 100)}%`}
                 </div>
               </div>
-              <span style={{ fontSize: 26 }}>▶️</span>
+              <span className="kid-exercise-arrow">▶️</span>
             </div>
           </Link>
             ))}

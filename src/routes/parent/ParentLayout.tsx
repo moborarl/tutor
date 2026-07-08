@@ -31,7 +31,7 @@ export default function ParentLayout() {
         <NavLink to="/parent/exercises">แบบฝึกหัด</NavLink>
         <NavLink to="/parent/upload">อัปโหลด</NavLink>
         <NavLink to="/parent/children">เด็ก</NavLink>
-        <NavLink to="/parent/admin">Admin</NavLink>
+        <NavLink to="/parent/admin">ดูแลข้อมูล</NavLink>
         <span className="grow" />
         <Button variant="soft" color="gray" onClick={logout}>ออกจากระบบ</Button>
       </nav>

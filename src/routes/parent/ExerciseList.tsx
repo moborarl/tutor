@@ -37,7 +37,7 @@ function ArchiveSetButton({ disabled, onConfirm }: { disabled: boolean; onConfir
       <AlertDialog.Content maxWidth="420px">
         <AlertDialog.Title>เก็บแบบฝึกหัดนี้เข้าคลัง?</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          แบบฝึกหัดจะหายจากหน้าจัดการและเด็กจะไม่เห็นอีก แต่ข้อมูลเดิมยังอยู่ให้ล้างถาวรได้จากหน้า Admin
+          แบบฝึกหัดจะหายจากหน้าจัดการและเด็กจะไม่เห็นอีก แต่ข้อมูลเดิมยังอยู่ให้ล้างถาวรได้จากหน้าดูแลข้อมูล
         </AlertDialog.Description>
         <Flex gap="3" justify="end" mt="4">
           <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
@@ -51,6 +51,8 @@ function ArchiveSetButton({ disabled, onConfirm }: { disabled: boolean; onConfir
 export default function ExerciseList() {
   const nav = useNavigate();
   const [sets, setSets] = useState<ExerciseSetSummary[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,7 +72,10 @@ export default function ExerciseList() {
   const [editAgeBand, setEditAgeBand] = useState<AgeBand>('young');
 
   useEffect(() => {
-    api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets').then(setSets);
+    api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets')
+      .then(setSets)
+      .catch(() => setListError('โหลดรายการแบบฝึกหัดไม่สำเร็จ'))
+      .finally(() => setListLoading(false));
     api.get<Subject[]>('/api/parent/subjects').then(setSubjects);
     // Poll while any set is still queued/extracting (e.g. waiting on the Pi).
     const t = setInterval(() => {
@@ -255,8 +260,27 @@ export default function ExerciseList() {
         </Card>
       )}
 
-      {sets.length === 0 && (
-        <Card><Text color="gray">ยังไม่มีแบบฝึกหัด อัปโหลดรูปถ่ายแบบฝึกหัดเพื่อเริ่มต้น</Text></Card>
+      {listLoading && (
+        <Card className="parent-panel">
+          <Flex align="center" gap="3">
+            <div className="state-spinner" />
+            <Text color="gray">กำลังโหลดแบบฝึกหัด...</Text>
+          </Flex>
+        </Card>
+      )}
+
+      {listError && (
+        <Card className="parent-panel">
+          <Text color="red">{listError}</Text>
+        </Card>
+      )}
+
+      {!listLoading && !listError && sets.length === 0 && (
+        <Card className="parent-panel empty-state-panel">
+          <Heading as="h3" size="4">ยังไม่มีแบบฝึกหัด</Heading>
+          <Text color="gray">อัปโหลดรูปถ่ายหรือวาง JSON เพื่อสร้างชุดแรก</Text>
+          <Link to="/parent/upload"><Button style={{ marginTop: 12 }}>อัปโหลด / สร้างใหม่</Button></Link>
+        </Card>
       )}
 
       {sets.length > 0 && (

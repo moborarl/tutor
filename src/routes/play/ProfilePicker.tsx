@@ -68,20 +68,30 @@ export default function ProfilePicker() {
 
   if (needLogin) {
     return (
-      <div className="play-root" style={{ justifyContent: 'center' }}>
-        <div style={{ fontSize: 60 }}>🔒</div>
+      <div className="play-root centered-play">
+        <div className="state-illustration">🔒</div>
         <h2>ให้ผู้ปกครองเข้าสู่ระบบก่อนนะ</h2>
         <Link to="/parent/login"><button>ผู้ปกครองเข้าสู่ระบบ</button></Link>
       </div>
     );
   }
 
-  if (!children) return <div className="play-root" style={{ justifyContent: 'center' }}>กำลังโหลด...</div>;
+  if (!children) {
+    return (
+      <div className="play-root centered-play">
+        <div className="state-card">
+          <div className="state-spinner" />
+          <b>กำลังโหลดโปรไฟล์เด็ก</b>
+          <span>รอสักครู่นะ</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!picked) {
     return (
       <div className="play-root">
-        <h1 style={{ fontSize: 34 }}>หนูคือใครเอ่ย? 👋</h1>
+        <h1 className="kid-page-title">หนูคือใครเอ่ย? 👋</h1>
         <div className="profile-grid">
           {children.map((ch) => (
             <button key={ch.id} className="profile-tile" onClick={() => { setPicked(ch); setError(''); }}>
@@ -91,9 +101,10 @@ export default function ProfilePicker() {
           ))}
         </div>
         {children.length === 0 && (
-          <p className="muted" style={{ marginTop: 30 }}>
-            ยังไม่มีโปรไฟล์ — ให้ผู้ปกครองเพิ่มที่หน้า <Link to="/parent/children">จัดการเด็ก</Link>
-          </p>
+          <div className="state-card empty-state">
+            <b>ยังไม่มีโปรไฟล์เด็ก</b>
+            <span>ให้ผู้ปกครองเพิ่มโปรไฟล์ที่หน้า <Link to="/parent/children">จัดการเด็ก</Link></span>
+          </div>
         )}
       </div>
     );
@@ -134,10 +145,10 @@ export default function ProfilePicker() {
 
   return (
     <div className="play-root">
-      <button className="secondary" style={{ alignSelf: 'flex-start' }} onClick={() => { setPicked(null); setPin(''); setError(''); }}>
+      <button className="secondary play-back-button" onClick={() => { setPicked(null); setPin(''); setError(''); }}>
         ← เลือกใหม่
       </button>
-      <div style={{ fontSize: 70, marginTop: 10 }}>{picked.avatar}</div>
+      <div className="pin-avatar">{picked.avatar}</div>
       <h2>สวัสดี {picked.name}! ใส่ PIN 4 ตัวนะ</h2>
       <div className="pin-dots">
         {[0, 1, 2, 3].map((i) => (

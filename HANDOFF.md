@@ -2,6 +2,59 @@
 
 > อัปเดตล่าสุด 2026-07-08: รอบนี้เพิ่ม UX/management/progress/super-admin แล้ว โค้ดยังไม่ได้ commit เพราะเครื่อง agent สร้าง `.git/index.lock` ไม่ได้ (`Permission denied`) ต้องให้ผู้ใช้รัน git เอง
 
+## ล่าสุดที่สุด (2026-07-08 รอบ polish)
+
+ผู้ใช้สั่ง "งาน polish do it all" แล้วทำเพิ่มใน working tree:
+
+- เพิ่ม loading/empty/error state ที่ดูเป็นระบบเดียวกัน
+  - หน้าเด็กเลือกโปรไฟล์
+  - หน้าเด็กดูรายการแบบฝึกหัด
+  - หน้าเด็กกำลังเปิดแบบฝึกหัด
+  - หน้าเด็กดูความคืบหน้า
+  - หน้า parent แบบฝึกหัด
+  - หน้า parent progress/admin
+- ปรับ mobile/responsive ของหน้าเด็ก
+  - topbar หน้าเด็กไม่เบียดบนจอเล็ก
+  - การ์ดแบบฝึกหัดเด็กใช้ขนาดคงที่ขึ้น
+  - PIN pad เล็กลงเล็กน้อยบน mobile
+- ปรับ wording ให้เป็นภาษาไทยมากขึ้น
+  - `Admin` ใน nav เปลี่ยนเป็น `ดูแลข้อมูล`
+  - heading หน้า admin เปลี่ยนเป็น `ดูแลข้อมูล`
+  - `Cleanup` เปลี่ยนเป็น `ล้างข้อมูล`
+  - `attempts`/`storage` ใน UI หลักเปลี่ยนเป็น `ประวัติการทำ`/`พื้นที่ไฟล์`
+- เพิ่ม CSS class กลาง:
+  - `.state-card`, `.state-spinner`, `.empty-state`, `.error-state`
+  - `.kid-topbar`, `.kid-exercise-list`, `.kid-exercise-card`
+  - `.centered-play`, `.kid-page-title`, `.pin-avatar`
+
+ตรวจแล้วหลังรอบ polish:
+
+- `npm.cmd test` ผ่าน 12/12
+- `$env:WRANGLER_WRITE_LOGS='false'; npm.cmd run build` ผ่าน
+- `git diff --check` ผ่าน มีแค่ warning LF/CRLF ปกติบน Windows
+
+ไฟล์ที่เปลี่ยนในรอบ polish:
+
+- `HANDOFF.md`
+- `src/routes/SuperAdmin.tsx`
+- `src/routes/parent/Admin.tsx`
+- `src/routes/parent/ChildProgress.tsx`
+- `src/routes/parent/ExerciseList.tsx`
+- `src/routes/parent/ParentLayout.tsx`
+- `src/routes/play/PlayExerciseList.tsx`
+- `src/routes/play/PlayProgress.tsx`
+- `src/routes/play/Player.tsx`
+- `src/routes/play/ProfilePicker.tsx`
+- `src/styles.css`
+
+คำสั่ง commit/push รอบ polish:
+
+```powershell
+git add HANDOFF.md src\routes\SuperAdmin.tsx src\routes\parent\Admin.tsx src\routes\parent\ChildProgress.tsx src\routes\parent\ExerciseList.tsx src\routes\parent\ParentLayout.tsx src\routes\play\PlayExerciseList.tsx src\routes\play\PlayProgress.tsx src\routes\play\Player.tsx src\routes\play\ProfilePicker.tsx src\styles.css
+git commit -m "Polish loading states and responsive UI"
+git push origin main
+```
+
 ## ล่าสุดมากกว่า (2026-07-08 รอบ product hardening)
 
 ผู้ใช้สั่ง "งาน product ต่อไปที่น่าทำ do it all" แล้วทำเพิ่มใน working tree:

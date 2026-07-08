@@ -19,7 +19,17 @@ export default function PlayProgress() {
     api.get<ChildProgress>('/api/play/progress').then(setData).catch(() => nav('/play'));
   }, [nav]);
 
-  if (!data) return <div className="play-root" style={{ justifyContent: 'center' }}>กำลังโหลด...</div>;
+  if (!data) {
+    return (
+      <div className="play-root centered-play">
+        <div className="state-card">
+          <div className="state-spinner" />
+          <b>กำลังโหลดความคืบหน้า</b>
+          <span>รอสักครู่นะ</span>
+        </div>
+      </div>
+    );
+  }
   const uiSimple = data.child.ageBand === 'young';
 
   return (

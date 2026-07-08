@@ -97,7 +97,15 @@ export default function Player() {
   }, [id, nav]);
 
   if (!exercise || attemptId == null) {
-    return <div className="play-root" style={{ justifyContent: 'center' }}>กำลังโหลด...</div>;
+    return (
+      <div className="play-root centered-play">
+        <div className="state-card">
+          <div className="state-spinner" />
+          <b>กำลังเตรียมแบบฝึกหัด</b>
+          <span>รอสักครู่นะ</span>
+        </div>
+      </div>
+    );
   }
 
   const uiSimple = child?.ageBand === 'young';

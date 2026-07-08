@@ -86,14 +86,23 @@ export default function Admin() {
     }
   }
 
-  if (!summary) return <div className="muted">กำลังโหลด...</div>;
+  if (!summary) {
+    return (
+      <Card className="parent-panel">
+        <Flex align="center" gap="3">
+          <div className="state-spinner" />
+          <Text color="gray">กำลังโหลดข้อมูล...</Text>
+        </Flex>
+      </Card>
+    );
+  }
   const c = summary.counts;
 
   return (
     <div className="parent-stack">
       <div className="page-heading">
         <div>
-          <Heading as="h2" size="6">Admin</Heading>
+          <Heading as="h2" size="6">ดูแลข้อมูล</Heading>
           <Text color="gray" size="2">ดูภาพรวมข้อมูลของบัญชีนี้ และลบข้อมูลที่ไม่ใช้เพื่อลดพื้นที่ฐานข้อมูล/ไฟล์</Text>
         </div>
       </div>
@@ -103,15 +112,15 @@ export default function Admin() {
         <Card className="stat-card"><div className="stat-value">{c.archivedSets}</div><Text color="gray" size="2">เก็บเข้าคลัง</Text></Card>
         <Card className="stat-card"><div className="stat-value">{c.children}</div><Text color="gray" size="2">เด็ก</Text></Card>
         <Card className="stat-card"><div className="stat-value">{c.questions}</div><Text color="gray" size="2">โจทย์</Text></Card>
-        <Card className="stat-card"><div className="stat-value">{c.attempts}</div><Text color="gray" size="2">attempts</Text></Card>
+        <Card className="stat-card"><div className="stat-value">{c.attempts}</div><Text color="gray" size="2">ประวัติการทำ</Text></Card>
         <Card className="stat-card"><div className="stat-value">{c.r2Objects}</div><Text color="gray" size="2">ไฟล์ R2</Text></Card>
-        <Card className="stat-card"><div className="stat-value">{formatBytes(c.r2Bytes)}</div><Text color="gray" size="2">storage โดยประมาณ</Text></Card>
+        <Card className="stat-card"><div className="stat-value">{formatBytes(c.r2Bytes)}</div><Text color="gray" size="2">พื้นที่ไฟล์โดยประมาณ</Text></Card>
       </div>
 
       <Card className="parent-panel">
         <Flex align="center" gap="3" wrap="wrap">
           <div className="grow">
-            <Heading as="h3" size="4">Cleanup</Heading>
+            <Heading as="h3" size="4">ล้างข้อมูล</Heading>
             <Text color="gray" size="2">ลบเฉพาะข้อมูลของบัญชีนี้เท่านั้น</Text>
           </div>
           <ConfirmDanger

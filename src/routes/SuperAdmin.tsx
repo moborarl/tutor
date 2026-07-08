@@ -52,7 +52,7 @@ function DeleteParentDialog({
       <AlertDialog.Content maxWidth="500px">
         <AlertDialog.Title>ลบบัญชี {parent.email}?</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          การลบนี้จะลบผู้ปกครอง เด็ก แบบฝึกหัด โจทย์ attempts sessions และไฟล์ R2 ใต้บัญชีนี้ทั้งหมด พิมพ์อีเมลบัญชีให้ตรงเพื่อยืนยัน
+          การลบนี้จะลบผู้ปกครอง เด็ก แบบฝึกหัด โจทย์ ประวัติการทำ เซสชัน และไฟล์ R2 ใต้บัญชีนี้ทั้งหมด พิมพ์อีเมลบัญชีให้ตรงเพื่อยืนยัน
         </AlertDialog.Description>
         <input
           style={{ marginTop: 14 }}
@@ -135,8 +135,8 @@ export default function SuperAdmin() {
             <Card className="stat-card"><div className="stat-value">{summary.totals.children}</div><Text color="gray" size="2">เด็ก</Text></Card>
             <Card className="stat-card"><div className="stat-value">{summary.totals.exerciseSets}</div><Text color="gray" size="2">แบบฝึกหัด</Text></Card>
             <Card className="stat-card"><div className="stat-value">{summary.totals.questions}</div><Text color="gray" size="2">โจทย์</Text></Card>
-            <Card className="stat-card"><div className="stat-value">{summary.totals.attempts}</div><Text color="gray" size="2">attempts</Text></Card>
-            <Card className="stat-card"><div className="stat-value">{formatBytes(summary.totals.r2Bytes)}</div><Text color="gray" size="2">storage</Text></Card>
+            <Card className="stat-card"><div className="stat-value">{summary.totals.attempts}</div><Text color="gray" size="2">ประวัติการทำ</Text></Card>
+            <Card className="stat-card"><div className="stat-value">{formatBytes(summary.totals.r2Bytes)}</div><Text color="gray" size="2">พื้นที่ไฟล์</Text></Card>
           </div>
 
           <Card className="parent-panel">
@@ -153,7 +153,7 @@ export default function SuperAdmin() {
                   <div className="grow">
                     <Text as="div" weight="bold">{p.email}</Text>
                     <Text as="div" color="gray" size="2">
-                      เด็ก {p.childCount} · แบบฝึกหัด {p.exerciseSetCount} · โจทย์ {p.questionCount} · attempts {p.attemptCount}
+                      เด็ก {p.childCount} · แบบฝึกหัด {p.exerciseSetCount} · โจทย์ {p.questionCount} · ประวัติการทำ {p.attemptCount}
                     </Text>
                   </div>
                   <DeleteParentDialog parent={p} busy={busy} onDelete={deleteParent} />

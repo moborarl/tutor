@@ -35,7 +35,16 @@ export default function ChildProgress() {
     }
   }
 
-  if (!data) return <div className="muted">กำลังโหลด...</div>;
+  if (!data) {
+    return (
+      <Card className="parent-panel">
+        <Flex align="center" gap="3">
+          <div className="state-spinner" />
+          <Text color="gray">กำลังโหลดความคืบหน้า...</Text>
+        </Flex>
+      </Card>
+    );
+  }
 
   return (
     <div className="parent-stack">
