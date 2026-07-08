@@ -696,8 +696,8 @@ table.data th { color: var(--muted); font-weight: 600; }
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--bg);
-  padding: 10px 0;
+  background: transparent;
+  padding: 0;
 }
 
 /* --- Parent review workspace --- */
@@ -727,11 +727,15 @@ table.data th { color: var(--muted); font-weight: 600; }
 }
 
 .review-toolbar {
-  background: rgba(246, 247, 249, 0.9);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 0;
-  margin-bottom: 2px;
+  top: 72px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+  padding: 18px;
+  margin-bottom: 4px;
 }
 
 .review-toolbar-main {
