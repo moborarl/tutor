@@ -1,5 +1,73 @@
 # HANDOFF — Kids Tutor
 
+> อัปเดตล่าสุด 2026-07-08: รอบนี้เพิ่ม UX/management/progress/super-admin แล้ว โค้ดยังไม่ได้ commit เพราะเครื่อง agent สร้าง `.git/index.lock` ไม่ได้ (`Permission denied`) ต้องให้ผู้ใช้รัน git เอง
+
+## ล่าสุดมาก (2026-07-08)
+
+งานที่ทำแล้วใน working tree:
+
+- เปลี่ยนข้อความหน้าแรกจาก "ระบบติวแบบฝึกหัดสำหรับเด็ก" เป็น "ระบบทำแบบฝึกหัดสำหรับเด็ก"
+- เปลี่ยนคำใน UI จาก "ลูก/ลูกๆ" เป็น "เด็ก" ในจุดที่เป็น user-facing หลัก
+- ปรับ UI หลายหน้าให้สะอาดขึ้นด้วย Radix theme และปรับหน้า review/play ให้สี feedback อ่านชัดขึ้น
+- หน้าเล่นแบบฝึกหัดของเด็กมีลิงก์ดูความคืบหน้า และหน้า `/play/progress`
+- หน้า progress ของผู้ปกครองและเด็กเลิกเน้น average score แล้วแสดง progress แยกตามวิชา
+- หน้า management แบบฝึกหัดจัดกลุ่มตาม `วิชา` และมีสรุปจำนวนชุดตาม `เด็กเล็ก` / `เด็กโต`
+- เพิ่ม admin ภายในบัญชีเดิมสำหรับดู usage และ cleanup ข้อมูลบัญชีนั้น
+- เพิ่ม super-admin ข้ามบัญชีที่ `/super-admin`
+  - API: `/api/super-admin/summary`
+  - API: `DELETE /api/super-admin/parents/:id`
+  - ป้องกันด้วย header `x-super-admin-token` เทียบกับ Worker secret `SUPER_ADMIN_TOKEN`
+  - ใช้สำหรับดูทุกบัญชี, จำนวนเด็ก, แบบฝึกหัด, คำถาม, attempts, R2 objects/bytes และลบบัญชีเพื่อ cleanup storage/database
+
+ไฟล์ที่เปลี่ยนในรอบล่าสุด:
+
+- `shared/types.ts`
+- `src/App.tsx`
+- `src/routes/SuperAdmin.tsx` (ใหม่)
+- `src/routes/parent/Admin.tsx`
+- `src/routes/parent/ChildProgress.tsx`
+- `src/routes/parent/ExerciseList.tsx`
+- `src/routes/play/PlayProgress.tsx`
+- `src/styles.css`
+- `worker/env.ts`
+- `worker/index.ts`
+- `worker/lib/progress.ts`
+- `worker/routes/super-admin.ts` (ใหม่)
+
+ตรวจแล้ว:
+
+- `npm.cmd test` ผ่าน 11/11
+- `$env:WRANGLER_WRITE_LOGS='false'; npm.cmd run build` ผ่าน
+- `git diff --check` ผ่าน มีแค่ warning LF/CRLF ปกติบน Windows
+
+ก่อนใช้ super-admin บน production ต้องตั้ง secret:
+
+```powershell
+cd "D:\Session limit\kids-tutor"
+$env:WRANGLER_WRITE_LOGS='false'
+npx wrangler secret put SUPER_ADMIN_TOKEN
+```
+
+แล้วเข้า `https://kids-tutor.nupark.workers.dev/super-admin` และกรอก token เดียวกัน
+
+คำสั่ง commit/push ที่ผู้ใช้ต้องรันเอง:
+
+```powershell
+git add shared\types.ts src\App.tsx src\routes\SuperAdmin.tsx src\routes\parent\Admin.tsx src\routes\parent\ChildProgress.tsx src\routes\parent\ExerciseList.tsx src\routes\play\PlayProgress.tsx src\styles.css worker\env.ts worker\index.ts worker\lib\progress.ts worker\routes\super-admin.ts HANDOFF.md
+git commit -m "Add subject progress grouping and super admin"
+git push origin main
+```
+
+Next step หลัง push:
+
+- รอดู GitHub Actions deploy
+- ตั้ง `SUPER_ADMIN_TOKEN` ใน Cloudflare Workers ถ้ายังไม่ได้ตั้ง
+- Smoke test production:
+  - `/parent/exercises` ดู grouping/summarize ตามวิชา
+  - `/parent/children/:id/progress` ดู progress ตามวิชา
+  - `/play/progress` ดู progress ฝั่งเด็ก
+  - `/super-admin` ดู summary ข้ามบัญชีและทดสอบ token
+
 เอกสารส่งต่อสำหรับ session ถัดไป อัปเดตล่าสุด: 2026-07-07
 
 ---
