@@ -75,6 +75,22 @@ export default function ReviewExercise() {
     load();
   }
 
+  async function unapproveAll() {
+    const targets = set!.questions.filter((q) => q.status === 'approved');
+    if (targets.length === 0) return;
+    if (!window.confirm(`ยกเลิกอนุมัติ ${targets.length} ข้อ?`)) return;
+    await Promise.all(targets.map((q) => api.post(`/api/parent/questions/${q.id}/unapprove`)));
+    load();
+  }
+
+  async function detachAllVisuals() {
+    const targets = set!.questions.filter((q) => q.imageId || q.diagram);
+    if (targets.length === 0) return;
+    if (!window.confirm(`ถอดรูป/แผนภาพออกจาก ${targets.length} ข้อ? ข้อเหล่านี้จะกลับเป็นร่าง`)) return;
+    await Promise.all(targets.map((q) => api.patch(`/api/parent/questions/${q.id}`, { imageId: null, diagram: null })));
+    load();
+  }
+
   async function publish() {
     setMsg('');
     try {
@@ -158,6 +174,8 @@ export default function ReviewExercise() {
           {set.questions.length > 0 && set.status === 'pending_review' && (
             <>
               <button className="secondary" onClick={approveAll}>อนุมัติทุกข้อ</button>
+              <button className="secondary" onClick={unapproveAll}>ยกเลิกอนุมัติทุกข้อ</button>
+              <button className="secondary" onClick={detachAllVisuals}>ถอดรูป/แผนภาพทุกข้อ</button>
               <button className="success" onClick={publish} disabled={!allApproved}>เผยแพร่</button>
             </>
           )}
@@ -344,6 +362,13 @@ function QuestionEditor({
           <textarea rows={4} value={contentText} onChange={(e) => setContentText(e.target.value)} style={{ fontFamily: 'monospace' }} />
           <label className="muted">เฉลย (answer JSON)</label>
           <textarea rows={3} value={answerText} onChange={(e) => setAnswerText(e.target.value)} style={{ fontFamily: 'monospace' }} />
+          <StructuredQuestionEditor
+            questionType={q.questionType}
+            contentText={contentText}
+            answerText={answerText}
+            setContentText={setContentText}
+            setAnswerText={setAnswerText}
+          />
           <label className="muted">คำอธิบายเฉลย (แสดงให้เด็กเห็นหลังตอบ)</label>
           <textarea rows={2} value={explanation} onChange={(e) => setExplanation(e.target.value)} />
           <label className="muted">แผนภาพ (diagram JSON — เว้นว่างถ้าไม่มี)</label>
@@ -419,4 +444,252 @@ function QuestionEditor({
       )}
     </div>
   );
+}
+
+function parseObject(text: string): Record<string, unknown> | null {
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function setJson(setter: (value: string) => void, value: unknown) {
+  setter(JSON.stringify(value, null, 2));
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((v) => String(v ?? '')) : [];
+}
+
+function numberList(value: unknown): number[] {
+  return Array.isArray(value) ? value.map(Number).filter(Number.isInteger) : [];
+}
+
+function StructuredQuestionEditor({
+  questionType,
+  contentText,
+  answerText,
+  setContentText,
+  setAnswerText,
+}: {
+  questionType: QuestionType;
+  contentText: string;
+  answerText: string;
+  setContentText: (value: string) => void;
+  setAnswerText: (value: string) => void;
+}) {
+  const content = parseObject(contentText);
+  const answer = parseObject(answerText);
+  if (!content || !answer) {
+    return <div className="muted">ตัวช่วยแก้ไขจะแสดงเมื่อ content/answer เป็น JSON object ที่ถูกต้อง</div>;
+  }
+
+  const updateContent = (next: Record<string, unknown>) => setJson(setContentText, next);
+  const updateAnswer = (next: Record<string, unknown>) => setJson(setAnswerText, next);
+  const fieldStyle: React.CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' };
+
+  if (questionType === 'multiple_choice') {
+    const options = stringList(content.options);
+    const correctIndex = typeof answer.correctIndex === 'number' ? answer.correctIndex : 0;
+    return (
+      <div className="card" style={{ padding: 12 }}>
+        <b>ตัวช่วยแก้ปรนัย</b>
+        {options.map((opt, i) => (
+          <div key={i} style={fieldStyle}>
+            <input
+              type="radio"
+              checked={correctIndex === i}
+              onChange={() => updateAnswer({ ...answer, correctIndex: i })}
+            />
+            <input
+              value={opt}
+              onChange={(e) => {
+                const next = [...options];
+                next[i] = e.target.value;
+                updateContent({ ...content, options: next });
+              }}
+              style={{ flex: 1, minWidth: 180 }}
+            />
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                const next = options.filter((_, idx) => idx !== i);
+                updateContent({ ...content, options: next });
+                updateAnswer({ ...answer, correctIndex: Math.min(correctIndex, Math.max(0, next.length - 1)) });
+              }}
+              disabled={options.length <= 2}
+            >
+              ลบ
+            </button>
+          </div>
+        ))}
+        <button type="button" className="secondary" onClick={() => updateContent({ ...content, options: [...options, 'ตัวเลือกใหม่'] })}>
+          + เพิ่มตัวเลือก
+        </button>
+      </div>
+    );
+  }
+
+  if (questionType === 'true_false') {
+    return (
+      <div className="card" style={{ padding: 12 }}>
+        <b>ตัวช่วยแก้ถูก/ผิด</b>
+        <select value={answer.value === false ? 'false' : 'true'} onChange={(e) => updateAnswer({ ...answer, value: e.target.value === 'true' })}>
+          <option value="true">ถูก</option>
+          <option value="false">ผิด</option>
+        </select>
+      </div>
+    );
+  }
+
+  if (questionType === 'fill_blank') {
+    const answers = stringList(answer.answers);
+    return (
+      <div className="card" style={{ padding: 12 }}>
+        <b>ตัวช่วยแก้เติมคำ</b>
+        {answers.map((ans, i) => (
+          <div key={i} style={fieldStyle}>
+            <input
+              value={ans}
+              onChange={(e) => {
+                const next = [...answers];
+                next[i] = e.target.value;
+                updateAnswer({ ...answer, answers: next });
+              }}
+              style={{ flex: 1, minWidth: 180 }}
+            />
+            <button type="button" className="secondary" onClick={() => updateAnswer({ ...answer, answers: answers.filter((_, idx) => idx !== i) })}>
+              ลบ
+            </button>
+          </div>
+        ))}
+        <button type="button" className="secondary" onClick={() => updateAnswer({ ...answer, answers: [...answers, 'คำตอบใหม่'] })}>
+          + เพิ่มคำตอบที่ยอมรับ
+        </button>
+      </div>
+    );
+  }
+
+  if (questionType === 'fraction') {
+    const numerator = typeof answer.numerator === 'number' ? answer.numerator : 0;
+    const denominator = typeof answer.denominator === 'number' ? answer.denominator : 1;
+    return (
+      <div className="card" style={{ padding: 12 }}>
+        <b>ตัวช่วยแก้เศษส่วน</b>
+        <div style={fieldStyle}>
+          <input type="number" value={numerator} onChange={(e) => updateAnswer({ ...answer, numerator: Number(e.target.value) })} />
+          <span>/</span>
+          <input type="number" value={denominator} onChange={(e) => updateAnswer({ ...answer, denominator: Number(e.target.value) })} />
+        </div>
+      </div>
+    );
+  }
+
+  if (questionType === 'ordering') {
+    const items = stringList(content.items);
+    const indices = numberList(answer.indices);
+    const normalized = indices.length === items.length ? indices : items.map((_, i) => i);
+    return (
+      <div className="card" style={{ padding: 12 }}>
+        <b>ตัวช่วยแก้เรียงลำดับ</b>
+        <div className="muted">รายการที่เด็กเห็น</div>
+        {items.map((item, i) => (
+          <div key={i} style={fieldStyle}>
+            <input
+              value={item}
+              onChange={(e) => {
+                const next = [...items];
+                next[i] = e.target.value;
+                updateContent({ ...content, items: next });
+                updateAnswer({ ...answer, indices: normalized.slice(0, next.length) });
+              }}
+              style={{ flex: 1, minWidth: 180 }}
+            />
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                const next = items.filter((_, idx) => idx !== i);
+                updateContent({ ...content, items: next });
+                updateAnswer({ ...answer, indices: next.map((_, idx) => idx) });
+              }}
+              disabled={items.length <= 2}
+            >
+              ลบ
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => {
+            const next = [...items, 'รายการใหม่'];
+            updateContent({ ...content, items: next });
+            updateAnswer({ ...answer, indices: next.map((_, i) => i) });
+          }}
+        >
+          + เพิ่มรายการ
+        </button>
+        <div className="muted" style={{ marginTop: 10 }}>ลำดับคำตอบที่ถูกต้อง</div>
+        {items.map((_, pos) => (
+          <div key={pos} style={fieldStyle}>
+            <span>ลำดับ {pos + 1}</span>
+            <select
+              value={normalized[pos] ?? ''}
+              onChange={(e) => {
+                const next = [...normalized];
+                next[pos] = Number(e.target.value);
+                updateAnswer({ ...answer, indices: next });
+              }}
+            >
+              {items.map((item, i) => (
+                <option key={i} value={i}>{i}: {item}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (questionType === 'matching') {
+    const left = stringList(content.left);
+    const right = stringList(content.right);
+    const pairs = numberList(answer.pairs);
+    return (
+      <div className="card" style={{ padding: 12 }}>
+        <b>ตัวช่วยแก้จับคู่</b>
+        {left.map((leftItem, i) => (
+          <div key={i} style={fieldStyle}>
+            <input
+              value={leftItem}
+              onChange={(e) => {
+                const next = [...left];
+                next[i] = e.target.value;
+                updateContent({ ...content, left: next });
+              }}
+              style={{ flex: 1, minWidth: 140 }}
+            />
+            <select
+              value={pairs[i] ?? 0}
+              onChange={(e) => {
+                const next = [...pairs];
+                next[i] = Number(e.target.value);
+                updateAnswer({ ...answer, pairs: next });
+              }}
+            >
+              {right.map((rightItem, idx) => (
+                <option key={idx} value={idx}>{idx}: {rightItem}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
 }
