@@ -54,6 +54,7 @@ export async function loadChildProgress(
   const subjects = await db.prepare(
     `SELECT COALESCE(s.name, 'ไม่ระบุวิชา') AS subject_name,
             COUNT(DISTINCT es.id) AS assigned_count,
+            COUNT(DISTINCT CASE WHEN a.id IS NOT NULL THEN es.id END) AS completed_set_count,
             COUNT(a.id) AS completed_attempts,
             MAX(a.score) AS best_score
      FROM assignments asg
@@ -74,6 +75,8 @@ export async function loadChildProgress(
     subjects: subjects.results.map((r) => ({
       subjectName: String(r.subject_name ?? 'ไม่ระบุวิชา'),
       assignedCount: Number(r.assigned_count ?? 0),
+      completedSetCount: Number(r.completed_set_count ?? 0),
+      remainingSetCount: Math.max(0, Number(r.assigned_count ?? 0) - Number(r.completed_set_count ?? 0)),
       completedAttempts: Number(r.completed_attempts ?? 0),
       bestScore: r.best_score == null ? null : Number(r.best_score),
     })),

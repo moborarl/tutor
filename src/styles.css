@@ -570,10 +570,17 @@ table.data th { color: var(--muted); font-weight: 600; }
 
 .management-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(150px, 1fr)) auto;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(140px, 1fr)) auto;
   gap: 10px;
   align-items: center;
   padding: 14px;
+}
+
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
 }
 
 .subject-summary-panel {
@@ -601,6 +608,38 @@ table.data th { color: var(--muted); font-weight: 600; }
   gap: 6px;
   flex-wrap: wrap;
   margin-top: 8px;
+}
+
+.subject-dashboard-row {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.subject-dashboard-row:last-child {
+  border-bottom: 0;
+}
+
+.subject-dashboard-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.progress-track,
+.progress-bar-track {
+  width: 100%;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.progress-fill,
+.progress-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #16a34a;
 }
 
 .subject-group {
@@ -773,6 +812,47 @@ table.data th { color: var(--muted); font-weight: 600; }
   border-bottom: 0;
 }
 
+.kid-dashboard {
+  width: 100%;
+  max-width: 640px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.kid-dashboard-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.kid-dashboard-card span {
+  color: var(--green);
+  font-weight: 800;
+}
+
+.kid-dashboard-card small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.kid-subject-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kid-subject-section h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
 @media (max-width: 720px) {
   .page-heading,
   .exercise-card-row {
@@ -809,7 +889,9 @@ table.data th { color: var(--muted); font-weight: 600; }
   }
 
   .admin-row,
-  .play-progress-row {
+  .play-progress-row,
+  .subject-dashboard-head,
+  .list-toolbar {
     align-items: flex-start;
     flex-direction: column;
   }

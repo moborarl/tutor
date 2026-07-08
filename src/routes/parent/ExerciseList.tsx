@@ -18,6 +18,8 @@ const PROVIDER_TH: Record<string, string> = {
   pi: 'Raspberry Pi',
 };
 
+const PAGE_SIZE = 20;
+
 function statusColor(status: string) {
   if (status === 'published') return 'green';
   if (status === 'pending_review') return 'amber';
@@ -26,20 +28,20 @@ function statusColor(status: string) {
   return 'gray';
 }
 
-function DeleteSetButton({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
+function ArchiveSetButton({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger>
-        <Button variant="soft" color="red" disabled={disabled} title="ลบ">ลบ</Button>
+        <Button variant="soft" color="red" disabled={disabled} title="เก็บเข้าคลัง">เก็บเข้าคลัง</Button>
       </AlertDialog.Trigger>
       <AlertDialog.Content maxWidth="420px">
-        <AlertDialog.Title>ลบแบบฝึกหัดนี้?</AlertDialog.Title>
+        <AlertDialog.Title>เก็บแบบฝึกหัดนี้เข้าคลัง?</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          แบบฝึกหัดและรูปภาพที่เกี่ยวข้องจะถูกลบออกจากบัญชีนี้
+          แบบฝึกหัดจะหายจากหน้าจัดการและเด็กจะไม่เห็นอีก แต่ข้อมูลเดิมยังอยู่ให้ล้างถาวรได้จากหน้า Admin
         </AlertDialog.Description>
         <Flex gap="3" justify="end" mt="4">
           <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
-          <AlertDialog.Action><Button color="red" onClick={onConfirm}>ลบ</Button></AlertDialog.Action>
+          <AlertDialog.Action><Button color="red" onClick={onConfirm}>เก็บเข้าคลัง</Button></AlertDialog.Action>
         </Flex>
       </AlertDialog.Content>
     </AlertDialog.Root>
@@ -62,6 +64,8 @@ export default function ExerciseList() {
   const [filterAgeBand, setFilterAgeBand] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [query, setQuery] = useState('');
+  const [sortMode, setSortMode] = useState('subject');
+  const [page, setPage] = useState(1);
   const [editSubjectId, setEditSubjectId] = useState('');
   const [editAgeBand, setEditAgeBand] = useState<AgeBand>('young');
 
@@ -99,7 +103,7 @@ export default function ExerciseList() {
       await api.delete(`/api/parent/exercise-sets/${id}`);
       setSets(sets.filter((s) => s.id !== id));
     } catch (err) {
-      alert('ลบไม่สำเร็จ: ' + String(err));
+      alert('เก็บเข้าคลังไม่สำเร็จ: ' + String(err));
     } finally {
       setLoading(false);
     }
@@ -171,6 +175,17 @@ export default function ExerciseList() {
     if (filterStatus && s.status !== filterStatus) return false;
     return true;
   });
+  const sortedSets = [...filteredSets].sort((a, b) => {
+    if (sortMode === 'title') return (a.title || '').localeCompare(b.title || '', 'th');
+    if (sortMode === 'status') return a.status.localeCompare(b.status) || (a.title || '').localeCompare(b.title || '', 'th');
+    if (sortMode === 'newest') return String(b.createdAt).localeCompare(String(a.createdAt));
+    return (a.subjectName ?? 'ไม่ระบุวิชา').localeCompare(b.subjectName ?? 'ไม่ระบุวิชา', 'th')
+      || a.ageBand.localeCompare(b.ageBand)
+      || String(b.createdAt).localeCompare(String(a.createdAt));
+  });
+  const totalPages = Math.max(1, Math.ceil(sortedSets.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedSets = sortedSets.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const subjectSummary = [...sets.reduce((map, s) => {
     const name = s.subjectName ?? 'ไม่ระบุวิชา';
     const existing = map.get(name) ?? { subjectName: name, young: 0, older: 0, total: 0 };
@@ -180,7 +195,7 @@ export default function ExerciseList() {
     return map;
   }, new Map<string, { subjectName: string; young: number; older: number; total: number }>()).values()]
     .sort((a, b) => a.subjectName.localeCompare(b.subjectName, 'th'));
-  const groupedSets = [...filteredSets.reduce((map, s) => {
+  const groupedSets = [...pagedSets.reduce((map, s) => {
     const name = s.subjectName ?? 'ไม่ระบุวิชา';
     if (!map.has(name)) map.set(name, []);
     map.get(name)!.push(s);
@@ -264,24 +279,41 @@ export default function ExerciseList() {
 
       {sets.length > 0 && (
         <Card className="management-filters">
-          <input placeholder="ค้นหาชื่อหรือวิชา" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select value={filterSubject} onChange={(e) => setFilterSubject(e.target.value)}>
+          <input placeholder="ค้นหาชื่อหรือวิชา" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
+          <select value={filterSubject} onChange={(e) => { setFilterSubject(e.target.value); setPage(1); }}>
             <option value="">ทุกวิชา</option>
             {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             <option value="none">ไม่ระบุวิชา</option>
           </select>
-          <select value={filterAgeBand} onChange={(e) => setFilterAgeBand(e.target.value)}>
+          <select value={filterAgeBand} onChange={(e) => { setFilterAgeBand(e.target.value); setPage(1); }}>
             <option value="">ทุกวัย</option>
             <option value="young">เด็กเล็ก</option>
             <option value="older">เด็กโต</option>
           </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+          <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
             <option value="">ทุกสถานะ</option>
             {Object.entries(STATUS_TH).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
-          <Button variant="soft" color="gray" onClick={() => { setQuery(''); setFilterSubject(''); setFilterAgeBand(''); setFilterStatus(''); }}>
+          <select value={sortMode} onChange={(e) => { setSortMode(e.target.value); setPage(1); }}>
+            <option value="subject">เรียงตามวิชา</option>
+            <option value="newest">ล่าสุดก่อน</option>
+            <option value="title">ชื่อ ก-ฮ</option>
+            <option value="status">สถานะ</option>
+          </select>
+          <Button variant="soft" color="gray" onClick={() => { setQuery(''); setFilterSubject(''); setFilterAgeBand(''); setFilterStatus(''); setSortMode('subject'); setPage(1); }}>
             ล้างตัวกรอง
           </Button>
+        </Card>
+      )}
+
+      {sets.length > 0 && (
+        <Card className="list-toolbar">
+          <Text color="gray" size="2" className="grow">
+            แสดง {pagedSets.length === 0 ? 0 : ((safePage - 1) * PAGE_SIZE) + 1}-{Math.min(safePage * PAGE_SIZE, sortedSets.length)} จาก {sortedSets.length} ชุด
+          </Text>
+          <Button variant="soft" color="gray" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>ก่อนหน้า</Button>
+          <Text size="2">หน้า {safePage}/{totalPages}</Text>
+          <Button variant="soft" color="gray" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>ถัดไป</Button>
         </Card>
       )}
 
@@ -367,7 +399,7 @@ export default function ExerciseList() {
                 >
                   แก้ชื่อ
                 </Button>
-                <DeleteSetButton disabled={loading} onConfirm={() => handleDelete(s.id)} />
+                <ArchiveSetButton disabled={loading} onConfirm={() => handleDelete(s.id)} />
               </div>
               </div>
             </Card>
@@ -376,7 +408,7 @@ export default function ExerciseList() {
           ))}
         </div>
         ))}
-        {sets.length > 0 && filteredSets.length === 0 && (
+        {sets.length > 0 && sortedSets.length === 0 && (
           <Card><Text color="gray">ไม่พบแบบฝึกหัดตามตัวกรองนี้</Text></Card>
         )}
       </div>

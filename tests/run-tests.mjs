@@ -43,6 +43,7 @@ compile('shared/json-repair.ts', 'node_modules/@shared/json-repair/index.js');
 compile('worker/lib/grading.ts', 'worker/lib/grading.js');
 compile('worker/lib/json-import.ts', 'worker/lib/json-import.js');
 compile('worker/routes/questions.ts', 'worker/routes/questions.js');
+compile('worker/routes/super-admin.ts', 'worker/routes/super-admin.js');
 writeSharedPackage('diagram');
 writeSharedPackage('json-repair');
 
@@ -52,6 +53,7 @@ const { parseImportedJson, validateQuestionPayload } = await import(
 );
 const { Hono } = await import('hono');
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
+const { superAdminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/super-admin.js')));
 
 function makeQuestionsApp(questionOverrides = {}) {
   const question = {
@@ -115,6 +117,46 @@ function makeQuestionsApp(questionOverrides = {}) {
   });
   app.route('/questions', questionRoutes);
   return { app, db };
+}
+
+function makeSuperAdminApp() {
+  const state = { deletedParent: false };
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes('SELECT email FROM parents WHERE id = ?') && Number(args[0]) === 1) {
+                return { email: 'parent@example.com' };
+              }
+              return null;
+            },
+            async run() {
+              if (sql.includes('DELETE FROM parents WHERE id = ?')) state.deletedParent = true;
+              return { meta: { changes: 1 } };
+            },
+            async all() {
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+  const app = new Hono();
+  app.route('/super-admin', superAdminRoutes);
+  const env = {
+    SUPER_ADMIN_TOKEN: 'secret-token',
+    DB: db,
+    WORKSHEETS: {
+      async list() {
+        return { objects: [], truncated: false };
+      },
+      async delete() {},
+    },
+  };
+  return { app, env, state };
 }
 
 test('gradeAnswer accepts equivalent reduced fractions', () => {
@@ -270,4 +312,35 @@ test('question route rejects invalid question payload patches', async () => {
   );
   assert.equal(res.status, 400);
   assert.equal(db.question.answer_json, JSON.stringify({ indices: [0, 1, 2] }));
+});
+
+test('super admin delete requires token and matching email confirmation', async () => {
+  const { app, env, state } = makeSuperAdminApp();
+
+  const unauthorized = await app.request('/super-admin/parents/1', { method: 'DELETE' }, env);
+  assert.equal(unauthorized.status, 401);
+
+  const missingConfirmation = await app.request(
+    '/super-admin/parents/1',
+    {
+      method: 'DELETE',
+      headers: { 'x-super-admin-token': 'secret-token', 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmEmail: 'wrong@example.com' }),
+    },
+    env,
+  );
+  assert.equal(missingConfirmation.status, 400);
+  assert.equal(state.deletedParent, false);
+
+  const deleted = await app.request(
+    '/super-admin/parents/1',
+    {
+      method: 'DELETE',
+      headers: { 'x-super-admin-token': 'secret-token', 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmEmail: 'parent@example.com' }),
+    },
+    env,
+  );
+  assert.equal(deleted.status, 200);
+  assert.equal(state.deletedParent, true);
 });

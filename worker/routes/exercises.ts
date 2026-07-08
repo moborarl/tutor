@@ -485,32 +485,16 @@ exerciseRoutes.delete('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
 
-  // Get all R2 keys before deleting (source_image_r2_key is a duplicate of the
-  // first exercise_images row, kept as a legacy column; include both to also
-  // clean up sets created before multi-page support existed).
-  const set = await c.env.DB.prepare(
-    'SELECT source_image_r2_key FROM exercise_sets WHERE id = ? AND parent_id = ?',
+  const result = await c.env.DB.prepare(
+    `UPDATE exercise_sets
+     SET status = 'archived', share_token = NULL, updated_at = datetime('now')
+     WHERE id = ? AND parent_id = ? AND status != 'archived'`,
   )
     .bind(id, parentId)
-    .first<{ source_image_r2_key: string }>();
-  if (!set) return c.json({ error: 'not_found' }, 404);
+    .run();
+  if (!result.meta.changes) return c.json({ error: 'not_found' }, 404);
 
-  const images = await c.env.DB.prepare(
-    'SELECT r2_key FROM exercise_images WHERE exercise_set_id = ?',
-  )
-    .bind(id)
-    .all<{ r2_key: string }>();
-
-  const r2Keys = new Set([set.source_image_r2_key, ...images.results.map((img) => img.r2_key)].filter(Boolean));
-  await Promise.all([...r2Keys].map((key) => c.env.WORKSHEETS.delete(key)));
-
-  // Hard delete: remove all questions first (cascade not guaranteed), then the set
-  await c.env.DB.prepare('DELETE FROM questions WHERE exercise_set_id = ?').bind(id).run();
-  await c.env.DB.prepare('DELETE FROM assignments WHERE exercise_set_id = ?').bind(id).run();
-  await c.env.DB.prepare('DELETE FROM exercise_images WHERE exercise_set_id = ?').bind(id).run();
-  await c.env.DB.prepare('DELETE FROM exercise_sets WHERE id = ?').bind(id).run();
-
-  return c.json({ ok: true });
+  return c.json({ ok: true, archived: true });
 });
 
 // Turn on link-sharing for a set: generate (or reuse) a random token another

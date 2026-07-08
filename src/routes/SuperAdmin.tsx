@@ -35,11 +35,48 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   return body as T;
 }
 
+function DeleteParentDialog({
+  parent,
+  busy,
+  onDelete,
+}: {
+  parent: SuperAdminSummary['parents'][number];
+  busy: boolean;
+  onDelete: (parent: SuperAdminSummary['parents'][number], confirmEmail: string) => Promise<void>;
+}) {
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const canDelete = confirmEmail === parent.email && !busy;
+  return (
+    <AlertDialog.Root onOpenChange={(open) => { if (!open) setConfirmEmail(''); }}>
+      <AlertDialog.Trigger><Button variant="soft" color="red" disabled={busy}>ลบบัญชี</Button></AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="500px">
+        <AlertDialog.Title>ลบบัญชี {parent.email}?</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          การลบนี้จะลบผู้ปกครอง เด็ก แบบฝึกหัด โจทย์ attempts sessions และไฟล์ R2 ใต้บัญชีนี้ทั้งหมด พิมพ์อีเมลบัญชีให้ตรงเพื่อยืนยัน
+        </AlertDialog.Description>
+        <input
+          style={{ marginTop: 14 }}
+          placeholder={parent.email}
+          value={confirmEmail}
+          onChange={(e) => setConfirmEmail(e.target.value)}
+        />
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action>
+            <Button color="red" disabled={!canDelete} onClick={() => onDelete(parent, confirmEmail)}>ลบบัญชีถาวร</Button>
+          </AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 export default function SuperAdmin() {
   const [token, setToken] = useState(sessionStorage.getItem('superAdminToken') ?? '');
   const [summary, setSummary] = useState<SuperAdminSummary | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
 
   async function load() {
     setError('');
@@ -55,15 +92,24 @@ export default function SuperAdmin() {
     }
   }
 
-  async function deleteParent(id: number) {
+  async function deleteParent(parent: SuperAdminSummary['parents'][number], confirmEmail: string) {
     setBusy(true);
     try {
-      await request(`/api/super-admin/parents/${id}`, token, { method: 'DELETE' });
+      await request(`/api/super-admin/parents/${parent.id}`, token, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirmEmail }),
+      });
       await load();
     } finally {
       setBusy(false);
     }
   }
+
+  const visibleParents = summary?.parents.filter((p) => {
+    const q = query.trim().toLowerCase();
+    return !q || `${p.email} ${p.id}`.toLowerCase().includes(q);
+  }) ?? [];
 
   return (
     <div className="page parent-stack">
@@ -94,9 +140,15 @@ export default function SuperAdmin() {
           </div>
 
           <Card className="parent-panel">
-            <Heading as="h3" size="4">บัญชีทั้งหมด</Heading>
+            <Flex align="center" gap="3" wrap="wrap">
+              <div className="grow">
+                <Heading as="h3" size="4">บัญชีทั้งหมด</Heading>
+                <Text color="gray" size="2">แสดง {visibleParents.length} จาก {summary.parents.length} บัญชี</Text>
+              </div>
+              <input placeholder="ค้นหาอีเมลหรือ id" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </Flex>
             <div className="admin-list">
-              {summary.parents.map((p) => (
+              {visibleParents.map((p) => (
                 <div key={p.id} className="admin-row">
                   <div className="grow">
                     <Text as="div" weight="bold">{p.email}</Text>
@@ -104,19 +156,7 @@ export default function SuperAdmin() {
                       เด็ก {p.childCount} · แบบฝึกหัด {p.exerciseSetCount} · โจทย์ {p.questionCount} · attempts {p.attemptCount}
                     </Text>
                   </div>
-                  <AlertDialog.Root>
-                    <AlertDialog.Trigger><Button variant="soft" color="red" disabled={busy}>ลบบัญชี</Button></AlertDialog.Trigger>
-                    <AlertDialog.Content maxWidth="460px">
-                      <AlertDialog.Title>ลบบัญชี {p.email}?</AlertDialog.Title>
-                      <AlertDialog.Description size="2">
-                        จะลบผู้ปกครอง เด็ก แบบฝึกหัด โจทย์ attempts sessions และไฟล์ R2 ใต้บัญชีนี้ทั้งหมด
-                      </AlertDialog.Description>
-                      <Flex gap="3" justify="end" mt="4">
-                        <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
-                        <AlertDialog.Action><Button color="red" onClick={() => deleteParent(p.id)}>ลบบัญชี</Button></AlertDialog.Action>
-                      </Flex>
-                    </AlertDialog.Content>
-                  </AlertDialog.Root>
+                  <DeleteParentDialog parent={p} busy={busy} onDelete={deleteParent} />
                 </div>
               ))}
             </div>

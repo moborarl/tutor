@@ -2,6 +2,70 @@
 
 > อัปเดตล่าสุด 2026-07-08: รอบนี้เพิ่ม UX/management/progress/super-admin แล้ว โค้ดยังไม่ได้ commit เพราะเครื่อง agent สร้าง `.git/index.lock` ไม่ได้ (`Permission denied`) ต้องให้ผู้ใช้รัน git เอง
 
+## ล่าสุดมากกว่า (2026-07-08 รอบ product hardening)
+
+ผู้ใช้สั่ง "งาน product ต่อไปที่น่าทำ do it all" แล้วทำเพิ่มใน working tree:
+
+- หน้า `/parent/exercises`
+  - เพิ่ม sort mode: เรียงตามวิชา, ล่าสุดก่อน, ชื่อ ก-ฮ, สถานะ
+  - เพิ่ม pagination ฝั่ง client หน้า 20 รายการต่อหน้า
+  - ยังคง group ตามวิชาและ summary เด็กเล็ก/เด็กโต
+  - เปลี่ยนปุ่มลบเป็น "เก็บเข้าคลัง" เพื่อ archive ชุดแทน hard-delete
+- API `DELETE /api/parent/exercise-sets/:id`
+  - เปลี่ยนจาก hard-delete เป็นตั้ง `exercise_sets.status = 'archived'`
+  - clear `share_token`
+  - เด็กจะไม่เห็นเพราะ play query รับเฉพาะ `published`
+- หน้า `/parent/admin`
+  - summary นับแบบฝึกหัดทุกสถานะ และเพิ่มตัวเลขชุดที่เก็บเข้าคลัง
+  - หน้า cleanup แสดง archived sets ด้วย เพื่อให้ลบถาวรได้และคืน storage/database usage จริง
+- หน้า `/play/exercises`
+  - เพิ่ม dashboard แยกตามวิชา บอกทำแล้ว/ทั้งหมด/เหลือกี่ชุด
+  - รายการแบบฝึกหัดถูก group ตามวิชา
+- หน้า `/play/progress` และ `/parent/children/:id/progress`
+  - เพิ่ม progress ต่อวิชาแบบชุดที่ทำครบแล้ว/ชุดทั้งหมด/เหลือกี่ชุด
+  - ไม่ใช้ average score เป็น metric หลัก
+- `worker/lib/progress.ts`
+  - เพิ่ม `completedSetCount` และ `remainingSetCount` ใน subject progress
+- หน้า `/super-admin`
+  - เพิ่มค้นหาบัญชีด้วย email/id
+  - ก่อนลบบัญชีต้องพิมพ์ email ให้ตรงใน dialog
+- API `DELETE /api/super-admin/parents/:id`
+  - backend ต้องได้รับ `{ confirmEmail }` และต้องตรงกับ email ใน DB ก่อนลบจริง
+  - ถ้าไม่ตรงตอบ `400 confirmation_required`
+- tests
+  - เพิ่ม test ว่า super-admin delete ต้องมี token และ confirm email ตรงกันก่อนลบ
+
+ตรวจแล้วหลังรอบนี้:
+
+- `npm.cmd test` ผ่าน 12/12
+- `$env:WRANGLER_WRITE_LOGS='false'; npm.cmd run build` ผ่าน
+- `git diff --check` ผ่าน มีแค่ warning LF/CRLF ปกติบน Windows
+
+ไฟล์ที่เปลี่ยนในรอบนี้:
+
+- `HANDOFF.md`
+- `shared/types.ts`
+- `src/routes/SuperAdmin.tsx`
+- `src/routes/parent/Admin.tsx`
+- `src/routes/parent/ChildProgress.tsx`
+- `src/routes/parent/ExerciseList.tsx`
+- `src/routes/play/PlayExerciseList.tsx`
+- `src/routes/play/PlayProgress.tsx`
+- `src/styles.css`
+- `tests/run-tests.mjs`
+- `worker/lib/progress.ts`
+- `worker/routes/admin.ts`
+- `worker/routes/exercises.ts`
+- `worker/routes/super-admin.ts`
+
+คำสั่ง commit/push สำหรับรอบนี้:
+
+```powershell
+git add HANDOFF.md shared\types.ts src\routes\SuperAdmin.tsx src\routes\parent\Admin.tsx src\routes\parent\ChildProgress.tsx src\routes\parent\ExerciseList.tsx src\routes\play\PlayExerciseList.tsx src\routes\play\PlayProgress.tsx src\styles.css tests\run-tests.mjs worker\lib\progress.ts worker\routes\admin.ts worker\routes\exercises.ts worker\routes\super-admin.ts
+git commit -m "Harden product management and progress UX"
+git push origin main
+```
+
 ## ล่าสุดมาก (2026-07-08)
 
 งานที่ทำแล้วใน working tree:

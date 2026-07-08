@@ -7,6 +7,10 @@ function pct(v: number | null): string {
   return v == null ? 'ยังไม่มีคะแนน' : `${Math.round(v * 100)}%`;
 }
 
+function completion(done: number, total: number): number {
+  return total <= 0 ? 0 : Math.round((done / total) * 100);
+}
+
 export default function PlayProgress() {
   const nav = useNavigate();
   const [data, setData] = useState<ChildProgress | null>(null);
@@ -42,15 +46,23 @@ export default function PlayProgress() {
         </div>
 
         <div className="card">
-          <h3>ความคืบหน้าตามวิชา</h3>
+          <h3>วันนี้ควรทำอะไรต่อ</h3>
           {data.subjects.length === 0 && <div className="muted">ยังไม่มีข้อมูลตามวิชา</div>}
           {data.subjects.map((s) => (
-            <div key={s.subjectName} className="play-progress-row">
-              <div className="grow">
-                <b>{s.subjectName}</b>
-                <div className="muted">{s.assignedCount} ชุด · ทำเสร็จ {s.completedAttempts} ครั้ง</div>
+            <div key={s.subjectName} className="subject-dashboard-row">
+              <div className="subject-dashboard-head">
+                <div>
+                  <b>{s.subjectName}</b>
+                  <div className="muted">ทำครบแล้ว {s.completedSetCount}/{s.assignedCount} ชุด</div>
+                </div>
+                <b className={s.remainingSetCount === 0 ? 'good-text' : ''}>
+                  {s.remainingSetCount === 0 ? 'ครบแล้ว' : `เหลือ ${s.remainingSetCount} ชุด`}
+                </b>
               </div>
-              <b className="good-text">{pct(s.bestScore)}</b>
+              <div className="progress-track" aria-label={`ความคืบหน้า ${completion(s.completedSetCount, s.assignedCount)}%`}>
+                <div className="progress-fill" style={{ width: `${completion(s.completedSetCount, s.assignedCount)}%` }} />
+              </div>
+              <div className="muted">คะแนนดีที่สุด {pct(s.bestScore)} · ทำทั้งหมด {s.completedAttempts} ครั้ง</div>
             </div>
           ))}
         </div>

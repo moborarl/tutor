@@ -69,13 +69,14 @@ adminRoutes.get('/summary', async (c) => {
     `SELECT
       (SELECT COUNT(*) FROM children WHERE parent_id = ?) AS child_count,
       (SELECT COUNT(*) FROM subjects WHERE parent_id = ?) AS subject_count,
-      (SELECT COUNT(*) FROM exercise_sets WHERE parent_id = ? AND status != 'archived') AS set_count,
+      (SELECT COUNT(*) FROM exercise_sets WHERE parent_id = ?) AS set_count,
+      (SELECT COUNT(*) FROM exercise_sets WHERE parent_id = ? AND status = 'archived') AS archived_set_count,
       (SELECT COUNT(*) FROM questions q JOIN exercise_sets es ON es.id = q.exercise_set_id WHERE es.parent_id = ?) AS question_count,
       (SELECT COUNT(*) FROM attempts a JOIN children ch ON ch.id = a.child_id WHERE ch.parent_id = ?) AS attempt_count,
       (SELECT COUNT(*) FROM attempt_answers aa JOIN attempts a ON a.id = aa.attempt_id JOIN children ch ON ch.id = a.child_id WHERE ch.parent_id = ?) AS answer_count,
       (SELECT COUNT(*) FROM exercise_images ei JOIN exercise_sets es ON es.id = ei.exercise_set_id WHERE es.parent_id = ?) AS image_count`,
   )
-    .bind(parentId, parentId, parentId, parentId, parentId, parentId, parentId)
+    .bind(parentId, parentId, parentId, parentId, parentId, parentId, parentId, parentId)
     .first();
 
   const sets = await c.env.DB.prepare(
@@ -83,7 +84,7 @@ adminRoutes.get('/summary', async (c) => {
             (SELECT COUNT(*) FROM questions q WHERE q.exercise_set_id = es.id) AS question_count,
             (SELECT COUNT(*) FROM assignments a WHERE a.exercise_set_id = es.id) AS assigned_count
      FROM exercise_sets es LEFT JOIN subjects s ON s.id = es.subject_id
-     WHERE es.parent_id = ? AND es.status != 'archived'
+     WHERE es.parent_id = ?
      ORDER BY es.created_at DESC`,
   )
     .bind(parentId)
@@ -105,6 +106,7 @@ adminRoutes.get('/summary', async (c) => {
       children: Number(counts?.child_count ?? 0),
       subjects: Number(counts?.subject_count ?? 0),
       exerciseSets: Number(counts?.set_count ?? 0),
+      archivedSets: Number(counts?.archived_set_count ?? 0),
       questions: Number(counts?.question_count ?? 0),
       attempts: Number(counts?.attempt_count ?? 0),
       answers: Number(counts?.answer_count ?? 0),

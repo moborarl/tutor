@@ -8,6 +8,10 @@ function pct(v: number | null): string {
   return v == null ? '—' : `${Math.round(v * 100)}%`;
 }
 
+function completion(done: number, total: number): number {
+  return total <= 0 ? 0 : Math.round((done / total) * 100);
+}
+
 export default function ChildProgress() {
   const { id } = useParams();
   const [data, setData] = useState<ChildProgressData | null>(null);
@@ -64,11 +68,11 @@ export default function ChildProgress() {
           {data.subjects.map((s) => (
             <div key={s.subjectName} className="subject-progress-card">
               <Text as="div" weight="bold">{s.subjectName}</Text>
-              <Text as="div" color="gray" size="2">{s.assignedCount} ชุด · ทำเสร็จ {s.completedAttempts} ครั้ง</Text>
+              <Text as="div" color="gray" size="2">ทำครบแล้ว {s.completedSetCount}/{s.assignedCount} ชุด · เหลือ {s.remainingSetCount} ชุด</Text>
               <div className="progress-bar-track" style={{ marginTop: 8 }}>
-                <div className="progress-bar-fill" style={{ width: `${(s.bestScore ?? 0) * 100}%` }} />
+                <div className="progress-bar-fill" style={{ width: `${completion(s.completedSetCount, s.assignedCount)}%` }} />
               </div>
-              <Text as="div" size="2" weight="bold" style={{ color: 'var(--green)', marginTop: 6 }}>คะแนนดีที่สุด {pct(s.bestScore)}</Text>
+              <Text as="div" size="2" weight="bold" style={{ color: 'var(--green)', marginTop: 6 }}>คะแนนดีที่สุด {pct(s.bestScore)} · ทำทั้งหมด {s.completedAttempts} ครั้ง</Text>
             </div>
           ))}
         </div>

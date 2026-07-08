@@ -55,7 +55,7 @@ superAdminRoutes.get('/summary', async (c) => {
   const parents = await c.env.DB.prepare(
     `SELECT p.id, p.email, p.created_at,
             (SELECT COUNT(*) FROM children ch WHERE ch.parent_id = p.id) AS child_count,
-            (SELECT COUNT(*) FROM exercise_sets es WHERE es.parent_id = p.id AND es.status != 'archived') AS set_count,
+            (SELECT COUNT(*) FROM exercise_sets es WHERE es.parent_id = p.id) AS set_count,
             (SELECT COUNT(*) FROM questions q JOIN exercise_sets es ON es.id = q.exercise_set_id WHERE es.parent_id = p.id) AS question_count,
             (SELECT COUNT(*) FROM attempts a JOIN children ch ON ch.id = a.child_id WHERE ch.parent_id = p.id) AS attempt_count
      FROM parents p
@@ -85,6 +85,15 @@ superAdminRoutes.get('/summary', async (c) => {
 });
 
 superAdminRoutes.delete('/parents/:id', async (c) => {
-  await deleteParentData(c.env, Number(c.req.param('id')));
+  const parentId = Number(c.req.param('id'));
+  const body = await c.req.json<{ confirmEmail?: string }>().catch(() => null);
+  const parent = await c.env.DB.prepare('SELECT email FROM parents WHERE id = ?')
+    .bind(parentId)
+    .first<{ email: string }>();
+  if (!parent) return c.json({ error: 'not_found' }, 404);
+  if (!body || body.confirmEmail !== parent.email) {
+    return c.json({ error: 'confirmation_required' }, 400);
+  }
+  await deleteParentData(c.env, parentId);
   return c.json({ ok: true });
 });

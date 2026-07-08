@@ -7,6 +7,7 @@ interface AdminSummary {
     children: number;
     subjects: number;
     exerciseSets: number;
+    archivedSets: number;
     questions: number;
     attempts: number;
     answers: number;
@@ -99,6 +100,7 @@ export default function Admin() {
 
       <div className="stats-grid admin-stats">
         <Card className="stat-card"><div className="stat-value">{c.exerciseSets}</div><Text color="gray" size="2">แบบฝึกหัด</Text></Card>
+        <Card className="stat-card"><div className="stat-value">{c.archivedSets}</div><Text color="gray" size="2">เก็บเข้าคลัง</Text></Card>
         <Card className="stat-card"><div className="stat-value">{c.children}</div><Text color="gray" size="2">เด็ก</Text></Card>
         <Card className="stat-card"><div className="stat-value">{c.questions}</div><Text color="gray" size="2">โจทย์</Text></Card>
         <Card className="stat-card"><div className="stat-value">{c.attempts}</div><Text color="gray" size="2">attempts</Text></Card>

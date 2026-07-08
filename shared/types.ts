@@ -160,6 +160,8 @@ export interface ProgressSetRow {
 export interface SubjectProgressRow {
   subjectName: string;
   assignedCount: number;
+  completedSetCount: number;
+  remainingSetCount: number;
   completedAttempts: number;
   bestScore: number | null;
 }
