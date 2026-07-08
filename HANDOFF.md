@@ -148,6 +148,54 @@ git commit -m "Add R2 file management and mode switching"
 git push origin main
 ```
 
+## ล่าสุดที่สุดเพิ่มอีก (2026-07-08 รอบ family profile/password)
+
+ผู้ใช้ขอให้มี home page สำหรับแต่ละครอบครัว หรือมีชื่อครอบครัวเป็น profile และให้เปลี่ยนรหัสผ่านผู้ปกครองได้ แล้วทำเพิ่ม:
+
+- เพิ่ม migration `db/migrations/0010_parent_profile.sql`
+  - `ALTER TABLE parents ADD COLUMN family_name TEXT`
+- เพิ่ม backend route `worker/routes/profile.ts`
+  - `GET /api/parent/profile`
+    - คืน email, familyName, counts, children summary
+    - ถ้า familyName ยังว่าง จะ fallback จาก email เป็น `{local-part} family`
+  - `PATCH /api/parent/profile`
+    - แก้ชื่อครอบครัว
+  - `POST /api/parent/profile/password`
+    - เปลี่ยนรหัสผ่านผู้ปกครอง
+    - ต้องส่ง currentPassword ถูกต้อง
+    - newPassword ต้องอย่างน้อย 8 ตัวและไม่ซ้ำรหัสเดิม
+- เพิ่ม route เข้า worker:
+  - `parent.route('/profile', profileRoutes)`
+- ปรับ signup:
+  - รับ `familyName`
+  - หน้า signup มีช่องชื่อครอบครัว
+  - หลังสมัครไปหน้า `/parent`
+- เพิ่มหน้า `src/routes/parent/FamilyHome.tsx`
+  - `/parent` เป็นหน้า home ครอบครัวแล้ว ไม่ redirect ไป `/parent/exercises`
+  - แสดงชื่อครอบครัว, email, stats สรุป, รายชื่อเด็กสั้น ๆ
+  - แก้ชื่อครอบครัวได้
+  - เปลี่ยนรหัสผ่านผู้ปกครองได้
+  - มีปุ่มไปสร้างแบบฝึกหัดและโหมดเด็ก
+- ปรับ nav:
+  - เพิ่ม `ครอบครัว`
+  - brand `Kids Tutor` link ไป `/parent`
+- เพิ่ม CSS:
+  - `.family-hero`, `.family-grid`, `.stack-form`, `.family-child-list`, `.family-child-row`
+
+ตรวจแล้ว:
+
+- `npm.cmd test` ผ่าน 12/12
+- `$env:WRANGLER_WRITE_LOGS='false'; npm.cmd run build` ผ่าน
+- `git diff --check` ผ่าน มีแค่ warning LF/CRLF ปกติบน Windows
+
+คำสั่ง commit/push รอบนี้:
+
+```powershell
+git add HANDOFF.md db\migrations\0010_parent_profile.sql src\App.tsx src\routes\parent\FamilyHome.tsx src\routes\parent\ParentLayout.tsx src\routes\parent\Signup.tsx src\styles.css worker\index.ts worker\routes\auth.ts worker\routes\profile.ts
+git commit -m "Add family profile home and password change"
+git push origin main
+```
+
 ## ล่าสุดมากกว่า (2026-07-08 รอบ product hardening)
 
 ผู้ใช้สั่ง "งาน product ต่อไปที่น่าทำ do it all" แล้วทำเพิ่มใน working tree:

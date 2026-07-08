@@ -6,11 +6,13 @@ import { createSession, destroySession, loadSession } from '../lib/sessions';
 export const authRoutes = new Hono<AppEnv>();
 
 authRoutes.post('/signup', async (c) => {
-  const body = await c.req.json<{ email?: string; password?: string }>().catch(() => null);
+  const body = await c.req.json<{ email?: string; password?: string; familyName?: string }>().catch(() => null);
   const email = body?.email?.trim().toLowerCase();
   const password = body?.password ?? '';
+  const familyName = body?.familyName?.trim() || null;
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) return c.json({ error: 'invalid_email' }, 400);
   if (password.length < 8) return c.json({ error: 'password_too_short' }, 400);
+  if (familyName && familyName.length > 80) return c.json({ error: 'family_name_too_long' }, 400);
 
   const existing = await c.env.DB.prepare('SELECT id FROM parents WHERE email = ?')
     .bind(email)
@@ -19,9 +21,9 @@ authRoutes.post('/signup', async (c) => {
 
   const passwordHash = await hashSecret(password);
   const result = await c.env.DB.prepare(
-    'INSERT INTO parents (email, password_hash) VALUES (?, ?)',
+    'INSERT INTO parents (email, password_hash, family_name) VALUES (?, ?, ?)',
   )
-    .bind(email, passwordHash)
+    .bind(email, passwordHash, familyName)
     .run();
   const parentId = result.meta.last_row_id as number;
   await createSession(c, parentId);

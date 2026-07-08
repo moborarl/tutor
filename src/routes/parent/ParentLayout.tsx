@@ -27,7 +27,8 @@ export default function ParentLayout() {
   return (
     <div className="parent-shell">
       <nav className="nav-bar parent-nav">
-        <span className="parent-brand">Kids Tutor</span>
+        <NavLink to="/parent" className="parent-brand">Kids Tutor</NavLink>
+        <NavLink to="/parent" end>ครอบครัว</NavLink>
         <NavLink to="/parent/exercises">แบบฝึกหัด</NavLink>
         <NavLink to="/parent/upload">อัปโหลด</NavLink>
         <NavLink to="/parent/children">เด็ก</NavLink>
