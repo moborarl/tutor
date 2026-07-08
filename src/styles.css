@@ -568,6 +568,14 @@ table.data th { color: var(--muted); font-weight: 600; }
   gap: 12px;
 }
 
+.management-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(150px, 1fr)) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+}
+
 .exercise-card {
   padding: 14px;
 }
@@ -651,6 +659,12 @@ table.data th { color: var(--muted); font-weight: 600; }
   padding: 18px;
 }
 
+.stat-value {
+  font-size: 30px;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
 .progress-set-row {
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
@@ -659,6 +673,67 @@ table.data th { color: var(--muted); font-weight: 600; }
 .progress-set-row:last-child {
   border-bottom: 0;
   padding-bottom: 0;
+}
+
+.admin-stats {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.play-progress-shell {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.play-progress-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.play-progress-number {
+  font-size: 34px;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
+.play-progress-number.good,
+.good-text {
+  color: #15803d;
+}
+
+.play-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.play-progress-row:last-child {
+  border-bottom: 0;
 }
 
 @media (max-width: 720px) {
@@ -689,6 +764,17 @@ table.data th { color: var(--muted); font-weight: 600; }
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .management-filters,
+  .play-progress-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-row,
+  .play-progress-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

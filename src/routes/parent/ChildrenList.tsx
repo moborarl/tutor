@@ -66,19 +66,19 @@ export default function ChildrenList() {
     <div className="parent-stack">
       <div className="page-heading">
         <div>
-          <Heading as="h2" size="6">ลูกๆ</Heading>
+          <Heading as="h2" size="6">เด็ก</Heading>
           <Text color="gray" size="2">จัดการโปรไฟล์ PIN และติดตามความคืบหน้าของแต่ละคน</Text>
         </div>
-        <Button onClick={() => { setEditing(null); setShowForm(true); }}>เพิ่มลูก</Button>
+        <Button onClick={() => { setEditing(null); setShowForm(true); }}>เพิ่มเด็ก</Button>
       </div>
 
       {children.length > 0 && selected.size > 0 && (
         <Card className="selection-bar">
           <Flex align="center" gap="3" wrap="wrap">
-            <Text className="grow" weight="medium">เลือก {selected.size} ลูก</Text>
+            <Text className="grow" weight="medium">เลือก {selected.size} คน</Text>
             <AlertDialog.Root>
               <AlertDialog.Trigger>
-                <Button color="red" variant="soft" disabled={loading}>ลบ {selected.size} ลูก</Button>
+                <Button color="red" variant="soft" disabled={loading}>ลบ {selected.size} คน</Button>
               </AlertDialog.Trigger>
               <AlertDialog.Content maxWidth="420px">
                 <AlertDialog.Title>ลบ {selected.size} โปรไฟล์?</AlertDialog.Title>
@@ -94,7 +94,7 @@ export default function ChildrenList() {
       )}
 
       {children.length === 0 && !showForm && (
-        <Card><Text color="gray">ยังไม่มีโปรไฟล์ลูก กด “เพิ่มลูก” เพื่อเริ่มต้น</Text></Card>
+        <Card><Text color="gray">ยังไม่มีโปรไฟล์เด็ก กด “เพิ่มเด็ก” เพื่อเริ่มต้น</Text></Card>
       )}
 
       {children.length > 0 && (
@@ -191,7 +191,7 @@ function ChildForm({ child, onDone, onCancel }: { child: Child | null; onDone: (
 
   return (
     <Card className="parent-panel">
-      <Heading as="h3" size="4">{child ? `แก้ไข ${child.name}` : 'เพิ่มลูก'}</Heading>
+      <Heading as="h3" size="4">{child ? `แก้ไข ${child.name}` : 'เพิ่มเด็ก'}</Heading>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <input placeholder="ชื่อเล่น" value={name} onChange={(e) => setName(e.target.value)} required />
         <div className="row">

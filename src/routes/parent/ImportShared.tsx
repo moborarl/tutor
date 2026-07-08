@@ -53,7 +53,7 @@ export default function ImportShared() {
           {preview.subjectName ?? 'ไม่ระบุวิชา'} · {preview.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'} · {preview.questionCount} ข้อ
         </div>
         <p className="muted" style={{ marginTop: 12 }}>
-          กด "เพิ่มเข้าคลังของฉัน" เพื่อคัดลอกแบบฝึกหัดนี้เป็นของคุณ — คุณจะแก้ไข มอบหมายให้ลูก และจัดการได้เองอย่างอิสระ
+          กด "เพิ่มเข้าคลังของฉัน" เพื่อคัดลอกแบบฝึกหัดนี้เป็นของคุณ — คุณจะแก้ไข มอบหมายให้เด็ก และจัดการได้เองอย่างอิสระ
         </p>
         <div className="row" style={{ marginTop: 14 }}>
           <button onClick={doImport} disabled={busy}>{busy ? 'กำลังเพิ่ม...' : '+ เพิ่มเข้าคลังของฉัน'}</button>

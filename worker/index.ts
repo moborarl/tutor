@@ -13,6 +13,7 @@ import { progressRoutes } from './routes/progress';
 import { internalRoutes } from './routes/internal';
 import { ingestRoutes } from './routes/ingest';
 import { ingestTokenRoutes } from './routes/ingest-token';
+import { adminRoutes } from './routes/admin';
 
 const app = new Hono<AppEnv>();
 
@@ -38,6 +39,7 @@ parent.route('/questions', questionRoutes);
 parent.route('/subjects', subjectRoutes);
 parent.route('/shared', sharedRoutes); // GET /shared/:token, POST /shared/:token/import
 parent.route('/ingest-token', ingestTokenRoutes); // GET/POST/DELETE the parent's AI ingest token
+parent.route('/admin', adminRoutes);
 app.route('/api/parent', parent);
 
 // Kid play flow (mixed guards inside)

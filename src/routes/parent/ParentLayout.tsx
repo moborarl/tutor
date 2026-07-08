@@ -30,7 +30,8 @@ export default function ParentLayout() {
         <span className="parent-brand">Kids Tutor</span>
         <NavLink to="/parent/exercises">แบบฝึกหัด</NavLink>
         <NavLink to="/parent/upload">อัปโหลด</NavLink>
-        <NavLink to="/parent/children">ลูกๆ</NavLink>
+        <NavLink to="/parent/children">เด็ก</NavLink>
+        <NavLink to="/parent/admin">Admin</NavLink>
         <span className="grow" />
         <Button variant="soft" color="gray" onClick={logout}>ออกจากระบบ</Button>
       </nav>

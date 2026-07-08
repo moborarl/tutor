@@ -11,9 +11,11 @@ import TeacherView from './routes/parent/TeacherView';
 import StudentWorksheet from './routes/parent/StudentWorksheet';
 import ImportShared from './routes/parent/ImportShared';
 import ChildProgress from './routes/parent/ChildProgress';
+import Admin from './routes/parent/Admin';
 import ProfilePicker from './routes/play/ProfilePicker';
 import PlayExerciseList from './routes/play/PlayExerciseList';
 import Player from './routes/play/Player';
+import PlayProgress from './routes/play/PlayProgress';
 
 export default function App() {
   return (
@@ -25,6 +27,7 @@ export default function App() {
         <Route index element={<Navigate to="exercises" replace />} />
         <Route path="children" element={<ChildrenList />} />
         <Route path="children/:id/progress" element={<ChildProgress />} />
+        <Route path="admin" element={<Admin />} />
         <Route path="exercises" element={<ExerciseList />} />
         <Route path="upload" element={<Upload />} />
         <Route path="exercises/:id" element={<ReviewExercise />} />
@@ -34,6 +37,7 @@ export default function App() {
       </Route>
       <Route path="/play" element={<ProfilePicker />} />
       <Route path="/play/exercises" element={<PlayExerciseList />} />
+      <Route path="/play/progress" element={<PlayProgress />} />
       <Route path="/play/exercises/:id" element={<Player />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

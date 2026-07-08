@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
-import type { ExerciseSetSummary } from '@shared/types';
+import type { AgeBand, ExerciseSetSummary, Subject } from '@shared/types';
 
 const STATUS_TH: Record<string, string> = {
   processing: 'รอคิว Pi',
@@ -57,9 +57,17 @@ export default function ExerciseList() {
   const [mergeTitle, setMergeTitle] = useState('');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [filterSubject, setFilterSubject] = useState('');
+  const [filterAgeBand, setFilterAgeBand] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [query, setQuery] = useState('');
+  const [editSubjectId, setEditSubjectId] = useState('');
+  const [editAgeBand, setEditAgeBand] = useState<AgeBand>('young');
 
   useEffect(() => {
     api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets').then(setSets);
+    api.get<Subject[]>('/api/parent/subjects').then(setSubjects);
     // Poll while any set is still queued/extracting (e.g. waiting on the Pi).
     const t = setInterval(() => {
       api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets').then((data) => {
@@ -101,8 +109,15 @@ export default function ExerciseList() {
     if (!newTitle.trim()) return;
     setLoading(true);
     try {
-      await api.patch(`/api/parent/exercise-sets/${id}`, { title: newTitle.trim() });
-      setSets(sets.map((s) => (s.id === id ? { ...s, title: newTitle.trim() } : s)));
+      const nextSubjectId = editSubjectId ? Number(editSubjectId) : null;
+      await api.patch(`/api/parent/exercise-sets/${id}`, { title: newTitle.trim(), subjectId: nextSubjectId, ageBand: editAgeBand });
+      setSets(sets.map((s) => (s.id === id ? {
+        ...s,
+        title: newTitle.trim(),
+        subjectId: nextSubjectId,
+        subjectName: subjects.find((sub) => sub.id === nextSubjectId)?.name ?? null,
+        ageBand: editAgeBand,
+      } : s)));
       setEditingId(null);
     } catch (err) {
       alert('เปลี่ยนชื่อไม่สำเร็จ: ' + String(err));
@@ -114,6 +129,8 @@ export default function ExerciseList() {
   const startEdit = (s: ExerciseSetSummary) => {
     setEditingId(s.id);
     setEditTitle(s.title);
+    setEditSubjectId(s.subjectId == null ? '' : String(s.subjectId));
+    setEditAgeBand(s.ageBand);
   };
 
   const toggleSelected = (id: number) => {
@@ -145,12 +162,22 @@ export default function ExerciseList() {
     }
   };
 
+  const filteredSets = sets.filter((s) => {
+    const q = query.trim().toLowerCase();
+    if (q && !`${s.title} ${s.subjectName ?? ''}`.toLowerCase().includes(q)) return false;
+    if (filterSubject === 'none' && s.subjectId != null) return false;
+    if (filterSubject && filterSubject !== 'none' && String(s.subjectId ?? '') !== filterSubject) return false;
+    if (filterAgeBand && s.ageBand !== filterAgeBand) return false;
+    if (filterStatus && s.status !== filterStatus) return false;
+    return true;
+  });
+
   return (
     <div className="parent-stack">
       <div className="page-heading">
         <div>
           <Heading as="h2" size="6">แบบฝึกหัด</Heading>
-          <Text color="gray" size="2">จัดการชุดโจทย์ ตรวจ อนุมัติ แชร์ และมอบหมายให้ลูก</Text>
+          <Text color="gray" size="2">จัดการชุดโจทย์ ตรวจ อนุมัติ แชร์ และมอบหมายให้เด็ก</Text>
         </div>
         <Link to="/parent/upload"><Button>อัปโหลด / สร้างใหม่</Button></Link>
       </div>
@@ -201,8 +228,31 @@ export default function ExerciseList() {
         <Card><Text color="gray">ยังไม่มีแบบฝึกหัด อัปโหลดรูปถ่ายแบบฝึกหัดเพื่อเริ่มต้น</Text></Card>
       )}
 
+      {sets.length > 0 && (
+        <Card className="management-filters">
+          <input placeholder="ค้นหาชื่อหรือวิชา" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <select value={filterSubject} onChange={(e) => setFilterSubject(e.target.value)}>
+            <option value="">ทุกวิชา</option>
+            {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <option value="none">ไม่ระบุวิชา</option>
+          </select>
+          <select value={filterAgeBand} onChange={(e) => setFilterAgeBand(e.target.value)}>
+            <option value="">ทุกวัย</option>
+            <option value="young">เด็กเล็ก</option>
+            <option value="older">เด็กโต</option>
+          </select>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="">ทุกสถานะ</option>
+            {Object.entries(STATUS_TH).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <Button variant="soft" color="gray" onClick={() => { setQuery(''); setFilterSubject(''); setFilterAgeBand(''); setFilterStatus(''); }}>
+            ล้างตัวกรอง
+          </Button>
+        </Card>
+      )}
+
       <div className="exercise-list">
-        {sets.map((s) => (
+        {filteredSets.map((s) => (
         <div key={s.id} className="exercise-list-item">
           {editingId === s.id ? (
             <Card className="exercise-card">
@@ -214,6 +264,14 @@ export default function ExerciseList() {
                   placeholder="ชื่อแบบฝึกหัด"
                   style={{ flex: 1, marginRight: 8 }}
                 />
+                <select value={editSubjectId} onChange={(e) => setEditSubjectId(e.target.value)}>
+                  <option value="">ไม่ระบุวิชา</option>
+                  {subjects.map((sub) => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+                </select>
+                <select value={editAgeBand} onChange={(e) => setEditAgeBand(e.target.value as AgeBand)}>
+                  <option value="young">เด็กเล็ก</option>
+                  <option value="older">เด็กโต</option>
+                </select>
                 <Button onClick={() => handleRename(s.id, editTitle)} disabled={loading}>
                   บันทึก
                 </Button>
@@ -279,6 +337,9 @@ export default function ExerciseList() {
           )}
         </div>
         ))}
+        {sets.length > 0 && filteredSets.length === 0 && (
+          <Card><Text color="gray">ไม่พบแบบฝึกหัดตามตัวกรองนี้</Text></Card>
+        )}
       </div>
     </div>
   );

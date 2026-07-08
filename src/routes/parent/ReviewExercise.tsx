@@ -270,9 +270,9 @@ export default function ReviewExercise() {
 
       {(set.status === 'published' || set.status === 'pending_review') && (
         <Card className="assignment-card">
-          <Heading as="h3" size="4">มอบหมายให้ลูก</Heading>
+          <Heading as="h3" size="4">มอบหมายให้เด็ก</Heading>
           {children.length === 0 && (
-            <div className="muted">ยังไม่มีโปรไฟล์ลูก — <a href="#" onClick={(e) => { e.preventDefault(); nav('/parent/children'); }}>เพิ่มลูกก่อน</a></div>
+            <div className="muted">ยังไม่มีโปรไฟล์เด็ก — <a href="#" onClick={(e) => { e.preventDefault(); nav('/parent/children'); }}>เพิ่มเด็กก่อน</a></div>
           )}
           <div className="row">
             {children.map((ch) => (

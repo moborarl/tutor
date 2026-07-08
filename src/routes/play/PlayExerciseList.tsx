@@ -28,6 +28,7 @@ export default function PlayExerciseList() {
       <div className="row" style={{ width: '100%', maxWidth: 640 }}>
         <span style={{ fontSize: 40 }}>{child?.avatar ?? '🙂'}</span>
         <h2 className="grow" style={{ margin: 0 }}>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
+        <Link to="/play/progress"><button className="secondary">ดูความคืบหน้า</button></Link>
         <button className="secondary" onClick={switchProfile}>สลับคน</button>
       </div>
 

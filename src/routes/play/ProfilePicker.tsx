@@ -92,7 +92,7 @@ export default function ProfilePicker() {
         </div>
         {children.length === 0 && (
           <p className="muted" style={{ marginTop: 30 }}>
-            ยังไม่มีโปรไฟล์ — ให้ผู้ปกครองเพิ่มที่หน้า <Link to="/parent/children">จัดการลูกๆ</Link>
+            ยังไม่มีโปรไฟล์ — ให้ผู้ปกครองเพิ่มที่หน้า <Link to="/parent/children">จัดการเด็ก</Link>
           </p>
         )}
       </div>

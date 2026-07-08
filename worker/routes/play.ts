@@ -3,6 +3,7 @@ import type { AppEnv } from '../env';
 import { requireParentSession, requireChildSession } from '../middleware/auth';
 import { verifySecret, hashSecret } from '../lib/crypto';
 import { gradeAnswer } from '../lib/grading';
+import { loadChildProgress } from '../lib/progress';
 import type { QuestionType } from '@shared/types';
 
 export const playRoutes = new Hono<AppEnv>();
@@ -138,6 +139,13 @@ playRoutes.get('/exercises', requireChildSession, async (c) => {
       completedCount: r.completed_count,
     })),
   );
+});
+
+playRoutes.get('/progress', requireChildSession, async (c) => {
+  const { parentId, activeChildId } = c.get('session');
+  const progress = await loadChildProgress(c.env.DB, activeChildId!, parentId);
+  if (!progress) return c.json({ error: 'not_found' }, 404);
+  return c.json(progress);
 });
 
 // Questions for one assigned, published exercise — answers stripped.
