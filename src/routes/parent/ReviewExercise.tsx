@@ -194,13 +194,11 @@ export default function ReviewExercise() {
         </Callout.Root>
       )}
 
-      {/* Compact sticky header: title+status stay pinned while scrolling through
-          many questions, but stay small so they don't eat into the visible area. */}
-      <div className="sticky-toolbar review-toolbar">
-        <div className="review-toolbar-main">
+      <div className="review-heading">
+        <div className="page-heading">
           <div className="review-title-block">
-            <Heading as="h2" size="4">{set.title || `ชุดที่ ${set.id}`}</Heading>
-            <Text as="span" size="2" color="gray">
+            <Heading as="h2" size="6">{set.title || `ชุดที่ ${set.id}`}</Heading>
+            <Text as="div" size="2" color="gray">
               {set.ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต'}
               {set.extractionProvider && ` · ${PROVIDER_TH[set.extractionProvider]}`}
             </Text>

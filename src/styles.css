@@ -726,24 +726,8 @@ table.data th { color: var(--muted); font-weight: 600; }
   border-color: #fecaca;
 }
 
-.review-toolbar {
-  top: 72px;
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
-  padding: 18px;
+.review-heading {
   margin-bottom: 4px;
-}
-
-.review-toolbar-main {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
 }
 
 .review-title-block {
@@ -751,13 +735,8 @@ table.data th { color: var(--muted); font-weight: 600; }
 }
 
 .review-title-block h2 {
-  margin: 0 0 2px;
-  font-size: 18px;
-  line-height: 1.25;
-  font-weight: 750;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .toolbar-actions,
@@ -771,6 +750,10 @@ table.data th { color: var(--muted); font-weight: 600; }
 .toolbar-actions button:not(.rt-Button),
 .question-actions button:not(.rt-Button) {
   min-height: 36px;
+}
+
+.toolbar-actions {
+  padding-top: 4px;
 }
 
 .source-image-panel,
