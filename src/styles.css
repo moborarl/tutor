@@ -1013,10 +1013,30 @@ table.data th { color: var(--muted); font-weight: 600; }
   color: #315a33;
 }
 
+.tree-node .rt-Badge {
+  background: #dce8d5;
+  color: #244b2f;
+  border: 1px solid #c5d6bf;
+  font-weight: 850;
+}
+
+.tree-node.active .rt-Badge {
+  background: rgba(247, 248, 244, 0.86);
+  color: #244b2f;
+  border-color: rgba(49, 90, 51, 0.18);
+}
+
 .tree-node.danger.active {
   background: #f7e1e5;
   border-color: #fecdd3;
   color: #be123c;
+}
+
+.tree-node.danger .rt-Badge,
+.tree-node.danger.active .rt-Badge {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
 }
 
 .tree-icon {
