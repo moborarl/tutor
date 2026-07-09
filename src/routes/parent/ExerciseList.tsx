@@ -392,12 +392,7 @@ export default function ExerciseList() {
 
       {(sets.length > 0 || subjects.length > 0) && (
         <ExplorerLayout
-          tree={(
-            <>
-              <TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={(id) => { setActiveId(id); setActiveSetId(null); }} />
-              <SubjectCreateForm value={newSubjectName} loading={loading} onChange={setNewSubjectName} onCreate={createSubject} />
-            </>
-          )}
+          tree={<TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={(id) => { setActiveId(id); setActiveSetId(null); }} />}
         >
           {selected.size >= 2 && (
             <Card className="selection-bar">
