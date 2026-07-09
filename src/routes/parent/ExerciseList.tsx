@@ -67,6 +67,47 @@ function ArchiveSetButton({ disabled, onConfirm }: { disabled: boolean; onConfir
   );
 }
 
+function SubjectCreateForm({
+  value,
+  loading,
+  compact = false,
+  onChange,
+  onCreate,
+}: {
+  value: string;
+  loading: boolean;
+  compact?: boolean;
+  onChange: (value: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <div className={compact ? 'subject-create-mini compact' : 'subject-create-mini'}>
+      {!compact && (
+        <div>
+          <Text as="div" size="2" weight="bold">สร้างวิชา</Text>
+          <Text as="div" size="1" color="gray">เพิ่มโฟลเดอร์วิชาใหม่ในคลังแบบฝึกหัด</Text>
+        </div>
+      )}
+      <div className="inline-create-row">
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onCreate();
+            }
+          }}
+          placeholder="สร้างวิชา เช่น คณิตศาสตร์"
+        />
+        <Button type="button" variant={compact ? 'solid' : 'soft'} onClick={onCreate} disabled={loading || !value.trim()}>
+          สร้างวิชา
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ExerciseList() {
   const nav = useNavigate();
   const [sets, setSets] = useState<ExerciseSetSummary[]>([]);
@@ -273,7 +314,16 @@ export default function ExerciseList() {
           <Heading as="h2" size="6">แบบฝึกหัด</Heading>
           <Text color="gray" size="2">จัดการเป็นโฟลเดอร์ วิชา &gt; เด็กเล็ก/เด็กโต &gt; แบบฝึกหัด</Text>
         </div>
-        <Link to="/parent/upload"><Button>อัปโหลด / สร้างใหม่</Button></Link>
+        <div className="page-actions">
+          <SubjectCreateForm
+            compact
+            value={newSubjectName}
+            loading={loading}
+            onChange={setNewSubjectName}
+            onCreate={createSubject}
+          />
+          <Link to="/parent/upload"><Button>อัปโหลด / สร้างใหม่</Button></Link>
+        </div>
       </div>
 
       {listLoading && (
@@ -285,51 +335,20 @@ export default function ExerciseList() {
         <Card className="parent-panel empty-state-panel">
           <Heading as="h3" size="4">ยังไม่มีแบบฝึกหัด</Heading>
           <Text color="gray">อัปโหลดรูปถ่ายหรือวาง JSON เพื่อสร้างชุดแรก</Text>
-          <div className="inline-create-row" style={{ marginTop: 14 }}>
-            <input
-              value={newSubjectName}
-              onChange={(e) => setNewSubjectName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  createSubject();
-                }
-              }}
-              placeholder="สร้างวิชา เช่น คณิตศาสตร์"
-            />
-            <Button variant="soft" onClick={createSubject} disabled={loading || !newSubjectName.trim()}>สร้างวิชา</Button>
-          </div>
+          <SubjectCreateForm value={newSubjectName} loading={loading} onChange={setNewSubjectName} onCreate={createSubject} />
           <Link to="/parent/upload"><Button style={{ marginTop: 12 }}>อัปโหลด / สร้างใหม่</Button></Link>
         </Card>
       )}
 
       {(sets.length > 0 || subjects.length > 0) && (
         <ExplorerLayout
-          tree={<TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={(id) => { setActiveId(id); setActiveSetId(null); }} />}
+          tree={(
+            <>
+              <TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={(id) => { setActiveId(id); setActiveSetId(null); }} />
+              <SubjectCreateForm value={newSubjectName} loading={loading} onChange={setNewSubjectName} onCreate={createSubject} />
+            </>
+          )}
         >
-          <Card className="parent-panel subject-create-panel">
-            <Flex align="end" gap="3" wrap="wrap">
-              <div className="grow">
-                <Text as="div" size="2" weight="bold">สร้างวิชา</Text>
-                <Text as="div" size="1" color="gray">เพิ่มโฟลเดอร์วิชาใหม่ แล้วค่อยอัปโหลดหรือย้ายแบบฝึกหัดเข้าไปได้</Text>
-              </div>
-              <div className="inline-create-row">
-                <input
-                  value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      createSubject();
-                    }
-                  }}
-                  placeholder="เช่น วิทยาศาสตร์"
-                />
-                <Button onClick={createSubject} disabled={loading || !newSubjectName.trim()}>สร้าง</Button>
-              </div>
-            </Flex>
-          </Card>
-
           {selected.size >= 2 && (
             <Card className="selection-bar">
               <Flex align="center" gap="3" wrap="wrap">

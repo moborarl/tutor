@@ -115,6 +115,30 @@ input:not(.rt-TextFieldInput):focus, select:focus, textarea:not(.rt-TextAreaInpu
   flex: 1;
 }
 
+.subject-create-mini {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(247, 248, 244, 0.72);
+}
+
+.subject-create-mini.compact {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.subject-create-mini.compact .inline-create-row {
+  flex-wrap: nowrap;
+}
+
+.subject-create-mini.compact input {
+  width: 220px;
+  min-width: 180px;
+}
+
 .state-card {
   width: 100%;
   max-width: 520px;
@@ -735,6 +759,14 @@ table.data th { color: var(--muted); font-weight: 600; }
 
 .page-heading h2 {
   margin: 0 0 4px;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .parent-panel,
