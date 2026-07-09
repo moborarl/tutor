@@ -85,6 +85,7 @@ export default function ExerciseList() {
   const [mergeTitle, setMergeTitle] = useState('');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState('');
 
   function loadSets() {
     api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets')
@@ -245,6 +246,26 @@ export default function ExerciseList() {
     setEditAgeBand(set.ageBand);
   }
 
+  async function createSubject() {
+    const name = newSubjectName.trim();
+    if (!name) return;
+    setLoading(true);
+    try {
+      const created = await api.post<Subject>('/api/parent/subjects', { name });
+      setSubjects((current) => {
+        if (current.some((subject) => subject.id === created.id || subject.name === created.name)) return current;
+        return [...current, created].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+      });
+      setActiveId(nodeId({ kind: 'subject', subjectName: created.name }));
+      setActiveSetId(null);
+      setNewSubjectName('');
+    } catch (err) {
+      alert('สร้างวิชาไม่สำเร็จ: ' + String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="parent-stack">
       <div className="page-heading">
@@ -260,18 +281,55 @@ export default function ExerciseList() {
       )}
       {listError && <Card className="parent-panel"><Text color="red">{listError}</Text></Card>}
 
-      {!listLoading && sets.length === 0 && (
+      {!listLoading && sets.length === 0 && subjects.length === 0 && (
         <Card className="parent-panel empty-state-panel">
           <Heading as="h3" size="4">ยังไม่มีแบบฝึกหัด</Heading>
           <Text color="gray">อัปโหลดรูปถ่ายหรือวาง JSON เพื่อสร้างชุดแรก</Text>
+          <div className="inline-create-row" style={{ marginTop: 14 }}>
+            <input
+              value={newSubjectName}
+              onChange={(e) => setNewSubjectName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  createSubject();
+                }
+              }}
+              placeholder="สร้างวิชา เช่น คณิตศาสตร์"
+            />
+            <Button variant="soft" onClick={createSubject} disabled={loading || !newSubjectName.trim()}>สร้างวิชา</Button>
+          </div>
           <Link to="/parent/upload"><Button style={{ marginTop: 12 }}>อัปโหลด / สร้างใหม่</Button></Link>
         </Card>
       )}
 
-      {sets.length > 0 && (
+      {(sets.length > 0 || subjects.length > 0) && (
         <ExplorerLayout
           tree={<TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={(id) => { setActiveId(id); setActiveSetId(null); }} />}
         >
+          <Card className="parent-panel subject-create-panel">
+            <Flex align="end" gap="3" wrap="wrap">
+              <div className="grow">
+                <Text as="div" size="2" weight="bold">สร้างวิชา</Text>
+                <Text as="div" size="1" color="gray">เพิ่มโฟลเดอร์วิชาใหม่ แล้วค่อยอัปโหลดหรือย้ายแบบฝึกหัดเข้าไปได้</Text>
+              </div>
+              <div className="inline-create-row">
+                <input
+                  value={newSubjectName}
+                  onChange={(e) => setNewSubjectName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      createSubject();
+                    }
+                  }}
+                  placeholder="เช่น วิทยาศาสตร์"
+                />
+                <Button onClick={createSubject} disabled={loading || !newSubjectName.trim()}>สร้าง</Button>
+              </div>
+            </Flex>
+          </Card>
+
           {selected.size >= 2 && (
             <Card className="selection-bar">
               <Flex align="center" gap="3" wrap="wrap">

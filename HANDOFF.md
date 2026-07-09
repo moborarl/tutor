@@ -555,3 +555,19 @@ kids-tutor/
   - เอาคำว่า `โหมดเด็ก` ออกจาก navigation แล้ว
 - ปรับ visual theme ให้สบายตาขึ้น: ลดพื้นขาวจัดเป็น off-white/soft gray ทั้ง parent, play, cards, forms, navigation, tree, review panels และ Radix Card/Dialog override (คง print page เป็นขาวสำหรับพิมพ์)
 - ตรวจแล้ว: `npm test` ผ่าน 12/12, `npm run build` ผ่าน (มี warning เรื่อง Wrangler log permission นอก workspace เหมือนเดิม)
+
+# อัปเดตล่าสุดจาก Codex (2026-07-09)
+
+- เพิ่ม production smoke test script:
+  - คำสั่ง: `npm run smoke:prod`
+  - ตรวจ `/api/health`, `/contract`, `/play`, `/parent`, `/avatars/panda.png`, และ bad ingest token ต้องได้ 401
+  - รองรับ override URL ด้วย `SMOKE_BASE_URL=https://... npm run smoke:prod`
+  - ทดสอบ production แล้วผ่าน 6/6
+- เพิ่มฟังก์ชันสร้าง `วิชา` ที่หน้า `/parent/exercises`
+  - มีแผง `สร้างวิชา` ในหน้าแบบฝึกหัด
+  - สร้างแล้ววิชาขึ้นใน tree ทันที แม้ยังไม่มีแบบฝึกหัด
+  - หน้า empty state สามารถสร้างวิชาแรกได้
+- ปรับ `POST /api/parent/subjects` ให้ถ้าชื่อวิชาซ้ำใน parent เดิม จะคืนวิชาเดิมกลับมาแทนการสร้าง duplicate
+- เพิ่ม test: `subject route reuses existing subject names per parent`
+- เพิ่ม `.gitignore` สำหรับ `Avatar/` เพราะเป็นโฟลเดอร์ source สำหรับเตรียมรูป ไม่ใช่ไฟล์ deploy จริง
+- ตรวจแล้ว: `npm test` ผ่าน 13/13, `npm run build` ผ่าน, `npm run smoke:prod` ผ่าน 6/6

@@ -103,6 +103,18 @@ input:not(.rt-TextFieldInput):focus, select:focus, textarea:not(.rt-TextAreaInpu
 .muted { color: var(--muted); font-size: 14px; }
 .error-text { color: var(--red); font-size: 14px; }
 
+.inline-create-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inline-create-row input {
+  min-width: min(280px, 100%);
+  flex: 1;
+}
+
 .state-card {
   width: 100%;
   max-width: 520px;

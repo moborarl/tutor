@@ -18,6 +18,12 @@ subjectRoutes.post('/', async (c) => {
   const body = await c.req.json<{ name?: string }>().catch(() => null);
   const name = body?.name?.trim();
   if (!name) return c.json({ error: 'name_required' }, 400);
+  const existing = await c.env.DB.prepare(
+    'SELECT id, name FROM subjects WHERE parent_id = ? AND name = ?',
+  )
+    .bind(parentId, name)
+    .first<{ id: number; name: string }>();
+  if (existing) return c.json(existing);
   const result = await c.env.DB.prepare(
     'INSERT INTO subjects (parent_id, name) VALUES (?, ?)',
   )

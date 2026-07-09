@@ -43,6 +43,7 @@ compile('shared/json-repair.ts', 'node_modules/@shared/json-repair/index.js');
 compile('worker/lib/grading.ts', 'worker/lib/grading.js');
 compile('worker/lib/json-import.ts', 'worker/lib/json-import.js');
 compile('worker/routes/questions.ts', 'worker/routes/questions.js');
+compile('worker/routes/subjects.ts', 'worker/routes/subjects.js');
 compile('worker/routes/super-admin.ts', 'worker/routes/super-admin.js');
 writeSharedPackage('diagram');
 writeSharedPackage('json-repair');
@@ -53,6 +54,7 @@ const { parseImportedJson, validateQuestionPayload } = await import(
 );
 const { Hono } = await import('hono');
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
+const { subjectRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/subjects.js')));
 const { superAdminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/super-admin.js')));
 
 function makeQuestionsApp(questionOverrides = {}) {
@@ -157,6 +159,55 @@ function makeSuperAdminApp() {
     },
   };
   return { app, env, state };
+}
+
+function makeSubjectsApp() {
+  const state = {
+    subjects: [{ id: 1, parent_id: 1, name: 'คณิตศาสตร์' }],
+    nextId: 2,
+  };
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes('SELECT id, name FROM subjects WHERE parent_id = ? AND name = ?')) {
+                const row = state.subjects.find((subject) => subject.parent_id === Number(args[0]) && subject.name === args[1]);
+                return row ? { id: row.id, name: row.name } : null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.includes('INSERT INTO subjects')) {
+                state.subjects.push({ id: state.nextId, parent_id: Number(args[0]), name: String(args[1]) });
+                return { meta: { last_row_id: state.nextId++ } };
+              }
+              return { meta: {} };
+            },
+            async all() {
+              if (sql.includes('SELECT id, name FROM subjects WHERE parent_id = ? ORDER BY name')) {
+                return {
+                  results: state.subjects
+                    .filter((subject) => subject.parent_id === Number(args[0]))
+                    .map((subject) => ({ id: subject.id, name: subject.name }))
+                    .sort((a, b) => a.name.localeCompare(b.name, 'th')),
+                };
+              }
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+  const app = new Hono();
+  app.use('*', async (c, next) => {
+    c.set('session', { parentId: 1 });
+    await next();
+  });
+  app.route('/subjects', subjectRoutes);
+  return { app, db, state };
 }
 
 test('gradeAnswer accepts equivalent reduced fractions', () => {
@@ -343,4 +394,34 @@ test('super admin delete requires token and matching email confirmation', async 
   );
   assert.equal(deleted.status, 200);
   assert.equal(state.deletedParent, true);
+});
+
+test('subject route reuses existing subject names per parent', async () => {
+  const { app, db, state } = makeSubjectsApp();
+
+  const existing = await app.request(
+    '/subjects',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'คณิตศาสตร์' }),
+    },
+    { DB: db },
+  );
+  assert.equal(existing.status, 200);
+  assert.deepEqual(await existing.json(), { id: 1, name: 'คณิตศาสตร์' });
+  assert.equal(state.subjects.length, 1);
+
+  const created = await app.request(
+    '/subjects',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'วิทยาศาสตร์' }),
+    },
+    { DB: db },
+  );
+  assert.equal(created.status, 201);
+  assert.deepEqual(await created.json(), { id: 2, name: 'วิทยาศาสตร์' });
+  assert.equal(state.subjects.length, 2);
 });
