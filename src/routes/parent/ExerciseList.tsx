@@ -67,6 +67,36 @@ function ArchiveSetButton({ disabled, onConfirm }: { disabled: boolean; onConfir
   );
 }
 
+function DeleteSubjectButton({
+  disabled,
+  subjectName,
+  setCount,
+  onConfirm,
+}: {
+  disabled: boolean;
+  subjectName: string;
+  setCount: number;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger>
+        <Button variant="soft" color="red" disabled={disabled}>ลบวิชา</Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="440px">
+        <AlertDialog.Title>ลบวิชา "{subjectName}"?</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          วิชานี้จะถูกลบออกจาก tree แต่แบบฝึกหัด {setCount} ชุดจะยังอยู่ และถูกย้ายไปอยู่กลุ่ม "ไม่ระบุวิชา"
+        </AlertDialog.Description>
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action><Button color="red" onClick={onConfirm}>ลบวิชา</Button></AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 function SubjectCreateForm({
   value,
   loading,
@@ -175,6 +205,9 @@ export default function ExerciseList() {
 
   const activeNode = parseNode(activeId);
   const activeSet = activeSetId == null ? null : sets.find((set) => set.id === activeSetId) ?? null;
+  const activeSubject = activeNode.kind === 'subject'
+    ? subjects.find((subject) => subject.name === activeNode.subjectName) ?? null
+    : null;
   const visibleSets = useMemo(() => {
     if (activeNode.kind === 'subject') {
       if (activeNode.subjectName === 'ทั้งหมด') return sets;
@@ -307,6 +340,23 @@ export default function ExerciseList() {
     }
   }
 
+  async function deleteSubject(subject: Subject) {
+    setLoading(true);
+    try {
+      await api.delete(`/api/parent/subjects/${subject.id}`);
+      setSubjects((current) => current.filter((item) => item.id !== subject.id));
+      setSets((current) => current.map((set) => (
+        set.subjectId === subject.id ? { ...set, subjectId: null, subjectName: null } : set
+      )));
+      setActiveId('subject:ทั้งหมด');
+      setActiveSetId(null);
+    } catch (err) {
+      alert('ลบวิชาไม่สำเร็จ: ' + String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="parent-stack">
       <div className="page-heading">
@@ -384,11 +434,21 @@ export default function ExerciseList() {
           {!activeSet && (
             <>
               <Card className="parent-panel">
-                <Heading as="h3" size="4">
-                  {activeNode.kind === 'subject'
-                    ? activeNode.subjectName
-                    : `${activeNode.subjectName} · ${ageBandLabel(activeNode.ageBand)}`}
-                </Heading>
+                <Flex align="start" justify="between" gap="3" wrap="wrap">
+                  <Heading as="h3" size="4">
+                    {activeNode.kind === 'subject'
+                      ? activeNode.subjectName
+                      : `${activeNode.subjectName} · ${ageBandLabel(activeNode.ageBand)}`}
+                  </Heading>
+                  {activeSubject && (
+                    <DeleteSubjectButton
+                      disabled={loading}
+                      subjectName={activeSubject.name}
+                      setCount={visibleSets.length}
+                      onConfirm={() => deleteSubject(activeSubject)}
+                    />
+                  )}
+                </Flex>
                 <div className="stats-grid admin-stats" style={{ marginTop: 12 }}>
                   <Card className="stat-card"><div className="stat-value">{summary.total}</div><Text color="gray" size="2">ทั้งหมด</Text></Card>
                   <Card className="stat-card"><div className="stat-value">{summary.young}</div><Text color="gray" size="2">เด็กเล็ก</Text></Card>

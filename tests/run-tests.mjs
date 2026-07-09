@@ -164,6 +164,10 @@ function makeSuperAdminApp() {
 function makeSubjectsApp() {
   const state = {
     subjects: [{ id: 1, parent_id: 1, name: 'คณิตศาสตร์' }],
+    exerciseSets: [
+      { id: 10, parent_id: 1, subject_id: 1 },
+      { id: 11, parent_id: 1, subject_id: null },
+    ],
     nextId: 2,
   };
   const db = {
@@ -176,9 +180,24 @@ function makeSubjectsApp() {
                 const row = state.subjects.find((subject) => subject.parent_id === Number(args[0]) && subject.name === args[1]);
                 return row ? { id: row.id, name: row.name } : null;
               }
+              if (sql.includes('SELECT id FROM subjects WHERE id = ? AND parent_id = ?')) {
+                const row = state.subjects.find((subject) => subject.id === Number(args[0]) && subject.parent_id === Number(args[1]));
+                return row ? { id: row.id } : null;
+              }
               return null;
             },
             async run() {
+              if (sql.includes('UPDATE exercise_sets SET subject_id = NULL')) {
+                for (const set of state.exerciseSets) {
+                  if (set.parent_id === Number(args[0]) && set.subject_id === Number(args[1])) set.subject_id = null;
+                }
+                return { meta: { changes: 1 } };
+              }
+              if (sql.includes('DELETE FROM subjects WHERE id = ? AND parent_id = ?')) {
+                const before = state.subjects.length;
+                state.subjects = state.subjects.filter((subject) => !(subject.id === Number(args[0]) && subject.parent_id === Number(args[1])));
+                return { meta: { changes: before - state.subjects.length } };
+              }
               if (sql.includes('INSERT INTO subjects')) {
                 state.subjects.push({ id: state.nextId, parent_id: Number(args[0]), name: String(args[1]) });
                 return { meta: { last_row_id: state.nextId++ } };
@@ -424,4 +443,20 @@ test('subject route reuses existing subject names per parent', async () => {
   assert.equal(created.status, 201);
   assert.deepEqual(await created.json(), { id: 2, name: 'วิทยาศาสตร์' });
   assert.equal(state.subjects.length, 2);
+});
+
+test('subject route deletes a subject without deleting exercise sets', async () => {
+  const { app, db, state } = makeSubjectsApp();
+
+  const deleted = await app.request('/subjects/1', { method: 'DELETE' }, { DB: db });
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(await deleted.json(), { ok: true });
+  assert.equal(state.subjects.length, 0);
+  assert.deepEqual(state.exerciseSets, [
+    { id: 10, parent_id: 1, subject_id: null },
+    { id: 11, parent_id: 1, subject_id: null },
+  ]);
+
+  const missing = await app.request('/subjects/999', { method: 'DELETE' }, { DB: db });
+  assert.equal(missing.status, 404);
 });

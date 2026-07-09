@@ -31,3 +31,28 @@ subjectRoutes.post('/', async (c) => {
     .run();
   return c.json({ id: result.meta.last_row_id, name }, 201);
 });
+
+subjectRoutes.delete('/:id', async (c) => {
+  const { parentId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'invalid_subject_id' }, 400);
+
+  const subject = await c.env.DB.prepare(
+    'SELECT id FROM subjects WHERE id = ? AND parent_id = ?',
+  )
+    .bind(id, parentId)
+    .first<{ id: number }>();
+  if (!subject) return c.json({ error: 'not_found' }, 404);
+
+  await c.env.DB.prepare(
+    'UPDATE exercise_sets SET subject_id = NULL WHERE parent_id = ? AND subject_id = ?',
+  )
+    .bind(parentId, id)
+    .run();
+  await c.env.DB.prepare(
+    'DELETE FROM subjects WHERE id = ? AND parent_id = ?',
+  )
+    .bind(id, parentId)
+    .run();
+  return c.json({ ok: true });
+});
