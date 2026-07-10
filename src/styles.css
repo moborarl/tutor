@@ -1518,19 +1518,37 @@ table.data th { color: var(--muted); font-weight: 600; }
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+button.kid-dashboard-card:not(.rt-Button) {
+  background: rgba(250, 251, 247, 0.88);
+  color: #243e2c;
+}
+
 .kid-dashboard-card.active {
   border-color: rgba(95, 127, 95, 0.42);
-  background: var(--accent-soft);
+  background: rgba(232, 241, 225, 0.92);
+}
+
+button.kid-dashboard-card.active:not(.rt-Button) {
+  background: rgba(232, 241, 225, 0.92);
+  color: #243e2c;
 }
 
 .kid-dashboard-card span {
-  color: var(--green);
+  color: #243e2c;
   font-weight: 800;
 }
 
 .kid-dashboard-card small {
-  color: var(--muted);
+  color: #556456;
   font-weight: 700;
+}
+
+.kid-dashboard-card .progress-track {
+  background: rgba(126, 143, 121, 0.22);
+}
+
+.kid-dashboard-card .progress-fill {
+  background: #4f734f;
 }
 
 .kid-subject-section {
