@@ -1132,7 +1132,21 @@ table.data th { color: var(--muted); font-weight: 600; }
   min-height: 36px;
   font-size: 14px;
   font-weight: 680;
-  color: #52614f;
+  color: inherit;
+}
+
+.tree-node.child:not(.active) {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.tree-node.child:not(.active) .tree-icon {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.tree-node.child:not(.active) .rt-Badge {
+  background: rgba(232, 241, 225, 0.86);
+  color: #2f4f37;
+  border-color: rgba(255, 255, 255, 0.38);
 }
 
 .management-workspace,
