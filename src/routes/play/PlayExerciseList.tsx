@@ -4,10 +4,13 @@ import { api } from '../../lib/api-client';
 import { ChildAvatar } from '../../components/ChildAvatar';
 import type { Child, PlayExercise } from '@shared/types';
 
+const FALLBACK_SUBJECT = 'ไม่ระบุวิชา';
+
 export default function PlayExerciseList() {
   const nav = useNavigate();
   const [exercises, setExercises] = useState<PlayExercise[] | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [activeSubject, setActiveSubject] = useState('all');
   const child: Child | null = JSON.parse(sessionStorage.getItem('activeChild') ?? 'null');
 
   useEffect(() => {
@@ -15,7 +18,7 @@ export default function PlayExerciseList() {
       .get<PlayExercise[]>('/api/play/exercises')
       .then(setExercises)
       .catch(() => setLoadError(true));
-  }, [nav]);
+  }, []);
 
   async function switchProfile() {
     await api.post('/api/play/switch-profile');
@@ -26,7 +29,7 @@ export default function PlayExerciseList() {
   const uiSimple = child?.ageBand === 'young';
   const subjectRows = exercises
     ? [...exercises.reduce((map, ex) => {
-      const name = ex.subjectName ?? 'ไม่ระบุวิชา';
+      const name = ex.subjectName ?? FALLBACK_SUBJECT;
       const row = map.get(name) ?? { subjectName: name, total: 0, completed: 0 };
       row.total += 1;
       if (ex.bestScore != null) row.completed += 1;
@@ -35,9 +38,11 @@ export default function PlayExerciseList() {
     }, new Map<string, { subjectName: string; total: number; completed: number }>()).values()]
       .sort((a, b) => a.subjectName.localeCompare(b.subjectName, 'th'))
     : [];
+
   const groupedExercises = exercises
     ? [...exercises.reduce((map, ex) => {
-      const name = ex.subjectName ?? 'ไม่ระบุวิชา';
+      const name = ex.subjectName ?? FALLBACK_SUBJECT;
+      if (activeSubject !== 'all' && name !== activeSubject) return map;
       if (!map.has(name)) map.set(name, []);
       map.get(name)!.push(ex);
       return map;
@@ -45,14 +50,29 @@ export default function PlayExerciseList() {
       .sort(([a], [b]) => a.localeCompare(b, 'th'))
     : [];
 
+  const totalCount = exercises?.length ?? 0;
+  const completedCount = exercises?.filter((ex) => ex.bestScore != null).length ?? 0;
+  const percentDone = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+
   return (
     <div className={`play-root ${uiSimple ? 'ui-simple' : ''}`}>
-      <div className="kid-topbar">
-        {child ? <ChildAvatar child={child} size="sm" /> : <span className="kid-topbar-avatar">🙂</span>}
-        <h2>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
-        <Link to="/play/progress"><button className="secondary">ดูความคืบหน้า</button></Link>
-        <button className="secondary" onClick={switchProfile}>สลับคน</button>
-        <Link to="/parent/exercises"><button className="secondary">ผู้ปกครอง</button></Link>
+      <div className="kid-home-panel">
+        <div className="kid-topbar">
+          {child ? <ChildAvatar child={child} size="sm" /> : <span className="kid-topbar-avatar">🙂</span>}
+          <div className="grow">
+            <h2>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
+            <div className="muted">{completedCount}/{totalCount} ชุด · ทำไปแล้ว {percentDone}%</div>
+          </div>
+          <Link to="/play/progress"><button className="secondary">ดูความคืบหน้า</button></Link>
+          <button className="secondary" onClick={switchProfile}>สลับคน</button>
+          <Link to="/parent/exercises"><button className="secondary">ผู้ปกครอง</button></Link>
+        </div>
+        {totalCount > 0 && (
+          <div className="kid-home-progress">
+            <div className="progress-track"><div className="progress-fill" style={{ width: `${percentDone}%` }} /></div>
+            <span>{percentDone}%</span>
+          </div>
+        )}
       </div>
 
       {exercises === null && !loadError && (
@@ -78,14 +98,29 @@ export default function PlayExerciseList() {
       )}
 
       {subjectRows.length > 0 && (
-        <div className="kid-dashboard">
+        <div className="kid-subject-switcher" aria-label="เลือกวิชา">
+          <button className={activeSubject === 'all' ? 'active' : ''} onClick={() => setActiveSubject('all')}>ทั้งหมด</button>
           {subjectRows.map((s) => (
-            <div key={s.subjectName} className="kid-dashboard-card">
-              <b>{s.subjectName}</b>
-              <span>{s.completed}/{s.total} ชุด</span>
-              <small>{s.total - s.completed === 0 ? 'ครบแล้ว' : `เหลือ ${s.total - s.completed} ชุด`}</small>
-            </div>
+            <button key={s.subjectName} className={activeSubject === s.subjectName ? 'active' : ''} onClick={() => setActiveSubject(s.subjectName)}>
+              {s.subjectName}
+            </button>
           ))}
+        </div>
+      )}
+
+      {subjectRows.length > 0 && (
+        <div className="kid-dashboard">
+          {subjectRows.map((s) => {
+            const done = Math.round((s.completed / s.total) * 100);
+            return (
+              <button key={s.subjectName} className={`kid-dashboard-card ${activeSubject === s.subjectName ? 'active' : ''}`} onClick={() => setActiveSubject(s.subjectName)}>
+                <b>{s.subjectName}</b>
+                <span>{s.completed}/{s.total} ชุด</span>
+                <small>{s.total - s.completed === 0 ? 'ครบแล้ว' : `เหลือ ${s.total - s.completed} ชุด`}</small>
+                <div className="progress-track"><div className="progress-fill" style={{ width: `${done}%` }} /></div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -94,19 +129,22 @@ export default function PlayExerciseList() {
           <div key={subjectName} className="kid-subject-section">
             <h3>{subjectName}</h3>
             {items.map((ex) => (
-          <Link key={ex.id} to={`/play/exercises/${ex.id}`} style={{ textDecoration: 'none' }}>
-            <div className="card row kid-exercise-card">
-              <div className="kid-exercise-icon">{ex.bestScore != null && ex.bestScore >= 0.999 ? '🌟' : '📝'}</div>
-              <div className="grow">
-                <div className="kid-exercise-title">{ex.title || 'แบบฝึกหัด'}</div>
-                <div className="muted">
-                  {ex.subjectName ? `${ex.subjectName} · ` : ''}{ex.questionCount} ข้อ
-                  {ex.bestScore != null && ` · คะแนนดีสุด ${Math.round(ex.bestScore * 100)}%`}
+              <Link key={ex.id} to={`/play/exercises/${ex.id}`} style={{ textDecoration: 'none' }}>
+                <div className="card row kid-exercise-card">
+                  <div className="kid-exercise-icon">{ex.bestScore != null && ex.bestScore >= 0.999 ? '🌟' : '📝'}</div>
+                  <div className="grow">
+                    <div className="kid-exercise-title">{ex.title || 'แบบฝึกหัด'}</div>
+                    <div className="muted">
+                      {ex.subjectName ? `${ex.subjectName} · ` : ''}{ex.questionCount} ข้อ
+                      {ex.bestScore != null && ` · คะแนนดีที่สุด ${Math.round(ex.bestScore * 100)}%`}
+                    </div>
+                  </div>
+                  <span className={`kid-exercise-status ${ex.bestScore == null ? 'todo' : ex.bestScore >= 0.8 ? 'great' : 'done'}`}>
+                    {ex.bestScore == null ? 'ยังไม่ทำ' : `${Math.round(ex.bestScore * 100)}%`}
+                  </span>
+                  <span className="kid-exercise-arrow">▶</span>
                 </div>
-              </div>
-              <span className="kid-exercise-arrow">▶️</span>
-            </div>
-          </Link>
+              </Link>
             ))}
           </div>
         ))}

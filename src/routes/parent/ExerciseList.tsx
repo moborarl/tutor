@@ -157,6 +157,9 @@ export default function ExerciseList() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortMode, setSortMode] = useState('newest');
 
   function loadSets() {
     api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets')
@@ -216,12 +219,26 @@ export default function ExerciseList() {
     return sets.filter((set) => (set.subjectName ?? 'ไม่ระบุวิชา') === activeNode.subjectName && set.ageBand === activeNode.ageBand);
   }, [activeNode, sets]);
 
+  const filteredVisibleSets = useMemo(() => {
+    let result = visibleSets;
+    if (query.trim()) {
+      const q = query.trim().toLocaleLowerCase('th');
+      result = result.filter((set) => `${set.title} ${set.subjectName ?? ''}`.toLocaleLowerCase('th').includes(q));
+    }
+    if (statusFilter !== 'all') result = result.filter((set) => set.status === statusFilter);
+    return [...result].sort((a, b) => {
+      if (sortMode === 'title') return (a.title || '').localeCompare(b.title || '', 'th');
+      if (sortMode === 'questions') return b.questionCount - a.questionCount;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [visibleSets, query, statusFilter, sortMode]);
+
   const summary = {
-    total: visibleSets.length,
-    young: visibleSets.filter((set) => set.ageBand === 'young').length,
-    older: visibleSets.filter((set) => set.ageBand === 'older').length,
-    published: visibleSets.filter((set) => set.status === 'published').length,
-    review: visibleSets.filter((set) => set.status === 'pending_review').length,
+    total: filteredVisibleSets.length,
+    young: filteredVisibleSets.filter((set) => set.ageBand === 'young').length,
+    older: filteredVisibleSets.filter((set) => set.ageBand === 'older').length,
+    published: filteredVisibleSets.filter((set) => set.status === 'published').length,
+    review: filteredVisibleSets.filter((set) => set.status === 'pending_review').length,
   };
 
   const toggleSelected = (id: number) => {
@@ -452,8 +469,31 @@ export default function ExerciseList() {
                   <Card className="stat-card"><div className="stat-value">{summary.review}</div><Text color="gray" size="2">รอตรวจ</Text></Card>
                 </div>
               </Card>
+              <Card className="parent-panel compact management-filter-panel">
+                <div className="management-filter-grid">
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาชื่อแบบฝึกหัดหรือวิชา" />
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                    <option value="all">ทุกสถานะ</option>
+                    <option value="published">เผยแพร่แล้ว</option>
+                    <option value="pending_review">รอตรวจ</option>
+                    <option value="processing">รอคิว</option>
+                    <option value="extracting">กำลังแกะโจทย์</option>
+                    <option value="extraction_failed">แกะโจทย์ไม่สำเร็จ</option>
+                  </select>
+                  <select value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
+                    <option value="newest">ล่าสุดก่อน</option>
+                    <option value="title">เรียงตามชื่อ</option>
+                    <option value="questions">จำนวนข้อเยอะก่อน</option>
+                  </select>
+                  {(query || statusFilter !== 'all' || sortMode !== 'newest') && (
+                    <Button variant="soft" color="gray" onClick={() => { setQuery(''); setStatusFilter('all'); setSortMode('newest'); }}>
+                      ล้าง filter
+                    </Button>
+                  )}
+                </div>
+              </Card>
               <ExerciseRows
-                sets={visibleSets}
+                sets={filteredVisibleSets}
                 selected={selected}
                 loading={loading}
                 onToggle={toggleSelected}

@@ -508,6 +508,11 @@ export default function Admin() {
                   {r2Files.length === 0 ? 'โหลดรายการไฟล์' : 'รีเฟรช'}
                 </Button>
               </Flex>
+              <div className="r2-summary-strip">
+                <div><b>{c.r2Objects}</b><span>ไฟล์ทั้งหมด</span></div>
+                <div><b>{formatBytes(c.r2Bytes)}</b><span>พื้นที่โดยประมาณ</span></div>
+                <div><b>{r2Files.length}</b><span>โหลดมาแล้ว</span></div>
+              </div>
               <div className="admin-list">
                 {r2Files.map((file) => (
                   <div key={file.key} className="admin-row r2-file-row">
