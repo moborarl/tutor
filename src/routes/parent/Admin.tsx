@@ -117,34 +117,27 @@ function ConfirmDanger({
 }
 
 function ConfirmR2Delete({
-  file,
+  count,
   onConfirm,
   busy,
+  disabled,
 }: {
-  file: R2FileRow;
-  onConfirm: (key: string) => Promise<void>;
+  count: number;
+  onConfirm: () => Promise<void>;
   busy: boolean;
+  disabled?: boolean;
 }) {
-  const [confirmKey, setConfirmKey] = useState('');
-  const canDelete = confirmKey === file.key && !busy;
   return (
-    <AlertDialog.Root onOpenChange={(open) => { if (!open) setConfirmKey(''); }}>
-      <AlertDialog.Trigger><Button variant="soft" color="red" disabled={busy}>ลบไฟล์</Button></AlertDialog.Trigger>
+    <AlertDialog.Root>
+      <AlertDialog.Trigger><Button variant="soft" color="red" disabled={disabled || busy}>ลบไฟล์</Button></AlertDialog.Trigger>
       <AlertDialog.Content maxWidth="520px">
-        <AlertDialog.Title>ลบไฟล์ R2 นี้?</AlertDialog.Title>
+        <AlertDialog.Title>{count > 1 ? `ลบไฟล์ R2 ${count} ไฟล์?` : 'ลบไฟล์ R2 นี้?'}</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          การลบไฟล์โดยตรงอาจทำให้รูปในแบบฝึกหัดบางหน้าหาย พิมพ์ key ให้ตรงเพื่อยืนยัน
+          การลบไฟล์โดยตรงอาจทำให้รูปในแบบฝึกหัดบางหน้าหาย ยืนยันอีกครั้งเมื่อตรวจแล้วว่าไฟล์ที่เลือกไม่ใช้แล้ว
         </AlertDialog.Description>
-        <Text as="div" size="1" color="gray" style={{ marginTop: 12, wordBreak: 'break-all' }}>{file.key}</Text>
-        <input
-          style={{ marginTop: 12 }}
-          placeholder="พิมพ์ key ให้ตรง"
-          value={confirmKey}
-          onChange={(e) => setConfirmKey(e.target.value)}
-        />
         <Flex gap="3" justify="end" mt="4">
           <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
-          <AlertDialog.Action><Button color="red" disabled={!canDelete} onClick={() => onConfirm(file.key)}>ลบไฟล์</Button></AlertDialog.Action>
+          <AlertDialog.Action><Button color="red" disabled={busy} onClick={onConfirm}>ยืนยันลบ</Button></AlertDialog.Action>
         </Flex>
       </AlertDialog.Content>
     </AlertDialog.Root>
@@ -166,6 +159,7 @@ export default function Admin() {
   const [passwordMessage, setPasswordMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [r2Files, setR2Files] = useState<R2FileRow[]>([]);
+  const [selectedR2Keys, setSelectedR2Keys] = useState<string[]>([]);
   const [r2Cursor, setR2Cursor] = useState<string | null>(null);
   const [r2Loading, setR2Loading] = useState(false);
 
@@ -209,6 +203,7 @@ export default function Admin() {
         `/api/parent/admin/r2-files${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
       );
       setR2Files((prev) => reset ? data.files : [...prev, ...data.files]);
+      setSelectedR2Keys((keys) => keys.filter((key) => (reset ? data.files : [...r2Files, ...data.files]).some((file) => file.key === key)));
       setR2Cursor(data.cursor);
     } finally {
       setR2Loading(false);
@@ -236,11 +231,13 @@ export default function Admin() {
     }
   }
 
-  async function deleteR2File(key: string) {
+  async function deleteR2Files(keys: string[]) {
+    if (keys.length === 0) return;
     setBusy(true);
     try {
-      await api.delete('/api/parent/admin/r2-files', { key, confirmKey: key });
-      setR2Files((files) => files.filter((file) => file.key !== key));
+      await api.delete('/api/parent/admin/r2-files', { keys });
+      setR2Files((files) => files.filter((file) => !keys.includes(file.key)));
+      setSelectedR2Keys((current) => current.filter((key) => !keys.includes(key)));
       load();
     } finally {
       setBusy(false);
@@ -295,6 +292,15 @@ export default function Admin() {
     setSelectedSetIds((ids) => checked ? [...new Set([...ids, ...visibleIds])] : ids.filter((id) => !visibleIds.includes(id)));
   }
 
+  function toggleR2File(key: string, checked: boolean) {
+    setSelectedR2Keys((keys) => checked ? [...new Set([...keys, key])] : keys.filter((item) => item !== key));
+  }
+
+  function toggleVisibleR2Files(checked: boolean) {
+    const visibleKeys = r2Files.map((file) => file.key);
+    setSelectedR2Keys((keys) => checked ? [...new Set([...keys, ...visibleKeys])] : keys.filter((key) => !visibleKeys.includes(key)));
+  }
+
   if (!summary || !profile) {
     return (
       <Card className="parent-panel">
@@ -308,6 +314,8 @@ export default function Admin() {
   const c = summary.counts;
   const selectedCount = selectedSetIds.length;
   const allVisibleSelected = filteredSets.length > 0 && filteredSets.every((set) => selectedSetIds.includes(set.id));
+  const selectedR2Count = selectedR2Keys.length;
+  const allVisibleR2Selected = r2Files.length > 0 && r2Files.every((file) => selectedR2Keys.includes(file.key));
   const adminActiveId: AdminTreeId = section === 'sets'
     ? (setFilter === 'all' ? 'sets:all' : `sets:subject:${setFilter}`)
     : section;
@@ -506,6 +514,21 @@ export default function Admin() {
                   <Heading as="h3" size="4">ไฟล์ R2</Heading>
                   <Text color="gray" size="2">ไฟล์รูปภายใต้บัญชีนี้เท่านั้น ลบเฉพาะไฟล์ที่มั่นใจว่าไม่ใช้แล้ว</Text>
                 </div>
+                <label className="select-all-row">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleR2Selected}
+                    disabled={r2Files.length === 0}
+                    onChange={(e) => toggleVisibleR2Files(e.target.checked)}
+                  />
+                  <span>เลือกทั้งหมดที่โหลด</span>
+                </label>
+                <ConfirmR2Delete
+                  count={selectedR2Count}
+                  busy={busy}
+                  disabled={selectedR2Count === 0}
+                  onConfirm={() => deleteR2Files(selectedR2Keys)}
+                />
                 <Button variant="soft" color="gray" onClick={() => loadR2Files(true)} disabled={r2Loading}>
                   {r2Files.length === 0 ? 'โหลดรายการไฟล์' : 'รีเฟรช'}
                 </Button>
@@ -517,12 +540,23 @@ export default function Admin() {
               </div>
               <div className="admin-list">
                 {r2Files.map((file) => (
-                  <div key={file.key} className="admin-row r2-file-row">
+                  <div key={file.key} className={`admin-row selectable-row r2-file-row ${selectedR2Keys.includes(file.key) ? 'selected' : ''}`}>
+                    <input
+                      className="compact-checkbox"
+                      type="checkbox"
+                      checked={selectedR2Keys.includes(file.key)}
+                      onChange={(e) => toggleR2File(file.key, e.target.checked)}
+                      aria-label={`เลือก ${file.key}`}
+                    />
                     <div className="grow">
                       <Text as="div" weight="bold" className="r2-file-key">{file.key}</Text>
                       <Text as="div" color="gray" size="2">{formatBytes(file.size)} · อัปโหลด {formatDate(file.uploaded)}</Text>
                     </div>
-                    <ConfirmR2Delete file={file} busy={busy} onConfirm={deleteR2File} />
+                    <ConfirmR2Delete
+                      count={1}
+                      busy={busy}
+                      onConfirm={() => deleteR2Files([file.key])}
+                    />
                   </div>
                 ))}
                 {r2Files.length === 0 && <Text color="gray">ยังไม่ได้โหลดรายการไฟล์</Text>}

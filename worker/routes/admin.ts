@@ -159,12 +159,14 @@ adminRoutes.get('/r2-files', async (c) => {
 
 adminRoutes.delete('/r2-files', async (c) => {
   const { parentId } = c.get('session');
-  const body = await c.req.json<{ key?: string; confirmKey?: string }>().catch(() => null);
-  const key = body?.key ?? '';
-  if (!key || body?.confirmKey !== key) return c.json({ error: 'confirmation_required' }, 400);
-  if (!key.startsWith(`worksheets/${parentId}/`)) return c.json({ error: 'not_allowed' }, 403);
-  await c.env.WORKSHEETS.delete(key);
-  return c.json({ ok: true });
+  const body = await c.req.json<{ key?: string; keys?: unknown }>().catch(() => null);
+  const rawKeys = Array.isArray(body?.keys) ? body.keys : body?.key ? [body.key] : [];
+  const keys = [...new Set(rawKeys.filter((key): key is string => typeof key === 'string' && key.length > 0))];
+  if (keys.length === 0) return c.json({ error: 'invalid_keys' }, 400);
+  if (keys.length > 100) return c.json({ error: 'too_many_keys' }, 400);
+  if (keys.some((key) => !key.startsWith(`worksheets/${parentId}/`))) return c.json({ error: 'not_allowed' }, 403);
+  await Promise.all(keys.map((key) => c.env.WORKSHEETS.delete(key)));
+  return c.json({ ok: true, deleted: keys.length });
 });
 
 adminRoutes.delete('/attempts', async (c) => {

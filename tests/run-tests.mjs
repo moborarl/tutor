@@ -51,6 +51,7 @@ compile('worker/routes/play.ts', 'worker/routes/play.js');
 compile('worker/routes/questions.ts', 'worker/routes/questions.js');
 compile('worker/routes/subjects.ts', 'worker/routes/subjects.js');
 compile('worker/routes/super-admin.ts', 'worker/routes/super-admin.js');
+compile('worker/routes/admin.ts', 'worker/routes/admin.js');
 writeSharedPackage('diagram');
 writeSharedPackage('json-repair');
 
@@ -65,6 +66,7 @@ const { playRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/pl
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
 const { subjectRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/subjects.js')));
 const { superAdminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/super-admin.js')));
+const { adminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/admin.js')));
 
 function makeQuestionsApp(questionOverrides = {}) {
   const question = {
@@ -165,6 +167,46 @@ function makeSuperAdminApp() {
         return { objects: [], truncated: false };
       },
       async delete() {},
+    },
+  };
+  return { app, env, state };
+}
+
+function makeAdminR2App() {
+  const state = { deleted: [] };
+  const app = new Hono();
+  app.use('*', async (c, next) => {
+    c.set('session', { parentId: 1 });
+    await next();
+  });
+  app.route('/admin', adminRoutes);
+  const env = {
+    WORKSHEETS: {
+      async list() {
+        return {
+          objects: [
+            { key: 'worksheets/1/a.jpg', size: 100, uploaded: new Date('2026-01-01T00:00:00Z') },
+            { key: 'worksheets/1/b.jpg', size: 200, uploaded: new Date('2026-01-02T00:00:00Z') },
+          ],
+          truncated: false,
+        };
+      },
+      async delete(key) {
+        state.deleted.push(key);
+      },
+    },
+    DB: {
+      prepare() {
+        return {
+          bind() {
+            return {
+              async first() { return {}; },
+              async all() { return { results: [] }; },
+              async run() { return { meta: { changes: 1 } }; },
+            };
+          },
+        };
+      },
     },
   };
   return { app, env, state };
@@ -596,4 +638,38 @@ test('play route selects a child without a PIN', async () => {
     child: { id: 2, name: 'Dawin', avatar: 'panda', ageBand: 'young' },
   });
   assert.equal(state.activeChildId, 2);
+});
+
+test('admin R2 route deletes multiple parent-owned files without key retyping', async () => {
+  const { app, env, state } = makeAdminR2App();
+  const res = await app.request(
+    '/admin/r2-files',
+    {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ keys: ['worksheets/1/a.jpg', 'worksheets/1/b.jpg'] }),
+    },
+    env,
+  );
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true, deleted: 2 });
+  assert.deepEqual(state.deleted, ['worksheets/1/a.jpg', 'worksheets/1/b.jpg']);
+});
+
+test('admin R2 route rejects files outside the parent prefix', async () => {
+  const { app, env, state } = makeAdminR2App();
+  const res = await app.request(
+    '/admin/r2-files',
+    {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ keys: ['worksheets/2/other.jpg'] }),
+    },
+    env,
+  );
+
+  assert.equal(res.status, 403);
+  assert.deepEqual(await res.json(), { error: 'not_allowed' });
+  assert.deepEqual(state.deleted, []);
 });
