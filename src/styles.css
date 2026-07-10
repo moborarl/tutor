@@ -1050,6 +1050,7 @@ table.data th { color: var(--muted); font-weight: 600; }
 .tree-node:hover {
   background: rgba(239, 245, 234, 0.72);
   border-color: rgba(118, 139, 108, 0.18);
+  color: #243e2c;
 }
 
 .tree-node.active {
@@ -1104,6 +1105,11 @@ table.data th { color: var(--muted); font-weight: 600; }
   color: #52734d;
 }
 
+.tree-node:hover .tree-icon,
+.tree-node.child:not(.active):hover .tree-icon {
+  color: #52734d;
+}
+
 .tree-children {
   display: flex;
   flex-direction: column;
@@ -1122,6 +1128,10 @@ table.data th { color: var(--muted); font-weight: 600; }
 
 .tree-node.child:not(.active) {
   color: rgba(255, 255, 255, 0.84);
+}
+
+.tree-node.child:not(.active):hover {
+  color: #243e2c;
 }
 
 .tree-node.child:not(.active) .tree-icon {

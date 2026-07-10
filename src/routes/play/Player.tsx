@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import type { Child, PlayQuestion, AnswerResult, OrderingContent } from '@shared/types';
@@ -17,8 +17,6 @@ interface ExerciseData {
   questions: PlayQuestion[];
 }
 
-// Renders the interactive answer control + inline diagram/photo for one question.
-// Shared by both the young (one-at-a-time) and older (scrollable list) layouts.
 function QuestionBody({
   exercise,
   q,
@@ -47,15 +45,26 @@ function QuestionBody({
   );
 }
 
-// The feedback + explanation block shown after a question is answered.
 function Feedback({ result }: { result: AnswerResult }) {
   return (
     <>
       <div className={`feedback-banner ${result.isCorrect ? 'good' : 'bad'}`}>
-        {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : '❌ ยังไม่ถูก ดูเฉลยนะ'}
+        {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : 'ยังไม่ถูก ดูเฉลยนะ'}
       </div>
       {result.explanation && <div className="explain-box">💡 {result.explanation}</div>}
     </>
+  );
+}
+
+function ProgressLine({ answeredCount, total }: { answeredCount: number; total: number }) {
+  const pct = total ? Math.round((answeredCount / total) * 100) : 0;
+  return (
+    <div className="play-progress-line">
+      <div className="progress-track">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span>{pct}%</span>
+    </div>
   );
 }
 
@@ -80,8 +89,6 @@ export default function Player() {
         }>('/api/play/attempts', { exerciseSetId: Number(id) });
         setExercise(ex);
         setAttemptId(at.attemptId);
-        // Resuming an unfinished attempt: restore already-locked answers so they
-        // show as answered instead of looking open for a redo.
         if (at.existingAnswers?.length) {
           const restored: Record<number, AnswerResult> = {};
           for (const a of at.existingAnswers) {
@@ -115,7 +122,7 @@ export default function Player() {
   const allAnswered = answeredCount === total;
 
   async function submitAnswer(question: PlayQuestion, answer: unknown, startedAt: number) {
-    if (answers[question.id]) return; // already answered, locked
+    if (answers[question.id]) return;
     const res = await api.post<AnswerResult>(`/api/play/attempts/${attemptId}/answers`, {
       questionId: question.id,
       answer,
@@ -135,14 +142,15 @@ export default function Player() {
     const pctScore = Math.round(finished.score * 100);
     return (
       <div className={`play-root ${uiSimple ? 'ui-simple' : ''}`} style={{ justifyContent: 'center' }}>
-        <div style={{ fontSize: 90 }}>{pctScore >= 80 ? '🏆' : pctScore >= 50 ? '🎉' : '💪'}</div>
-        <h1>{pctScore >= 80 ? 'เก่งมาก!' : pctScore >= 50 ? 'ดีมาก!' : 'สู้ๆ นะ ลองอีกครั้ง!'}</h1>
-        <div style={{ fontSize: 26, fontWeight: 700 }}>
-          ได้ {finished.correct} จาก {finished.total} ข้อ ({pctScore}%)
-        </div>
-        <div className="row" style={{ marginTop: 30 }}>
-          <button onClick={() => window.location.reload()}>ทำอีกครั้ง</button>
-          <button className="secondary" onClick={() => nav('/play/exercises')}>กลับหน้ารายการ</button>
+        <div className="play-finish-card">
+          <div className="play-finish-medal">{pctScore >= 80 ? '🏆' : pctScore >= 50 ? '🎉' : '💪'}</div>
+          <h1>{pctScore >= 80 ? 'เก่งมาก!' : pctScore >= 50 ? 'ดีมาก!' : 'สู้ๆ นะ ลองอีกครั้ง!'}</h1>
+          <div className="play-finish-score">ได้ {finished.correct} จาก {finished.total} ข้อ ({pctScore}%)</div>
+          <div className="progress-track"><div className="progress-fill" style={{ width: `${pctScore}%` }} /></div>
+          <div className="row" style={{ marginTop: 24, justifyContent: 'center' }}>
+            <button onClick={() => window.location.reload()}>ทำอีกครั้ง</button>
+            <button className="secondary" onClick={() => nav('/play/exercises')}>กลับหน้ารายการ</button>
+          </div>
         </div>
       </div>
     );
@@ -181,9 +189,6 @@ export default function Player() {
   );
 }
 
-// Older kids: a sticky left sidebar with a clickable question-number grid
-// (colored by answered/correct/wrong) and a scrollable list of every question
-// on the right. Clicking a number scrolls to that question.
 function OlderPlayer({
   exercise,
   answers,
@@ -215,7 +220,7 @@ function OlderPlayer({
         <button className="secondary play-older-exit" onClick={onExit}>← ออก</button>
         <div className="play-older-progress">
           <div>
-            <div className="play-older-progress-label">ตรวจแล้ว</div>
+            <div className="play-older-progress-label">ตอบแล้ว</div>
             <div className="play-older-progress-count">{answeredCount}/{total}</div>
           </div>
           <div>
@@ -247,7 +252,14 @@ function OlderPlayer({
       </aside>
 
       <main className="play-older-main">
-        <h2 className="play-older-title">{exercise.title}</h2>
+        <div className="play-session-header">
+          <button className="secondary" onClick={onExit}>← ออก</button>
+          <div className="grow">
+            <h2 className="play-older-title">{exercise.title}</h2>
+            <ProgressLine answeredCount={answeredCount} total={total} />
+          </div>
+          <b>{answeredCount}/{total}</b>
+        </div>
         {exercise.questions.map((q, i) => {
           const result = answers[q.id] ?? null;
           return (
@@ -264,7 +276,7 @@ function OlderPlayer({
         })}
         {allAnswered && (
           <button className="success" onClick={onFinish} style={{ width: '100%' }}>
-            ✓ ตอบครบแล้ว ดูคะแนน 🏁
+            ตอบครบแล้ว ดูคะแนน 🏁
           </button>
         )}
       </main>
@@ -272,10 +284,6 @@ function OlderPlayer({
   );
 }
 
-// Young kids: one big question at a time. Left column = exit + a vertical
-// progress bar; center = the question and answer controls; right column = the
-// feedback/explanation (kept out of the center flow so answering never pushes
-// the layout around or scrolls the progress bar away).
 function SimplePlayer({
   exercise,
   index,
@@ -327,12 +335,20 @@ function SimplePlayer({
       <div className="play-simple-left">
         <button className="secondary" onClick={onExit}>←</button>
         <div className="progress-vertical" aria-label={`ความคืบหน้า ${answeredCount} จาก ${total}`}>
-          <div className="progress-vertical-fill" style={{ ['--pv']: `${(answeredCount / total) * 100}%` } as React.CSSProperties} />
+          <div className="progress-vertical-fill" style={{ ['--pv']: `${(answeredCount / total) * 100}%` } as CSSProperties} />
         </div>
         <div style={{ fontWeight: 800, fontSize: 15 }}>{answeredCount}/{total}</div>
       </div>
 
       <div className="play-simple-main">
+        <div className="play-session-header compact">
+          <div className="grow">
+            <b>{exercise.title}</b>
+            <ProgressLine answeredCount={answeredCount} total={total} />
+          </div>
+          <span>ข้อ {index + 1}/{total}</span>
+        </div>
+
         <div className="question-grid">
           {exercise.questions.map((qq, i) => {
             const a = answers[qq.id];
@@ -342,6 +358,7 @@ function SimplePlayer({
                 key={qq.id}
                 className={`question-grid-btn ${status} ${i === index ? 'current' : ''}`}
                 onClick={() => jumpTo(i)}
+                aria-label={`ข้อ ${i + 1}`}
               >
                 {i + 1}
               </button>
@@ -349,17 +366,8 @@ function SimplePlayer({
           })}
         </div>
 
-        {q.imageId ? (
-          <img src={`/api/play/exercises/${exercise.id}/images/${q.imageId}`} alt="รูปประกอบโจทย์" className="question-image" />
-        ) : (
-          <DiagramView diagram={q.diagram} />
-        )}
+        <QuestionBody exercise={exercise} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
         <div className="question-prompt"><RichText text={q.prompt} /></div>
-        {q.questionType === 'multiple_choice' && <QuestionMultipleChoice key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
-        {q.questionType === 'true_false' && <QuestionTrueFalse key={q.id} result={result} onAnswer={(a) => onAnswer(q, a)} />}
-        {q.questionType === 'fill_blank' && <QuestionFillBlank key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
-        {q.questionType === 'matching' && <QuestionMatching key={q.id} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />}
-        {q.questionType === 'ordering' && <QuestionOrdering key={q.id} content={q.content as OrderingContent} result={result} onAnswer={(a) => onAnswer(q, a)} />}
       </div>
 
       <div className="play-simple-side">
@@ -371,11 +379,11 @@ function SimplePlayer({
             </button>
           </>
         ) : (
-          <div className="muted side-hint">เลือกคำตอบทางซ้าย แล้วคำอธิบายจะขึ้นตรงนี้ 👈</div>
+          <div className="muted side-hint">เลือกคำตอบ แล้วคำอธิบายจะขึ้นตรงนี้</div>
         )}
         {allAnswered && !result && (
           <button className="success" style={{ width: '100%', marginTop: 12 }} onClick={onFinish}>
-            ✓ ตอบครบแล้ว ดูคะแนน 🏁
+            ตอบครบแล้ว ดูคะแนน 🏁
           </button>
         )}
       </div>
