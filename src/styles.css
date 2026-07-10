@@ -1492,6 +1492,28 @@ table.data th { color: var(--muted); font-weight: 600; }
 }
 
 @media (max-width: 900px) {
+  .page-heading {
+    gap: 14px;
+  }
+
+  .page-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .subject-create-mini.compact {
+    flex: 1 1 320px;
+  }
+
+  .subject-create-mini.compact .inline-create-row {
+    flex-wrap: wrap;
+  }
+
+  .subject-create-mini.compact input {
+    width: auto;
+    min-width: min(240px, 100%);
+  }
+
   .explorer-layout {
     grid-template-columns: 1fr;
   }
@@ -1504,6 +1526,14 @@ table.data th { color: var(--muted); font-weight: 600; }
 
   .explorer-workspace {
     gap: 14px;
+  }
+
+  .profile-grid {
+    gap: 14px;
+  }
+
+  .profile-tile {
+    width: min(160px, calc(50vw - 28px));
   }
 }
 
