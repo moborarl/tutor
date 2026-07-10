@@ -17,10 +17,10 @@ export function QuestionFillBlank({
     : [];
 
   return (
-    <div className="option-list" style={{ alignItems: 'center' }}>
+    <div className="option-list fill-blank-answer">
       {hint && <div className="muted">คำใบ้: {hint}</div>}
       <input
-        style={{ fontSize: 24, textAlign: 'center', maxWidth: 360 }}
+        className="fill-blank-input"
         value={text}
         disabled={!!result}
         onChange={(e) => setText(e.target.value)}

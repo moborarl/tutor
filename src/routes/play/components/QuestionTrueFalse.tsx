@@ -21,10 +21,9 @@ export function QuestionTrueFalse({
   }
 
   return (
-    <div className="option-list" style={{ flexDirection: 'row', justifyContent: 'center' }}>
+    <div className="option-list true-false-options">
       <button
         className={cls(true)}
-        style={{ flex: 1, fontSize: 28 }}
         disabled={!!result}
         onClick={() => { setSelected(true); onAnswer({ value: true }); }}
       >
@@ -32,7 +31,6 @@ export function QuestionTrueFalse({
       </button>
       <button
         className={cls(false)}
-        style={{ flex: 1, fontSize: 28 }}
         disabled={!!result}
         onClick={() => { setSelected(false); onAnswer({ value: false }); }}
       >

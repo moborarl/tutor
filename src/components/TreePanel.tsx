@@ -1,5 +1,5 @@
 import { Badge, Text } from '@radix-ui/themes';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 export interface TreeNodeItem {
   id: string;
@@ -25,12 +25,15 @@ export function TreePanel({
     <div className="folder-tree">
       <Text as="div" size="1" weight="bold" color="gray" className="tree-label">{label}</Text>
       {items.map((item) => {
-        const indent = (item.depth ?? 0) * 12;
+        const depth = item.depth ?? 0;
+        const style = depth
+          ? ({ '--tree-indent': `${depth * 12}px` } as CSSProperties)
+          : undefined;
         return (
           <button
             key={item.id}
-            className={`tree-node ${item.depth ? 'child' : ''} ${item.danger ? 'danger' : ''} ${activeId === item.id ? 'active' : ''}`}
-            style={{ marginLeft: indent, width: indent ? `calc(100% - ${indent}px)` : undefined }}
+            className={`tree-node ${depth ? 'child' : ''} ${item.danger ? 'danger' : ''} ${activeId === item.id ? 'active' : ''}`}
+            style={style}
             onClick={() => onSelect(item.id)}
             type="button"
           >

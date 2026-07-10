@@ -33,7 +33,7 @@ export function QuestionMatching({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%' }}>
+    <div className="matching-answer">
       <div className="match-columns">
         <div className="match-col">
           {left.map((item, li) => (
@@ -44,9 +44,9 @@ export function QuestionMatching({
               onClick={() => setActiveLeft(li)}
             >
               {item}
-              {pairs[li] >= 0 && <div className="muted" style={{ fontSize: 13 }}>↔ {right[pairs[li]]}</div>}
+              {pairs[li] >= 0 && <div className="muted match-pair-note">↔ {right[pairs[li]]}</div>}
               {result && (
-                <div style={{ fontSize: 15 }}>
+                <div className="match-result-note">
                   {pairs[li] === correctPairs[li] ? '✓' : `✗ (${right[correctPairs[li]] ?? '?'})`}
                 </div>
               )}
@@ -67,7 +67,7 @@ export function QuestionMatching({
         </div>
       </div>
       {!result && (
-        <button disabled={!allPaired} onClick={() => onAnswer({ pairs })}>ตอบ</button>
+        <button className="match-submit" disabled={!allPaired} onClick={() => onAnswer({ pairs })}>ตอบ</button>
       )}
       {activeLeft !== null && !result && (
         <div className="muted">เลือกคู่ของ "{left[activeLeft]}" จากฝั่งขวา</div>

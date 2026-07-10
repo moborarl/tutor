@@ -2,9 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { api, ApiError } from '../../lib/api-client';
 import { ChildAvatar } from '../../components/ChildAvatar';
+import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
 
 type AdminSection = 'overview' | 'profile' | 'password' | 'sets' | 'children' | 'r2' | 'cleanup';
 type SetFilter = 'all' | string;
+type AdminTreeId =
+  | AdminSection
+  | 'sets:all'
+  | `sets:subject:${string}`;
 
 interface AdminSummary {
   counts: {
@@ -303,6 +308,39 @@ export default function Admin() {
   const c = summary.counts;
   const selectedCount = selectedSetIds.length;
   const allVisibleSelected = filteredSets.length > 0 && filteredSets.every((set) => selectedSetIds.includes(set.id));
+  const adminActiveId: AdminTreeId = section === 'sets'
+    ? (setFilter === 'all' ? 'sets:all' : `sets:subject:${setFilter}`)
+    : section;
+  const adminTreeItems: TreeNodeItem[] = [
+    { id: 'overview', label: 'ภาพรวมครอบครัว', icon: '⌂', count: c.children },
+    { id: 'profile', label: 'โปรไฟล์ครอบครัว', icon: '◎' },
+    { id: 'password', label: 'เปลี่ยนรหัสผ่าน', icon: '◇' },
+    { id: 'sets:all', label: 'แบบฝึกหัด', icon: '▣', count: c.exerciseSets },
+    ...setGroups.map((group) => ({
+      id: `sets:subject:${group.subject}`,
+      label: group.subject,
+      icon: '▸',
+      count: group.total,
+      depth: 1,
+    })),
+    { id: 'children', label: 'เด็ก', icon: '●', count: c.children },
+    { id: 'r2', label: 'การใช้งานพื้นที่ / R2', icon: '▤', count: c.r2Objects },
+    { id: 'cleanup', label: 'ล้างข้อมูล', icon: '!', danger: true },
+  ];
+
+  function selectAdminTree(id: string) {
+    if (id === 'sets:all') {
+      setSection('sets');
+      setSetFilter('all');
+      return;
+    }
+    if (id.startsWith('sets:subject:')) {
+      setSection('sets');
+      setSetFilter(id.slice('sets:subject:'.length));
+      return;
+    }
+    setSection(id as AdminSection);
+  }
 
   return (
     <div className="parent-stack">
@@ -314,48 +352,12 @@ export default function Admin() {
       </div>
 
       <div className="management-shell admin-management-shell">
-        <aside className="folder-tree">
-          <Text as="div" size="1" weight="bold" color="gray" className="tree-label">พื้นที่ดูแลข้อมูล</Text>
-          <button className={`tree-node ${section === 'overview' ? 'active' : ''}`} onClick={() => setSection('overview')}>
-            <span className="tree-icon">⌂</span><span>ภาพรวมครอบครัว</span><Badge variant="soft">{c.children}</Badge>
-          </button>
-          <button className={`tree-node ${section === 'profile' ? 'active' : ''}`} onClick={() => setSection('profile')}>
-            <span className="tree-icon">◎</span><span>โปรไฟล์ครอบครัว</span>
-          </button>
-          <button className={`tree-node ${section === 'password' ? 'active' : ''}`} onClick={() => setSection('password')}>
-            <span className="tree-icon">◇</span><span>เปลี่ยนรหัสผ่าน</span>
-          </button>
-
-          <button
-            className={`tree-node ${section === 'sets' && setFilter === 'all' ? 'active' : ''}`}
-            onClick={() => { setSection('sets'); setSetFilter('all'); }}
-          >
-            <span className="tree-icon">▣</span><span>แบบฝึกหัด</span><Badge variant="soft">{c.exerciseSets}</Badge>
-          </button>
-          <div className="tree-children">
-            {setGroups.map((group) => (
-              <button
-                key={group.subject}
-                className={`tree-node child ${section === 'sets' && setFilter === group.subject ? 'active' : ''}`}
-                onClick={() => { setSection('sets'); setSetFilter(group.subject); }}
-              >
-                <span className="tree-icon">▸</span>
-                <span>{group.subject}</span>
-                <Badge variant="soft">{group.total}</Badge>
-              </button>
-            ))}
-          </div>
-
-          <button className={`tree-node ${section === 'children' ? 'active' : ''}`} onClick={() => setSection('children')}>
-            <span className="tree-icon">●</span><span>เด็ก</span><Badge variant="soft">{c.children}</Badge>
-          </button>
-          <button className={`tree-node ${section === 'r2' ? 'active' : ''}`} onClick={() => setSection('r2')}>
-            <span className="tree-icon">▤</span><span>การใช้งานพื้นที่ / R2</span><Badge variant="soft">{c.r2Objects}</Badge>
-          </button>
-          <button className={`tree-node danger ${section === 'cleanup' ? 'active' : ''}`} onClick={() => setSection('cleanup')}>
-            <span className="tree-icon">!</span><span>ล้างข้อมูล</span>
-          </button>
-        </aside>
+        <TreePanel
+          label="พื้นที่ดูแลข้อมูล"
+          items={adminTreeItems}
+          activeId={adminActiveId}
+          onSelect={selectAdminTree}
+        />
 
         <section className="management-workspace">
           {section === 'overview' && (
