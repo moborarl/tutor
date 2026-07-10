@@ -10,7 +10,7 @@ export const requireParentSession = createMiddleware<AppEnv>(async (c, next) => 
   await next();
 });
 
-// Requires a parent session with a child profile selected (PIN verified).
+// Requires a parent session with a child profile selected.
 export const requireChildSession = createMiddleware<AppEnv>(async (c, next) => {
   const session = await loadSession(c);
   if (!session) return c.json({ error: 'unauthorized' }, 401);

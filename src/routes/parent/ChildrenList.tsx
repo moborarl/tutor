@@ -271,7 +271,6 @@ function ChildForm({ child, onDone, onCancel }: { child: Child | null; onDone: (
   const [name, setName] = useState(child?.name ?? '');
   const [avatar, setAvatar] = useState(child?.avatar ?? CHILD_AVATAR_OPTIONS[0].key);
   const [ageBand, setAgeBand] = useState<AgeBand>(child?.ageBand ?? 'young');
-  const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 
   async function submit(e: React.FormEvent) {
@@ -279,14 +278,13 @@ function ChildForm({ child, onDone, onCancel }: { child: Child | null; onDone: (
     setError('');
     try {
       if (child) {
-        await api.patch(`/api/parent/children/${child.id}`, { name, avatar, ageBand, ...(pin ? { pin } : {}) });
+        await api.patch(`/api/parent/children/${child.id}`, { name, avatar, ageBand });
       } else {
-        if (!/^\d{4}$/.test(pin)) { setError('PIN ต้องเป็นตัวเลข 4 หลัก'); return; }
-        await api.post('/api/parent/children', { name, avatar, ageBand, pin });
+        await api.post('/api/parent/children', { name, avatar, ageBand });
       }
       onDone();
     } catch {
-      setError('บันทึกไม่สำเร็จ ตรวจสอบข้อมูลแล้วลองใหม่ (PIN ต้องเป็นตัวเลข 4 หลัก)');
+      setError('บันทึกไม่สำเร็จ ตรวจสอบข้อมูลแล้วลองใหม่');
     }
   }
 
@@ -313,12 +311,6 @@ function ChildForm({ child, onDone, onCancel }: { child: Child | null; onDone: (
           <option value="young">เด็กเล็ก (UI ง่าย ปุ่มใหญ่)</option>
           <option value="older">เด็กโต</option>
         </select>
-        <input
-          placeholder={child ? 'PIN ใหม่ 4 หลัก (เว้นว่างถ้าไม่เปลี่ยน)' : 'PIN 4 หลัก'}
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          inputMode="numeric"
-        />
         {error && <div className="error-text">{error}</div>}
         <div className="row">
           <Button type="submit">บันทึก</Button>

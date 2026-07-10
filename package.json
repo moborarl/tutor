@@ -11,6 +11,7 @@
     "typecheck": "tsc -b",
     "test": "node --test tests/run-tests.mjs",
     "smoke:prod": "node scripts/smoke-prod.mjs",
+    "smoke:auth": "node scripts/smoke-auth.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },

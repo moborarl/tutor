@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
+import { ChildAvatar } from '../../components/ChildAvatar';
 import type { ChildProgress } from '@shared/types';
 
 function pct(v: number | null): string {
@@ -36,7 +37,7 @@ export default function PlayProgress() {
     <div className={`play-root ${uiSimple ? 'ui-simple' : ''}`}>
       <div className="play-progress-shell">
         <div className="row">
-          <span style={{ fontSize: 44 }}>{data.child.avatar}</span>
+          <ChildAvatar child={data.child} size="lg" />
           <div className="grow">
             <h2 style={{ margin: 0 }}>ความคืบหน้าของ {data.child.name}</h2>
             <div className="muted">ดูคะแนนและแบบฝึกหัดที่เคยทำ</div>

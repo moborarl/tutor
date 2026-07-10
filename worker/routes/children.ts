@@ -5,7 +5,6 @@ import { hashSecret } from '../lib/crypto';
 export const childrenRoutes = new Hono<AppEnv>();
 
 const AGE_BANDS = ['young', 'older'];
-const PIN_RE = /^\d{4}$/;
 
 childrenRoutes.get('/', async (c) => {
   const { parentId } = c.get('session');
@@ -22,14 +21,15 @@ childrenRoutes.get('/', async (c) => {
 childrenRoutes.post('/', async (c) => {
   const { parentId } = c.get('session');
   const body = await c.req
-    .json<{ name?: string; avatar?: string; ageBand?: string; pin?: string }>()
+    .json<{ name?: string; avatar?: string; ageBand?: string }>()
     .catch(() => null);
   const name = body?.name?.trim();
   if (!name) return c.json({ error: 'name_required' }, 400);
   if (!AGE_BANDS.includes(body?.ageBand ?? '')) return c.json({ error: 'invalid_age_band' }, 400);
-  if (!PIN_RE.test(body?.pin ?? '')) return c.json({ error: 'pin_must_be_4_digits' }, 400);
 
-  const pinHash = await hashSecret(body!.pin!);
+  // Legacy schema keeps pin_hash as NOT NULL, but kid profile selection no longer
+  // uses PIN. Keep a harmless placeholder hash until a later migration removes it.
+  const pinHash = await hashSecret('pin-disabled');
   const result = await c.env.DB.prepare(
     'INSERT INTO children (parent_id, name, avatar, age_band, pin_hash) VALUES (?, ?, ?, ?, ?)',
   )
@@ -42,7 +42,7 @@ childrenRoutes.patch('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
   const body = await c.req
-    .json<{ name?: string; avatar?: string; ageBand?: string; pin?: string }>()
+    .json<{ name?: string; avatar?: string; ageBand?: string }>()
     .catch(() => null);
   if (!body) return c.json({ error: 'invalid_body' }, 400);
 
@@ -67,11 +67,6 @@ childrenRoutes.patch('/:id', async (c) => {
     if (!AGE_BANDS.includes(body.ageBand)) return c.json({ error: 'invalid_age_band' }, 400);
     updates.push('age_band = ?');
     values.push(body.ageBand);
-  }
-  if (body.pin) {
-    if (!PIN_RE.test(body.pin)) return c.json({ error: 'pin_must_be_4_digits' }, 400);
-    updates.push('pin_hash = ?');
-    values.push(await hashSecret(body.pin));
   }
   if (updates.length === 0) return c.json({ ok: true });
 

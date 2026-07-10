@@ -248,21 +248,6 @@ input:not(.rt-TextFieldInput):focus, select:focus, textarea:not(.rt-TextAreaInpu
   background: var(--card);
 }
 
-.pin-pad { display: grid; grid-template-columns: repeat(3, 76px); gap: 14px; margin-top: 24px; }
-.pin-key {
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  font-size: 28px;
-  font-weight: 700;
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: 0 3px 10px rgba(80, 60, 120, 0.12);
-}
-.pin-dots { display: flex; gap: 14px; margin-top: 18px; }
-.pin-dot { width: 18px; height: 18px; border-radius: 50%; background: #ded7ea; }
-.pin-dot.filled { background: var(--accent); }
-
 .kid-page-title {
   margin: 12px 0 0;
   font-size: 34px;
@@ -1651,15 +1636,6 @@ table.data th { color: var(--muted); font-weight: 600; }
     align-items: flex-start;
   }
 
-  .pin-pad {
-    grid-template-columns: repeat(3, 68px);
-    gap: 12px;
-  }
-
-  .pin-key {
-    width: 68px;
-    height: 68px;
-  }
 }
 
 .sticky-toolbar {

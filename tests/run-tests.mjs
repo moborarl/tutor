@@ -42,6 +42,12 @@ compile('shared/diagram.ts', 'node_modules/@shared/diagram/index.js');
 compile('shared/json-repair.ts', 'node_modules/@shared/json-repair/index.js');
 compile('worker/lib/grading.ts', 'worker/lib/grading.js');
 compile('worker/lib/json-import.ts', 'worker/lib/json-import.js');
+compile('worker/lib/crypto.ts', 'worker/lib/crypto.js');
+compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
+compile('worker/lib/progress.ts', 'worker/lib/progress.js');
+compile('worker/middleware/auth.ts', 'worker/middleware/auth.js');
+compile('worker/routes/children.ts', 'worker/routes/children.js');
+compile('worker/routes/play.ts', 'worker/routes/play.js');
 compile('worker/routes/questions.ts', 'worker/routes/questions.js');
 compile('worker/routes/subjects.ts', 'worker/routes/subjects.js');
 compile('worker/routes/super-admin.ts', 'worker/routes/super-admin.js');
@@ -53,6 +59,9 @@ const { parseImportedJson, validateQuestionPayload } = await import(
   pathToFileURL(join(outDir, 'worker/lib/json-import.js'))
 );
 const { Hono } = await import('hono');
+const { signValue } = await import(pathToFileURL(join(outDir, 'worker/lib/crypto.js')));
+const { childrenRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/children.js')));
+const { playRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/play.js')));
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
 const { subjectRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/subjects.js')));
 const { superAdminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/super-admin.js')));
@@ -227,6 +236,95 @@ function makeSubjectsApp() {
   });
   app.route('/subjects', subjectRoutes);
   return { app, db, state };
+}
+
+function makeChildrenApp() {
+  const state = {
+    children: [],
+    nextId: 1,
+  };
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes('SELECT id FROM children WHERE id = ? AND parent_id = ?')) {
+                return state.children.find((child) => child.id === Number(args[0]) && child.parent_id === Number(args[1])) ?? null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.includes('INSERT INTO children')) {
+                state.children.push({
+                  id: state.nextId,
+                  parent_id: Number(args[0]),
+                  name: String(args[1]),
+                  avatar: String(args[2]),
+                  age_band: String(args[3]),
+                  pin_hash: String(args[4]),
+                });
+                return { meta: { last_row_id: state.nextId++ } };
+              }
+              return { meta: { changes: 1 } };
+            },
+            async all() {
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+  const app = new Hono();
+  app.use('*', async (c, next) => {
+    c.set('session', { parentId: 1 });
+    await next();
+  });
+  app.route('/children', childrenRoutes);
+  return { app, db, state };
+}
+
+async function makePlayApp() {
+  const sessionId = 'session-1';
+  const state = {
+    activeChildId: null,
+    children: [{ id: 2, parent_id: 1, name: 'Dawin', avatar: 'panda', age_band: 'young' }],
+  };
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes('FROM parent_sessions')) {
+                return { id: sessionId, parent_id: 1, active_child_id: state.activeChildId, pin_fail_count: 0 };
+              }
+              if (sql.includes('SELECT id, name, avatar, age_band FROM children WHERE id = ? AND parent_id = ?')) {
+                return state.children.find((child) => child.id === Number(args[0]) && child.parent_id === Number(args[1])) ?? null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.includes('UPDATE parent_sessions SET active_child_id = ?')) {
+                state.activeChildId = Number(args[0]);
+                return { meta: { changes: 1 } };
+              }
+              return { meta: { changes: 1 } };
+            },
+            async all() {
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+  const app = new Hono();
+  app.route('/play', playRoutes);
+  const secret = 'test-session-secret';
+  const cookie = `kt_session=${await signValue(sessionId, secret)}`;
+  return { app, env: { DB: db, SESSION_SECRET: secret }, state, cookie };
 }
 
 test('gradeAnswer accepts equivalent reduced fractions', () => {
@@ -459,4 +557,43 @@ test('subject route deletes a subject without deleting exercise sets', async () 
 
   const missing = await app.request('/subjects/999', { method: 'DELETE' }, { DB: db });
   assert.equal(missing.status, 404);
+});
+
+test('child route creates profiles without requiring a PIN', async () => {
+  const { app, db, state } = makeChildrenApp();
+  const created = await app.request(
+    '/children',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Lalin', avatar: 'panda', ageBand: 'young' }),
+    },
+    { DB: db },
+  );
+
+  assert.equal(created.status, 201);
+  assert.deepEqual(await created.json(), { id: 1 });
+  assert.equal(state.children.length, 1);
+  assert.equal(state.children[0].name, 'Lalin');
+  assert.equal(typeof state.children[0].pin_hash, 'string');
+  assert.ok(state.children[0].pin_hash.length > 0);
+});
+
+test('play route selects a child without a PIN', async () => {
+  const { app, env, state, cookie } = await makePlayApp();
+  const selected = await app.request(
+    '/play/select-child',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ childId: 2 }),
+    },
+    env,
+  );
+
+  assert.equal(selected.status, 200);
+  assert.deepEqual(await selected.json(), {
+    child: { id: 2, name: 'Dawin', avatar: 'panda', ageBand: 'young' },
+  });
+  assert.equal(state.activeChildId, 2);
 });

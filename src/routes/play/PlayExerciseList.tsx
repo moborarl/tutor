@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
+import { ChildAvatar } from '../../components/ChildAvatar';
 import type { Child, PlayExercise } from '@shared/types';
 
 export default function PlayExerciseList() {
@@ -47,7 +48,7 @@ export default function PlayExerciseList() {
   return (
     <div className={`play-root ${uiSimple ? 'ui-simple' : ''}`}>
       <div className="kid-topbar">
-        <span className="kid-topbar-avatar">{child?.avatar ?? '🙂'}</span>
+        {child ? <ChildAvatar child={child} size="sm" /> : <span className="kid-topbar-avatar">🙂</span>}
         <h2>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
         <Link to="/play/progress"><button className="secondary">ดูความคืบหน้า</button></Link>
         <button className="secondary" onClick={switchProfile}>สลับคน</button>

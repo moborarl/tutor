@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
+import { ChildAvatar } from '../../components/ChildAvatar';
 
 interface FamilyProfile {
   id: number;
@@ -148,7 +149,7 @@ export default function FamilyHome() {
         <div className="family-child-list">
           {profile.children.map((child) => (
             <Link key={child.id} to={`/parent/children/${child.id}/progress`} className="family-child-row">
-              <span className="child-avatar">{child.avatar}</span>
+              <ChildAvatar child={child} />
               <div className="grow">
                 <Text as="div" weight="bold">{child.name}</Text>
                 <Text as="div" color="gray" size="2">

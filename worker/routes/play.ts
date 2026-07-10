@@ -1,14 +1,11 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { requireParentSession, requireChildSession } from '../middleware/auth';
-import { verifySecret, hashSecret } from '../lib/crypto';
 import { gradeAnswer } from '../lib/grading';
 import { loadChildProgress } from '../lib/progress';
 import type { QuestionType } from '@shared/types';
 
 export const playRoutes = new Hono<AppEnv>();
-
-const MAX_PIN_FAILS = 5;
 
 // --- Profile selection (requires parent session, not child) ---
 
@@ -36,29 +33,15 @@ playRoutes.get('/children', requireParentSession, async (c) => {
 
 playRoutes.post('/select-child', requireParentSession, async (c) => {
   const session = c.get('session');
-  const body = await c.req.json<{ childId?: number; pin?: string }>().catch(() => null);
-  if (!body?.childId || !body.pin) return c.json({ error: 'invalid_body' }, 400);
-
-  if (session.pinFailCount >= MAX_PIN_FAILS) {
-    return c.json({ error: 'pin_locked' }, 429);
-  }
+  const body = await c.req.json<{ childId?: number }>().catch(() => null);
+  if (!body?.childId) return c.json({ error: 'invalid_body' }, 400);
 
   const child = await c.env.DB.prepare(
-    'SELECT id, name, avatar, age_band, pin_hash FROM children WHERE id = ? AND parent_id = ?',
+    'SELECT id, name, avatar, age_band FROM children WHERE id = ? AND parent_id = ?',
   )
     .bind(body.childId, session.parentId)
-    .first<{ id: number; name: string; avatar: string; age_band: string; pin_hash: string }>();
+    .first<{ id: number; name: string; avatar: string; age_band: string }>();
   if (!child) return c.json({ error: 'not_found' }, 404);
-
-  if (!(await verifySecret(body.pin, child.pin_hash))) {
-    await c.env.DB.prepare(
-      'UPDATE parent_sessions SET pin_fail_count = pin_fail_count + 1 WHERE id = ?',
-    )
-      .bind(session.sessionId)
-      .run();
-    const remaining = MAX_PIN_FAILS - session.pinFailCount - 1;
-    return c.json({ error: 'wrong_pin', remaining: Math.max(0, remaining) }, 401);
-  }
 
   await c.env.DB.prepare(
     'UPDATE parent_sessions SET active_child_id = ?, pin_fail_count = 0 WHERE id = ?',
@@ -75,50 +58,6 @@ playRoutes.post('/switch-profile', requireParentSession, async (c) => {
   await c.env.DB.prepare('UPDATE parent_sessions SET active_child_id = NULL, pin_fail_count = 0 WHERE id = ?')
     .bind(session.sessionId)
     .run();
-  return c.json({ ok: true });
-});
-
-playRoutes.post('/forgot-pin', requireParentSession, async (c) => {
-  const session = c.get('session');
-  const body = await c.req
-    .json<{ childId?: number; parentPassword?: string; newPin?: string }>()
-    .catch(() => null);
-  if (!body?.childId || !body.parentPassword || !body.newPin) {
-    return c.json({ error: 'missing_fields' }, 400);
-  }
-
-  // Verify new PIN is 4 digits
-  if (!/^\d{4}$/.test(body.newPin)) {
-    return c.json({ error: 'invalid_pin_format' }, 400);
-  }
-
-  // Verify parent password
-  const parent = await c.env.DB.prepare('SELECT password_hash FROM parents WHERE id = ?')
-    .bind(session.parentId)
-    .first<{ password_hash: string }>();
-  if (!parent || !(await verifySecret(body.parentPassword, parent.password_hash))) {
-    return c.json({ error: 'invalid_password' }, 401);
-  }
-
-  // Verify child belongs to this parent
-  const child = await c.env.DB.prepare(
-    'SELECT id FROM children WHERE id = ? AND parent_id = ?',
-  )
-    .bind(body.childId, session.parentId)
-    .first();
-  if (!child) return c.json({ error: 'not_found' }, 404);
-
-  // Hash and update PIN
-  const newPinHash = await hashSecret(body.newPin);
-  await c.env.DB.prepare('UPDATE children SET pin_hash = ? WHERE id = ?')
-    .bind(newPinHash, body.childId)
-    .run();
-
-  // Reset PIN fail count for this session
-  await c.env.DB.prepare('UPDATE parent_sessions SET pin_fail_count = 0 WHERE id = ?')
-    .bind(session.sessionId)
-    .run();
-
   return c.json({ ok: true });
 });
 
