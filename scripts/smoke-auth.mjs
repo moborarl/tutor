@@ -96,6 +96,26 @@ await check('load family children', async () => {
   if (res.status !== 200 || !Array.isArray(body)) throw new Error(`expected children list, got ${res.status}`);
 });
 
+await check('load parent admin summary', async () => {
+  const { res, body } = await request('/api/parent/admin/summary');
+  if (res.status !== 200 || typeof body?.counts !== 'object') throw new Error(`expected admin summary, got ${res.status}`);
+  if (typeof body.counts.exerciseSets !== 'number') throw new Error('admin summary missing exerciseSets count');
+});
+
+await check('load parent R2 file list', async () => {
+  const { res, body } = await request('/api/parent/admin/r2-files');
+  if (res.status !== 200 || !Array.isArray(body?.files)) throw new Error(`expected R2 file list, got ${res.status}`);
+});
+
+if (process.env.SMOKE_SUPER_ADMIN_TOKEN) {
+  await check('load super-admin summary', async () => {
+    const { res, body } = await request('/api/super-admin/summary', {
+      headers: { 'x-super-admin-token': process.env.SMOKE_SUPER_ADMIN_TOKEN },
+    });
+    if (res.status !== 200 || typeof body?.totals !== 'object') throw new Error(`expected super-admin summary, got ${res.status}`);
+  });
+}
+
 if (failures > 0) {
   console.error(`\n${failures} authenticated smoke check(s) failed.`);
   process.exit(1);

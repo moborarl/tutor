@@ -1,10 +1,67 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertDialog, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
-import { parseJsonWithRepair } from '@shared/json-repair';
+import { preflightImportedJson, type ImportPreflightReport } from '@shared/import-preflight';
 import { PROMPT_TEMPLATE } from '@shared/contract';
-import type { Subject, AgeBand } from '@shared/types';
+import type { Subject, AgeBand, QuestionType } from '@shared/types';
+
+const QUESTION_TYPE_TH: Record<QuestionType, string> = {
+  multiple_choice: 'ปรนัย',
+  fill_blank: 'เติมคำ',
+  matching: 'จับคู่',
+  true_false: 'ถูก/ผิด',
+  fraction: 'เศษส่วน',
+  ordering: 'เรียงลำดับ',
+};
+
+function PreflightPanel({ report }: { report: ImportPreflightReport | null }) {
+  if (!report) {
+    return (
+      <div className="preflight-panel muted">
+        วาง JSON เพื่อให้ระบบตรวจโครงสร้างก่อนสร้างแบบฝึกหัด
+      </div>
+    );
+  }
+
+  const errors = report.issues.filter((issue) => issue.level === 'error');
+  const warnings = report.issues.filter((issue) => issue.level === 'warning');
+  const typeRows = Object.entries(report.questionTypeCounts)
+    .filter(([, count]) => Number(count) > 0)
+    .map(([type, count]) => `${QUESTION_TYPE_TH[type as QuestionType] ?? type} ${count}`);
+
+  return (
+    <div className={`preflight-panel ${report.ok ? 'ok' : 'blocked'}`}>
+      <div className="preflight-head">
+        <div>
+          <b>{report.ok ? 'JSON พร้อมสร้างแบบฝึกหัด' : 'ต้องแก้ JSON ก่อนสร้าง'}</b>
+          <span>
+            อ่านได้ {report.validQuestionCount}/{report.questionCount} ข้อ
+            {typeRows.length > 0 ? ` · ${typeRows.join(' · ')}` : ''}
+          </span>
+        </div>
+        <span className={`preflight-status ${report.ok ? 'ok' : 'blocked'}`}>
+          {errors.length} error · {warnings.length} warning
+        </span>
+      </div>
+      <div className="preflight-meta">
+        <span>อ้างถึงรูป: {report.referencedImagePages.length ? report.referencedImagePages.join(', ') : 'ไม่มี'}</span>
+        <span>diagram: {report.diagramCount}</span>
+      </div>
+      {report.issues.length > 0 && (
+        <div className="preflight-issues">
+          {report.issues.slice(0, 8).map((issue, index) => (
+            <div key={index} className={`preflight-issue ${issue.level}`}>
+              <b>{issue.level === 'error' ? 'ต้องแก้' : 'ตรวจดู'}</b>
+              <span>{issue.questionNumber ? `ข้อ ${issue.questionNumber}: ` : ''}{issue.message}</span>
+            </div>
+          ))}
+          {report.issues.length > 8 && <span className="muted">และอีก {report.issues.length - 8} รายการ</span>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Upload() {
   const nav = useNavigate();
@@ -37,6 +94,10 @@ export default function Upload() {
     ? `${window.location.origin}/api/ingest/${ingestToken}?ageBand=${ageBand}` +
       (subjectName ? `&subject=${encodeURIComponent(subjectName)}` : '')
     : '';
+  const preflight = useMemo(() => {
+    if (!questionsJson.trim()) return null;
+    return preflightImportedJson(questionsJson, { uploadedImageCount: files.length });
+  }, [files.length, questionsJson]);
 
   async function generateToken() {
     setTokenBusy(true);
@@ -85,18 +146,13 @@ export default function Upload() {
     }
     setError('');
 
-    // Validate JSON client-side before uploading (tolerating stray scratchpad
-    // text/code some AI chats paste alongside the actual JSON answer).
-    const parsed = parseJsonWithRepair(questionsJson) as { questions?: unknown } | null;
-    if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
-      setError(
-        parsed
-          ? 'JSON ต้องมี field "questions" เป็น array ที่ไม่ว่างเปล่า'
-          : 'รูปแบบ JSON ไม่ถูกต้อง ตรวจสอบว่า copy มาครบและไม่มีข้อความอื่นปน',
-      );
+    const report = preflightImportedJson(questionsJson, { uploadedImageCount: files.length });
+    if (!report.ok || report.questions.length === 0 || !report.repairedJson) {
+      const firstError = report.issues.find((issue) => issue.level === 'error');
+      setError(firstError ? `ตรวจ JSON ไม่ผ่าน: ${firstError.questionNumber ? `ข้อ ${firstError.questionNumber}: ` : ''}${firstError.message}` : 'JSON ต้องมี field "questions" เป็น array ที่ไม่ว่างเปล่า');
       return;
     }
-    const repairedJson = JSON.stringify(parsed);
+    const repairedJson = report.repairedJson;
 
     setBusy(true);
     try {
@@ -200,6 +256,7 @@ export default function Upload() {
               onChange={(e) => setQuestionsJson(e.target.value)}
               style={{ fontFamily: 'monospace', fontSize: '.85rem' }}
             />
+            <PreflightPanel report={preflight} />
             <input
               placeholder="ชื่อชุดแบบฝึกหัด (เว้นว่างให้ใช้ชื่อจาก JSON)"
               value={title}

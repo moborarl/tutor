@@ -3,6 +3,25 @@ import type { AppEnv } from '../env';
 
 export const superAdminRoutes = new Hono<AppEnv>();
 
+async function auditSuperAdminAction(
+  env: AppEnv['Bindings'],
+  action: string,
+  targetType: string,
+  targetId: string | number | null,
+  detail: Record<string, unknown> = {},
+) {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO admin_audit_log (actor_type, actor_parent_id, action, target_type, target_id, detail_json)
+       VALUES ('super_admin', NULL, ?, ?, ?, ?)`,
+    )
+      .bind(action, targetType, targetId == null ? null : String(targetId), JSON.stringify(detail))
+      .run();
+  } catch (err) {
+    console.warn('super-admin audit log failed', err);
+  }
+}
+
 superAdminRoutes.use('*', async (c, next) => {
   const expected = c.env.SUPER_ADMIN_TOKEN;
   const provided = c.req.header('x-super-admin-token') ?? '';
@@ -107,6 +126,7 @@ superAdminRoutes.delete('/r2-files', async (c) => {
   const key = body?.key ?? '';
   if (!key || body?.confirmKey !== key) return c.json({ error: 'confirmation_required' }, 400);
   await c.env.WORKSHEETS.delete(key);
+  await auditSuperAdminAction(c.env, 'delete_r2_file', 'r2_file', key);
   return c.json({ ok: true });
 });
 
@@ -121,5 +141,6 @@ superAdminRoutes.delete('/parents/:id', async (c) => {
     return c.json({ error: 'confirmation_required' }, 400);
   }
   await deleteParentData(c.env, parentId);
+  await auditSuperAdminAction(c.env, 'delete_parent', 'parent', parentId, { email: parent.email });
   return c.json({ ok: true });
 });

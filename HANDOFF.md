@@ -578,3 +578,19 @@ kids-tutor/
 - เพิ่ม test: `subject route reuses existing subject names per parent`
 - เพิ่ม `.gitignore` สำหรับ `Avatar/` เพราะเป็นโฟลเดอร์ source สำหรับเตรียมรูป ไม่ใช่ไฟล์ deploy จริง
 - ตรวจแล้ว: `npm test` ผ่าน 13/13, `npm run build` ผ่าน, `npm run smoke:prod` ผ่าน 6/6
+
+# อัปเดตล่าสุดจาก Codex (2026-07-10)
+
+- เพิ่ม shared AI import preflight ที่ `shared/import-preflight.ts`
+  - ใช้ validation เดียวกันทั้งหน้า Upload และ Worker import
+  - รายงาน error/warning แบบอ่านง่าย เช่น ข้อที่ JSON ผิด, `ordering/matching` format ผิด, `imagePage` เกินรูปที่อัปโหลด, diagram format ไม่รองรับ, รูปที่อาจเกินจำเป็น
+- หน้า `/parent/upload` แสดงกล่องตรวจ JSON ก่อนสร้างแบบฝึกหัด พร้อมจำนวนข้อ, ประเภทข้อ, รูปที่อ้างถึง, diagram count และรายการที่ต้องแก้
+- เพิ่ม admin audit log migration `0011_admin_audit_log.sql`
+  - parent admin dangerous actions เขียน log แบบ best-effort: ลบ R2, ลบประวัติ, ลบแบบฝึกหัด, ลบเด็ก
+  - super-admin delete parent/R2 เขียน log แบบ best-effort
+- เพิ่ม authenticated smoke coverage ใน `npm run smoke:auth`
+  - ตรวจ parent admin summary
+  - ตรวจ parent R2 file list
+  - ถ้าตั้ง `SMOKE_SUPER_ADMIN_TOKEN` จะตรวจ super-admin summary เพิ่ม
+- ทำ route-level lazy loading ใน `src/App.tsx` เพื่อลด JS เริ่มต้นและแยก bundle ตามหน้า
+- ตรวจแล้ว: `npm test` ผ่าน 19/19, `npm run build` ผ่าน และเห็น client route chunks แยกออกมาแล้ว

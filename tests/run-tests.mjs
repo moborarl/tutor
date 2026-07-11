@@ -40,6 +40,10 @@ mkdirSync(outDir, { recursive: true });
 
 compile('shared/diagram.ts', 'node_modules/@shared/diagram/index.js');
 compile('shared/json-repair.ts', 'node_modules/@shared/json-repair/index.js');
+compile('shared/types.ts', 'shared/types.js');
+compile('shared/diagram.ts', 'shared/diagram.js');
+compile('shared/json-repair.ts', 'shared/json-repair.js');
+compile('shared/import-preflight.ts', 'shared/import-preflight.js');
 compile('worker/lib/grading.ts', 'worker/lib/grading.js');
 compile('worker/lib/json-import.ts', 'worker/lib/json-import.js');
 compile('worker/lib/crypto.ts', 'worker/lib/crypto.js');
@@ -56,7 +60,7 @@ writeSharedPackage('diagram');
 writeSharedPackage('json-repair');
 
 const { gradeAnswer } = await import(pathToFileURL(join(outDir, 'worker/lib/grading.js')));
-const { parseImportedJson, validateQuestionPayload } = await import(
+const { parseImportedJson, preflightImportedJson, validateQuestionPayload } = await import(
   pathToFileURL(join(outDir, 'worker/lib/json-import.js'))
 );
 const { Hono } = await import('hono');
@@ -479,6 +483,34 @@ test('parseImportedJson accepts valid wrapped content and strips worksheet numbe
   assert.equal(result.ok, true);
   assert.equal(result.questions[0].prompt, 'เลือกคำตอบ');
   assert.deepEqual(result.questions[0].content, { options: ['ก', 'ข'] });
+});
+
+test('preflightImportedJson reports question-level errors and image warnings', () => {
+  const report = preflightImportedJson(JSON.stringify({
+    title: 'ตรวจก่อนสร้าง',
+    questions: [
+      {
+        questionType: 'ordering',
+        prompt: 'เรียงลำดับ',
+        content: { items: ['1/3', '1/2', '1/4'] },
+        answer: { indices: [0, 0, 2] },
+      },
+      {
+        questionType: 'multiple_choice',
+        prompt: 'เลือกคำตอบ',
+        content: { options: ['A', 'B'] },
+        answer: { correctIndex: 1 },
+        imagePage: 3,
+      },
+    ],
+  }), { uploadedImageCount: 1 });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.questionCount, 2);
+  assert.equal(report.validQuestionCount, 1);
+  assert.equal(report.questionTypeCounts.multiple_choice, 1);
+  assert.ok(report.issues.some((issue) => issue.level === 'error' && issue.questionNumber === 1 && issue.message.includes('ordering.answer.indices')));
+  assert.ok(report.issues.some((issue) => issue.level === 'warning' && issue.questionNumber === 2 && issue.message.includes('imagePage 3')));
 });
 
 test('question route unapproves an approved question', async () => {

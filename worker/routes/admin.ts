@@ -3,6 +3,26 @@ import type { AppEnv } from '../env';
 
 export const adminRoutes = new Hono<AppEnv>();
 
+async function auditAdminAction(
+  env: AppEnv['Bindings'],
+  parentId: number,
+  action: string,
+  targetType: string,
+  targetId: string | number | null,
+  detail: Record<string, unknown> = {},
+) {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO admin_audit_log (actor_type, actor_parent_id, action, target_type, target_id, detail_json)
+       VALUES ('parent', ?, ?, ?, ?, ?)`,
+    )
+      .bind(parentId, action, targetType, targetId == null ? null : String(targetId), JSON.stringify(detail))
+      .run();
+  } catch (err) {
+    console.warn('admin audit log failed', err);
+  }
+}
+
 async function listParentR2(env: AppEnv['Bindings'], parentId: number) {
   const prefix = `worksheets/${parentId}/`;
   let cursor: string | undefined;
@@ -166,6 +186,7 @@ adminRoutes.delete('/r2-files', async (c) => {
   if (keys.length > 100) return c.json({ error: 'too_many_keys' }, 400);
   if (keys.some((key) => !key.startsWith(`worksheets/${parentId}/`))) return c.json({ error: 'not_allowed' }, 403);
   await Promise.all(keys.map((key) => c.env.WORKSHEETS.delete(key)));
+  await auditAdminAction(c.env, parentId, 'delete_r2_files', 'r2_file', null, { count: keys.length, keys });
   return c.json({ ok: true, deleted: keys.length });
 });
 
@@ -185,6 +206,7 @@ adminRoutes.delete('/attempts', async (c) => {
   `)
     .bind(parentId)
     .run();
+  await auditAdminAction(c.env, parentId, 'delete_attempts', 'attempts', null);
   return c.json({ ok: true });
 });
 
@@ -201,6 +223,7 @@ adminRoutes.delete('/exercise-sets', async (c) => {
   for (const id of ids) {
     if (await deleteSet(c.env.DB, c.env.WORKSHEETS, parentId, id)) deleted += 1;
   }
+  await auditAdminAction(c.env, parentId, 'delete_exercise_sets', 'exercise_set', null, { requested: ids.length, deleted, ids });
   return c.json({ ok: true, deleted });
 });
 
@@ -208,6 +231,7 @@ adminRoutes.delete('/exercise-sets/:id', async (c) => {
   const { parentId } = c.get('session');
   const ok = await deleteSet(c.env.DB, c.env.WORKSHEETS, parentId, Number(c.req.param('id')));
   if (!ok) return c.json({ error: 'not_found' }, 404);
+  await auditAdminAction(c.env, parentId, 'delete_exercise_set', 'exercise_set', c.req.param('id'));
   return c.json({ ok: true });
 });
 
@@ -215,5 +239,6 @@ adminRoutes.delete('/children/:id', async (c) => {
   const { parentId } = c.get('session');
   const ok = await deleteChild(c.env.DB, parentId, Number(c.req.param('id')));
   if (!ok) return c.json({ error: 'not_found' }, 404);
+  await auditAdminAction(c.env, parentId, 'delete_child', 'child', c.req.param('id'));
   return c.json({ ok: true });
 });
