@@ -2680,6 +2680,46 @@ input:not(.rt-TextFieldInput):hover, select:hover, textarea:not(.rt-TextAreaInpu
 .tree-node.active .rt-Badge { color: #29442f; background: #f7faf5; border-color: #bfd0bb; }
 .explorer-workspace { gap: 16px; }
 
+.folder-tree button.tree-node,
+.folder-tree button.tree-node.child,
+.folder-tree button.tree-node.child:not(.active) {
+  color: #33443a;
+  background: transparent;
+  border-color: transparent;
+}
+
+.folder-tree button.tree-node:hover,
+.folder-tree button.tree-node.child:not(.active):hover {
+  color: #263e2c;
+  background: #edf2ea;
+  border-color: transparent;
+}
+
+.folder-tree button.tree-node.active,
+.folder-tree button.tree-node.child.active {
+  color: #243e2c;
+  background: #e5ede2;
+  border-color: #cbd9c7;
+}
+
+.folder-tree button.tree-node .tree-icon,
+.folder-tree button.tree-node.child:not(.active) .tree-icon {
+  color: #6f8173;
+}
+
+.folder-tree button.tree-node:hover .tree-icon,
+.folder-tree button.tree-node.active .tree-icon {
+  color: #4b7353;
+}
+
+.folder-tree button.tree-node .rt-Badge,
+.folder-tree button.tree-node.child:not(.active) .rt-Badge,
+.folder-tree button.tree-node.active .rt-Badge {
+  color: #2d4735;
+  background: #eef3ea;
+  border-color: #d1ddcc;
+}
+
 .stats-grid { gap: 10px; }
 .stat-card {
   min-height: 110px;
