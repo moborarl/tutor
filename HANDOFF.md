@@ -607,3 +607,14 @@ kids-tutor/
 - เพิ่ม global keyboard focus ring และ tap highlight behavior เพื่อ accessibility
 - อัปเดต `DESIGN.md` ให้ palette และกติกาตรงกับระบบจริง รวมข้อห้ามเรื่องสีเขียวบนพื้นเขียวและแนวทาง responsive
 - ตรวจแล้ว: `npm test` ผ่าน 19/19 และ `npm run build` ผ่าน (มี warning Wrangler log permission หลัง build ซึ่งไม่ทำให้ build ล้ม)
+# อัปเดต UI/UX รอบ workspace refresh (2026-07-11)
+
+- ปรับ Radix theme จาก indigo/slate เป็น grass/olive และรวม palette ใหม่เป็น earth-tone neutral ที่ contrast ชัดกว่าเดิม
+- `ExplorerLayout`: desktop เป็น 2-pane; tablet/mobile ซ่อน tree ไว้หลังปุ่ม `แสดงเมนู` ไม่วาง tree ยาวเหนือ workspace
+- `TreePanel`: item ปกติใช้พื้นโปร่งและข้อความเข้ม, active ใช้พื้นอ่อนพร้อมแถบด้านซ้าย, badge เป็น neutral และมี `aria-current`
+- ลด card ซ้อน card: list แบบฝึกหัดและเด็กรวมเป็น row + divider, selection bar sticky และ summary card เบาลง
+- เพิ่ม `AppNotifications` พร้อม live region และเปลี่ยน error/success feedback หลักจาก browser alert เป็น notification ที่ไม่ขัดจังหวะ
+- ปรับ family homepage, child dashboard, exercise row, progress track, navigation และ form control ให้ใช้ token/state เดียวกัน พร้อม touch target และ reduced-motion support
+- เปลี่ยนข้อความ `โหมดเด็ก` ที่ยังเหลือในหน้า parent เป็น `หน้าครอบครัว`
+- ตรวจแล้ว: `npm test` ผ่าน 19/19 และ `npm run build` ผ่าน; route chunks ยังแยกตามหน้า
+- visual screenshot รอบนี้ทำไม่ได้ เพราะ in-app browser ถูกตั้งค่าไม่ให้เปิด `127.0.0.1:5173`; ควรตรวจภาพจริงหลัง deploy

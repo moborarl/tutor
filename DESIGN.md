@@ -54,3 +54,13 @@
 
 ## หมายเหตุงานที่เหลือ (Phase 1b)
 inline styles ~150 จุดใน `src/routes/**` ยังต้องทยอยรวบเป็น utility/component class เพื่อความสม่ำเสมอเต็มรูปแบบ
+# Workspace Refresh (2026-07-11)
+
+- Theme ของ Radix ใช้ `grass` + `olive` เพื่อให้ component จาก library อยู่ใน palette เดียวกับระบบ
+- token ล่าสุดอยู่ในส่วน `2026 workspace design system refresh` ท้าย `src/styles.css`: พื้นหลัง `#eef2ec`, card `#fcfdfb`, accent `#527156`, ink `#1d261f`
+- `TreePanel` ใช้พื้น neutral ทุก state: รายการปกติเป็นข้อความเข้มบนพื้นโปร่ง, hover เป็นเขียวอ่อน, active เป็นเขียวอ่อนพร้อมแถบซ้าย ห้ามใช้พื้นเขียวเข้มกับข้อความ muted
+- `ExplorerLayout` เป็น 2-pane เฉพาะ desktop; ที่ 900px ลงมา tree ถูกซ่อนและเปิดด้วยปุ่ม `แสดงเมนู`
+- card ใช้เพื่อแบ่งกลุ่มข้อมูลจริง รายการซ้ำให้ใช้ row + divider และใช้ whitespace แทน card ซ้อน card
+- feedback ทั่วไปใช้ `AppNotifications` แทน browser `alert()`; action ที่ลบข้อมูลยังใช้ confirmation dialog
+- touch target ขั้นต่ำของคำสั่งหลักคือ 40px และคำตอบเด็กขั้นต่ำ 48px
+- ต้องรองรับ `prefers-reduced-motion` และใส่ `aria-current` ให้ navigation ที่ active

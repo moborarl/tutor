@@ -5,6 +5,7 @@ import { api, ApiError } from '../../lib/api-client';
 import { preflightImportedJson, type ImportPreflightReport } from '@shared/import-preflight';
 import { PROMPT_TEMPLATE } from '@shared/contract';
 import type { Subject, AgeBand, QuestionType } from '@shared/types';
+import { useNotify } from '../../components/AppNotifications';
 
 const QUESTION_TYPE_TH: Record<QuestionType, string> = {
   multiple_choice: 'ปรนัย',
@@ -64,6 +65,7 @@ function PreflightPanel({ report }: { report: ImportPreflightReport | null }) {
 }
 
 export default function Upload() {
+  const notify = useNotify();
   const nav = useNavigate();
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -351,7 +353,7 @@ ${ingestUrl}
 - สร้าง JSON
 - POST ไปที่ลิงก์ด้านบน`;
                     await navigator.clipboard.writeText(prompt);
-                    alert('คัดลอก prompt template แล้ว');
+                    notify('คัดลอก prompt template แล้ว', 'success');
                   }}
                 >
                   คัดลอก prompt template

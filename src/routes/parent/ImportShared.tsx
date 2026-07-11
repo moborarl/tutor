@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
+import { useNotify } from '../../components/AppNotifications';
 
 interface SharePreview {
   title: string;
@@ -12,6 +13,7 @@ interface SharePreview {
 // Landing page for a share link (/parent/import/:token): previews the shared
 // set, then copies it into the current parent's library on confirm.
 export default function ImportShared() {
+  const notify = useNotify();
   const { token } = useParams();
   const nav = useNavigate();
   const [preview, setPreview] = useState<SharePreview | null>(null);
@@ -29,7 +31,7 @@ export default function ImportShared() {
       nav(`/parent/exercises/${res.id}`);
     } catch {
       setBusy(false);
-      alert('เพิ่มเข้าคลังไม่สำเร็จ ลองใหม่อีกครั้ง');
+      notify('เพิ่มเข้าคลังไม่สำเร็จ ลองใหม่อีกครั้ง', 'error');
     }
   }
 

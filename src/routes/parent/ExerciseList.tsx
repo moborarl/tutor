@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { ExplorerLayout } from '../../components/ExplorerLayout';
 import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
+import { useNotify } from '../../components/AppNotifications';
 import type { AgeBand, ExerciseSetSummary, Subject } from '@shared/types';
 
 const STATUS_TH: Record<string, string> = {
@@ -139,6 +140,7 @@ function SubjectCreateForm({
 }
 
 export default function ExerciseList() {
+  const notify = useNotify();
   const nav = useNavigate();
   const [sets, setSets] = useState<ExerciseSetSummary[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -264,7 +266,7 @@ export default function ExerciseList() {
       setSelected(new Set());
       nav(`/parent/exercises/${res.id}`);
     } catch (err) {
-      alert('รวมชุดไม่สำเร็จ: ' + String(err));
+      notify('รวมชุดไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -277,7 +279,7 @@ export default function ExerciseList() {
       setShareUrl(`${window.location.origin}/parent/import/${token}`);
       setShareCopied(false);
     } catch (err) {
-      alert('สร้างลิงก์แชร์ไม่สำเร็จ: ' + String(err));
+      notify('สร้างลิงก์แชร์ไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -291,7 +293,7 @@ export default function ExerciseList() {
       setActiveId('subject:ทั้งหมด');
       setActiveSetId(null);
     } catch (err) {
-      alert('เก็บเข้าคลังไม่สำเร็จ: ' + String(err));
+      notify('เก็บเข้าคลังไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -303,7 +305,7 @@ export default function ExerciseList() {
       await api.post(`/api/parent/exercise-sets/${id}/publish`);
       loadSets();
     } catch (err) {
-      alert('เผยแพร่ไม่สำเร็จ: ต้องอนุมัติทุกข้อก่อน');
+      notify('เผยแพร่ไม่สำเร็จ: ต้องอนุมัติทุกข้อก่อน', 'error');
     } finally {
       setLoading(false);
     }
@@ -324,7 +326,7 @@ export default function ExerciseList() {
       } : s)));
       setEditingId(null);
     } catch (err) {
-      alert('เปลี่ยนชื่อไม่สำเร็จ: ' + String(err));
+      notify('เปลี่ยนชื่อไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -351,7 +353,7 @@ export default function ExerciseList() {
       setActiveSetId(null);
       setNewSubjectName('');
     } catch (err) {
-      alert('สร้างวิชาไม่สำเร็จ: ' + String(err));
+      notify('สร้างวิชาไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -368,7 +370,7 @@ export default function ExerciseList() {
       setActiveId('subject:ทั้งหมด');
       setActiveSetId(null);
     } catch (err) {
-      alert('ลบวิชาไม่สำเร็จ: ' + String(err));
+      notify('ลบวิชาไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }

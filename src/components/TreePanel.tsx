@@ -66,6 +66,8 @@ export function TreePanel({
             style={style}
             onClick={() => onSelect(item.id)}
             type="button"
+            aria-current={activeId === item.id ? 'page' : undefined}
+            title={item.label}
           >
             <span className="tree-icon">{iconFor(item)}</span>
             <span>{item.label}</span>

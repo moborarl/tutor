@@ -106,7 +106,7 @@ export default function FamilyHome() {
         </div>
         <Flex gap="2" wrap="wrap">
           <Link to="/parent/upload"><Button>สร้างแบบฝึกหัด</Button></Link>
-          <Link to="/play"><Button variant="soft" color="gray">โหมดเด็ก</Button></Link>
+          <Link to="/play"><Button variant="soft" color="gray">หน้าครอบครัว</Button></Link>
         </Flex>
       </div>
 
@@ -159,7 +159,7 @@ export default function FamilyHome() {
             </Link>
           ))}
           {profile.children.length === 0 && (
-            <Text color="gray">ยังไม่มีโปรไฟล์เด็ก เพิ่มเด็กก่อนเพื่อเริ่มใช้งานโหมดเด็ก</Text>
+            <Text color="gray">ยังไม่มีโปรไฟล์เด็ก เพิ่มสมาชิกเพื่อเริ่มทำแบบฝึกหัด</Text>
           )}
         </div>
       </Card>

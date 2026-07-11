@@ -3,6 +3,7 @@ import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { ChildAvatar } from '../../components/ChildAvatar';
+import { useNotify } from '../../components/AppNotifications';
 import type { ChildProgress as ChildProgressData } from '@shared/types';
 
 function pct(v: number | null): string {
@@ -14,6 +15,7 @@ function completion(done: number, total: number): number {
 }
 
 export default function ChildProgress() {
+  const notify = useNotify();
   const { id } = useParams();
   const [data, setData] = useState<ChildProgressData | null>(null);
   const [resettingId, setResettingId] = useState<number | null>(null);
@@ -30,7 +32,7 @@ export default function ChildProgress() {
       await api.post(`/api/parent/children/${id}/exercise-sets/${exerciseSetId}/reset-in-progress`);
       load();
     } catch (err) {
-      alert('รีเซ็ตไม่สำเร็จ: ' + String(err));
+      notify('รีเซ็ตไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setResettingId(null);
     }

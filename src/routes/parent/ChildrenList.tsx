@@ -4,6 +4,7 @@ import { api } from '../../lib/api-client';
 import { ChildAvatar, CHILD_AVATAR_OPTIONS } from '../../components/ChildAvatar';
 import { ExplorerLayout } from '../../components/ExplorerLayout';
 import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
+import { useNotify } from '../../components/AppNotifications';
 import type { Child, AgeBand, ChildProgress as ChildProgressData } from '@shared/types';
 
 type ChildNode =
@@ -34,6 +35,7 @@ function completion(done: number, total: number): number {
 }
 
 export default function ChildrenList() {
+  const notify = useNotify();
   const [children, setChildren] = useState<Child[]>([]);
   const [activeId, setActiveId] = useState('home');
   const [showForm, setShowForm] = useState(false);
@@ -93,7 +95,7 @@ export default function ChildrenList() {
       setActiveId('home');
       load();
     } catch (err) {
-      alert('ลบไม่สำเร็จ: ' + String(err));
+      notify('ลบไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -109,7 +111,7 @@ export default function ChildrenList() {
       setProgressCache({});
       load();
     } catch (err) {
-      alert('ลบไม่สำเร็จ: ' + String(err));
+      notify('ลบไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
