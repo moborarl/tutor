@@ -6,6 +6,8 @@
 - ถ้าใช้พื้นหลังเขียว/olive/sage แล้ว ข้อความควรเป็นสีขาวหรือสีเข้มที่ contrast สูงตามพื้นหลัง
 - ถ้า progress bar เป็นสีเขียว ควรวางบนพื้นอ่อน/neutral track ไม่ใช่บน card เขียวเข้ม
 - ก่อนจบงาน UI ให้เช็ก hover/active/selected state เสมอ เพราะ state เหล่านี้มักทำให้ contrast ต่ำโดยไม่ตั้งใจ
+- หลีกเลี่ยงการใช้ action text หรือ secondary text สีเขียวหม่นบนการ์ดสีเขียว/olive เพราะจะกลืนกับพื้นหลังง่ายมาก
+- Tree item ชั้นย่อยต้องเช็กสีข้อความและไอคอนแยกจาก item หลักเสมอ โดยเฉพาะใน state ปกติและ hover
 
 ## Implementation ล่าสุด (2026-07-08 รอบ explorer/theme)
 

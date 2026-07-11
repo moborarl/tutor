@@ -277,6 +277,10 @@ input:not(.rt-TextFieldInput):focus, select:focus, textarea:not(.rt-TextAreaInpu
 .profile-name { color: var(--ink); font-size: 19px; font-weight: 850; }
 .profile-action { display: inline-flex; align-items: center; gap: 5px; color: #5b6a5d; font-size: 13px; font-weight: 700; }
 .profile-action svg { width: 14px; height: 14px; }
+.profile-tile:not(.parent-profile-tile) .profile-name { color: #f7fbf4; }
+.profile-tile:not(.parent-profile-tile) .profile-action { color: rgba(244, 249, 239, 0.94); }
+.profile-tile:not(.parent-profile-tile):hover .profile-action { color: #ffffff; }
+.profile-tile.parent-profile-tile .profile-action { color: #4e6051; }
 .parent-avatar { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 999px; color: #4f734f; background: #e4ecdf; border: 1px solid #ccd9c5; }
 .parent-avatar svg { width: 34px; height: 34px; }
 
@@ -1303,23 +1307,23 @@ table.data th { color: var(--muted); font-weight: 600; }
 }
 
 .tree-node.child:not(.active) {
-  color: #526055;
+  color: #edf4e8;
 }
 
 .tree-node.child:not(.active):hover {
-  color: #243e2c;
+  color: #ffffff;
 }
 
 .tree-node.child:not(.active) .tree-icon {
-  color: #93a08f;
+  color: #d7e2d1;
 }
 
 .tree-icon svg { display: block; width: 16px; height: 16px; stroke-width: 2; }
 
 .tree-node.child:not(.active) .rt-Badge {
-  background: rgba(232, 241, 225, 0.86);
+  background: rgba(248, 251, 245, 0.88);
   color: #2f4f37;
-  border-color: rgba(255, 255, 255, 0.38);
+  border-color: rgba(255, 255, 255, 0.52);
 }
 
 .management-workspace,
