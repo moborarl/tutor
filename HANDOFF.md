@@ -594,3 +594,14 @@ kids-tutor/
   - ถ้าตั้ง `SMOKE_SUPER_ADMIN_TOKEN` จะตรวจ super-admin summary เพิ่ม
 - ทำ route-level lazy loading ใน `src/App.tsx` เพื่อลด JS เริ่มต้นและแยก bundle ตามหน้า
 - ตรวจแล้ว: `npm test` ผ่าน 19/19, `npm run build` ผ่าน และเห็น client route chunks แยกออกมาแล้ว
+
+# อัปเดตล่าสุดจาก Codex (2026-07-11)
+
+- ปรับ visual system หลักเป็น quiet family workspace แบบ earth tone เขียวหม่นและ off-white ลดความขาวจ้า พร้อมขยาย content width เป็น 1180px
+- เพิ่ม `lucide-react` และเปลี่ยน navigation/TreePanel จากสัญลักษณ์ตัวอักษรเป็นไอคอนมาตรฐาน
+- ปรับ parent navigation ให้ sticky, active state ชัด, รองรับจอเล็กแบบแถบเมนูเลื่อนได้ และคง touch target ที่เหมาะสม
+- ปรับ family homepage ให้ hierarchy ชัดขึ้น มีคำอธิบาย action ใน tile เด็ก/ผู้ปกครอง และ hover/focus state ที่สุภาพ
+- แก้ regression สำคัญใน TreePanel: node ระดับย่อยเคยเป็นตัวอักษรเกือบขาวบนพื้นอ่อน ตอนนี้ใช้สีเข้มและ hierarchy ที่อ่านง่ายทั้ง `/parent`, `/parent/exercises`, `/parent/children`
+- เพิ่ม global keyboard focus ring และ tap highlight behavior เพื่อ accessibility
+- อัปเดต `DESIGN.md` ให้ palette และกติกาตรงกับระบบจริง รวมข้อห้ามเรื่องสีเขียวบนพื้นเขียวและแนวทาง responsive
+- ตรวจแล้ว: `npm test` ผ่าน 19/19 และ `npm run build` ผ่าน (มี warning Wrangler log permission หลัง build ซึ่งไม่ทำให้ build ล้ม)

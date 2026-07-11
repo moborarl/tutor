@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { ChildAvatar } from '../../components/ChildAvatar';
 import type { Child } from '@shared/types';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function ProfilePicker() {
   const nav = useNavigate();
@@ -59,19 +60,22 @@ export default function ProfilePicker() {
   return (
     <div className="play-root">
       <div className="family-home-heading">
+        <span className="family-home-eyebrow">พื้นที่การเรียนรู้ของครอบครัว</span>
         <h1 className="kid-page-title">{familyName}</h1>
-        <h2 className="family-member-title">สมาชิกครอบครัว</h2>
+        <h2 className="family-member-title">วันนี้ใครจะเข้าใช้งาน?</h2>
       </div>
       <div className="profile-grid">
         {children.map((ch) => (
           <button key={ch.id} className="profile-tile" onClick={() => selectChild(ch.id)}>
             <ChildAvatar child={ch} size="lg" />
-            <span>{ch.name}</span>
+            <span className="profile-name">{ch.name}</span>
+            <span className="profile-action">ทำแบบฝึกหัด <ArrowRight aria-hidden="true" /></span>
           </button>
         ))}
         <Link to="/parent" className="profile-tile parent-profile-tile">
-          <span className="avatar">👤</span>
-          <span>ผู้ปกครอง</span>
+          <span className="parent-avatar"><ShieldCheck aria-hidden="true" /></span>
+          <span className="profile-name">ผู้ปกครอง</span>
+          <span className="profile-action">ดูแลข้อมูล <ArrowRight aria-hidden="true" /></span>
         </Link>
       </div>
       {error && <div className="error-text" style={{ marginTop: 16, textAlign: 'center' }}>{error}</div>}

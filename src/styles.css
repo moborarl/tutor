@@ -6,13 +6,13 @@
    primary color (pin pad, feedback) and changing it would touch dozens of
    inline styles across the play screens for little benefit. */
 :root {
-  --bg: #e9eee7;
-  --card: #f7f8f4;
-  --surface: #eef3ec;
-  --surface-muted: #dfe8dc;
+  --bg: #edf1ea;
+  --card: #fbfcf8;
+  --surface: #f2f5ef;
+  --surface-muted: #e2e9de;
   --ink: #18211b;
   --muted: #687568;
-  --border: #d1dccd;
+  --border: #cfd9ca;
   --accent: #5f7f5f;
   --accent-soft: #e0eadc;
   --admin-accent: #4f734f;
@@ -48,6 +48,12 @@ body {
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+}
+
+a, button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid rgba(58, 105, 78, 0.28);
+  outline-offset: 2px;
 }
 
 .radix-themes {
@@ -89,7 +95,7 @@ input:not(.rt-TextFieldInput), select, textarea:not(.rt-TextAreaInput) {
 }
 input:not(.rt-TextFieldInput):focus, select:focus, textarea:not(.rt-TextAreaInput):focus { outline: 2px solid var(--admin-accent-soft); border-color: var(--admin-accent); }
 
-.page { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+.page { width: min(1180px, 100%); margin: 0 auto; padding: 36px 24px 72px; }
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -226,22 +232,29 @@ input:not(.rt-TextFieldInput):focus, select:focus, textarea:not(.rt-TextAreaInpu
 }
 .profile-grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 30px; }
 .profile-tile {
-  width: 150px;
-  height: 170px;
-  border-radius: 24px;
+  width: 184px;
+  min-height: 218px;
+  height: auto;
+  border-radius: 8px;
   background: var(--card);
-  box-shadow: 0 4px 16px rgba(80, 60, 120, 0.12);
+  border: 1px solid rgba(95, 127, 95, 0.18);
+  box-shadow: 0 12px 32px rgba(24, 33, 27, 0.08);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   font-size: 18px;
   font-weight: 700;
   color: var(--ink);
   text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
-.profile-tile .avatar { font-size: 64px; }
+.profile-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(79, 115, 79, 0.42);
+  box-shadow: 0 18px 42px rgba(24, 33, 27, 0.13);
+}
 
 .profile-tile.parent-profile-tile {
   border: 1px solid #e2e8f0;
@@ -256,9 +269,16 @@ input:not(.rt-TextFieldInput):focus, select:focus, textarea:not(.rt-TextAreaInpu
 }
 
 .family-home-heading {
-  margin-top: 46px;
+  margin-top: clamp(36px, 8vh, 84px);
   text-align: center;
 }
+
+.family-home-eyebrow { display: inline-block; margin-bottom: 10px; color: #5b6a5d; font-size: 13px; font-weight: 800; letter-spacing: 0.04em; }
+.profile-name { color: var(--ink); font-size: 19px; font-weight: 850; }
+.profile-action { display: inline-flex; align-items: center; gap: 5px; color: #5b6a5d; font-size: 13px; font-weight: 700; }
+.profile-action svg { width: 14px; height: 14px; }
+.parent-avatar { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 999px; color: #4f734f; background: #e4ecdf; border: 1px solid #ccd9c5; }
+.parent-avatar svg { width: 34px; height: 34px; }
 
 .family-member-title {
   margin: 8px 0 0;
@@ -791,14 +811,14 @@ table.data th { color: var(--muted); font-weight: 600; }
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 12px 16px;
+  padding: 10px max(20px, calc((100vw - 1180px) / 2));
   background: var(--card);
   border-bottom: 1px solid var(--border);
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  margin-bottom: 0;
+  flex-wrap: nowrap;
 }
-.nav-bar a { text-decoration: none; color: var(--ink); font-weight: 600; padding: 6px 12px; border-radius: 8px; }
-.nav-bar a.active { background: var(--accent-soft); color: var(--accent); }
+.nav-bar a { text-decoration: none; color: #4f5b51; font-weight: 700; padding: 9px 11px; border-radius: 7px; }
+.nav-bar a.active { background: var(--accent-soft); color: #31513a; }
 
 .mode-switch-link {
   border: 1px solid var(--border);
@@ -813,15 +833,21 @@ table.data th { color: var(--muted); font-weight: 600; }
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(248, 250, 252, 0.92);
+  background: rgba(251, 252, 248, 0.94);
   backdrop-filter: blur(14px);
 }
+
+.parent-nav-links { display: flex; align-items: center; gap: 3px; }
+.parent-nav-links a { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.parent-nav-links svg, .logout-button svg { width: 17px; height: 17px; }
 
 .parent-brand {
   font-weight: 850;
   margin-right: 8px;
   letter-spacing: 0;
 }
+
+.brand-mark { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-right: 8px; border-radius: 8px; background: #365f46; color: white; font-size: 15px; font-weight: 900; }
 
 .nav-bar a.parent-brand {
   padding-left: 0;
@@ -1277,7 +1303,7 @@ table.data th { color: var(--muted); font-weight: 600; }
 }
 
 .tree-node.child:not(.active) {
-  color: rgba(255, 255, 255, 0.84);
+  color: #526055;
 }
 
 .tree-node.child:not(.active):hover {
@@ -1285,8 +1311,10 @@ table.data th { color: var(--muted); font-weight: 600; }
 }
 
 .tree-node.child:not(.active) .tree-icon {
-  color: rgba(255, 255, 255, 0.34);
+  color: #93a08f;
 }
+
+.tree-icon svg { display: block; width: 16px; height: 16px; stroke-width: 2; }
 
 .tree-node.child:not(.active) .rt-Badge {
   background: rgba(232, 241, 225, 0.86);
@@ -2063,6 +2091,31 @@ button.kid-dashboard-card.active:not(.rt-Button) {
 }
 
 @media (max-width: 720px) {
+  .page { padding: 24px 14px 56px; }
+
+  .parent-nav {
+    padding: 8px 10px;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .parent-nav::-webkit-scrollbar { display: none; }
+  .parent-nav .parent-brand > span:last-child { display: none; }
+  .parent-nav .parent-brand { margin-right: 0; padding-right: 2px; }
+  .parent-nav-links { gap: 2px; }
+  .parent-nav-links a { flex-direction: column; gap: 2px; min-width: 62px; padding: 6px 8px; font-size: 11px; }
+  .parent-nav-links svg { width: 18px; height: 18px; }
+  .parent-nav > .grow { display: none; }
+  .logout-button { flex: none; min-width: 38px; padding-inline: 9px !important; }
+  .logout-button:not(:hover) { font-size: 0; }
+  .logout-button svg { width: 18px; height: 18px; }
+
+  .family-home-heading { margin-top: 28px; }
+  .kid-page-title { font-size: 28px; }
+  .profile-grid { width: 100%; margin-top: 22px; }
+  .profile-tile { width: min(168px, calc(50vw - 24px)); min-height: 202px; padding: 14px 10px; }
+
   .page-heading,
   .exercise-card-row {
     grid-template-columns: 1fr;
