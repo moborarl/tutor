@@ -2794,6 +2794,62 @@ input:not(.rt-TextFieldInput):hover, select:hover, textarea:not(.rt-TextAreaInpu
 .kid-exercise-card:hover { box-shadow: var(--shadow-md); }
 .kid-exercise-arrow { color: #527156; }
 
+.kid-subject-switcher button:not(.rt-Button) {
+  color: #314238;
+  background: rgba(252, 253, 251, 0.94);
+  border-color: #c9d6c5;
+}
+
+.kid-subject-switcher button:not(.rt-Button):hover {
+  color: #223629;
+  background: #eef4eb;
+  border-color: #b8c9b3;
+}
+
+.kid-subject-switcher button.active:not(.rt-Button),
+.kid-subject-switcher button.active:not(.rt-Button):hover {
+  color: #ffffff;
+  background: #537257;
+  border-color: #537257;
+}
+
+.kid-dashboard button.kid-dashboard-card:not(.rt-Button),
+.kid-dashboard button.kid-dashboard-card.active:not(.rt-Button) {
+  color: #223629;
+  background: rgba(252, 253, 251, 0.96);
+  border-color: var(--border);
+}
+
+.kid-dashboard button.kid-dashboard-card:not(.rt-Button):hover {
+  background: #f2f6ef;
+  border-color: #b8c9b3;
+}
+
+.kid-dashboard button.kid-dashboard-card.active:not(.rt-Button) {
+  background: #e5ede2;
+  border-color: #aebfaa;
+  box-shadow: inset 0 0 0 2px rgba(83, 114, 87, 0.18), var(--shadow-sm);
+}
+
+.kid-dashboard-card b,
+.kid-dashboard-card span,
+.kid-dashboard-card small,
+.kid-dashboard-card.active b,
+.kid-dashboard-card.active span,
+.kid-dashboard-card.active small {
+  color: #223629;
+}
+
+.kid-dashboard-card .progress-track,
+.kid-dashboard-card.active .progress-track {
+  background: #d9e2d6;
+}
+
+.kid-dashboard-card .progress-fill,
+.kid-dashboard-card.active .progress-fill {
+  background: #3f7653;
+}
+
 @media (max-width: 900px) {
   .explorer-layout { grid-template-columns: 1fr; gap: 12px; }
   .explorer-tree-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: max-content; }
