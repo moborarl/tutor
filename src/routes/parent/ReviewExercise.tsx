@@ -6,6 +6,7 @@ import { api, ApiError } from '../../lib/api-client';
 import { DiagramView } from '../../lib/DiagramView';
 import { AnswerKey } from '../../lib/AnswerKey';
 import { RichText } from '../../lib/RichText';
+import { ChildAvatar } from '../../components/ChildAvatar';
 import { validateDiagram } from '@shared/diagram';
 import { ImageCropTool } from './ImageCropTool';
 import type {
@@ -278,17 +279,18 @@ export default function ReviewExercise() {
             {children.map((ch) => (
               <Button
                 key={ch.id}
-                variant={assignIds.has(ch.id) ? 'solid' : 'soft'}
-                color={assignIds.has(ch.id) ? 'green' : 'gray'}
+                variant="soft"
+                color="gray"
                 className={`child-toggle ${assignIds.has(ch.id) ? 'selected' : ''}`}
-                style={{ outline: assignIds.has(ch.id) ? '3px solid var(--green)' : 'none' }}
+                aria-pressed={assignIds.has(ch.id)}
                 onClick={() => {
                   const next = new Set(assignIds);
                   if (next.has(ch.id)) next.delete(ch.id); else next.add(ch.id);
                   setAssignIds(next);
                 }}
               >
-                {ch.avatar} {ch.name}
+                <ChildAvatar child={ch} size="sm" />
+                <span>{ch.name}</span>
               </Button>
             ))}
             {children.length > 0 && <Button onClick={saveAssignments}>บันทึกการมอบหมาย</Button>}

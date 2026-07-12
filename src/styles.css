@@ -2369,9 +2369,33 @@ button.kid-dashboard-card.active:not(.rt-Button) {
   margin-top: 0;
 }
 
-.child-toggle.selected {
-  background: var(--green-soft);
-  border-color: #86efac;
+.assignment-card .child-toggle.rt-Button {
+  min-height: 48px;
+  padding: 6px 12px 6px 7px;
+  gap: 9px;
+  color: #24352a;
+  background: #f7f9f5;
+  border: 1px solid #cbd8c7;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.assignment-card .child-toggle.rt-Button:hover {
+  color: #193023;
+  background: #edf3e9;
+  border-color: #91aa8c;
+}
+
+.assignment-card .child-toggle.rt-Button.selected {
+  color: #173522;
+  background: #dcebd8;
+  border-color: #4f7959;
+  box-shadow: inset 3px 0 0 #315e42;
+}
+
+.assignment-card .child-toggle.rt-Button:focus-visible {
+  outline: 3px solid rgba(49, 94, 66, 0.28);
+  outline-offset: 2px;
 }
 
 .review-question-card {
