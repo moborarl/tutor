@@ -15,6 +15,7 @@ interface ExerciseData {
   id: number;
   title: string;
   questions: PlayQuestion[];
+  aiFeedbackAvailable: boolean;
 }
 
 function QuestionBody({
@@ -22,11 +23,13 @@ function QuestionBody({
   q,
   result,
   onAnswer,
+  aiFeedbackAvailable,
 }: {
   exercise: ExerciseData;
   q: PlayQuestion;
   result: AnswerResult | null;
   onAnswer: (answer: unknown) => void;
+  aiFeedbackAvailable: boolean;
 }) {
   return (
     <>
@@ -35,7 +38,7 @@ function QuestionBody({
       ) : (
         <DiagramView diagram={q.diagram} />
       )}
-      {q.questionType === 'multiple_choice' && <QuestionMultipleChoice q={q} result={result} onAnswer={onAnswer} />}
+      {q.questionType === 'multiple_choice' && <QuestionMultipleChoice q={q} result={result} onAnswer={onAnswer} aiFeedbackAvailable={aiFeedbackAvailable} />}
       {q.questionType === 'true_false' && <QuestionTrueFalse result={result} onAnswer={onAnswer} />}
       {q.questionType === 'fill_blank' && <QuestionFillBlank q={q} result={result} onAnswer={onAnswer} />}
       {q.questionType === 'matching' && <QuestionMatching q={q} result={result} onAnswer={onAnswer} />}
@@ -52,6 +55,12 @@ function Feedback({ result }: { result: AnswerResult }) {
         {result.isCorrect ? '🎉 ถูกต้อง เก่งมาก!' : 'ยังไม่ถูก ดูเฉลยนะ'}
       </div>
       {result.explanation && <div className="explain-box">💡 {result.explanation}</div>}
+      {result.reasoningFeedback && (
+        <div className={`reasoning-feedback ${result.reasoningFeedback.status}`}>
+          <b>ผู้ช่วยอ่านวิธีคิด</b>
+          <span>{result.reasoningFeedback.message}</span>
+        </div>
+      )}
     </>
   );
 }
@@ -85,14 +94,14 @@ export default function Player() {
         const ex = await api.get<ExerciseData>(`/api/play/exercises/${id}`);
         const at = await api.post<{
           attemptId: number;
-          existingAnswers?: Array<{ questionId: number; isCorrect: boolean; correctAnswer: unknown; explanation: string | null }>;
+          existingAnswers?: Array<{ questionId: number; isCorrect: boolean; correctAnswer: unknown; explanation: string | null; reasoningFeedback?: AnswerResult['reasoningFeedback'] }>;
         }>('/api/play/attempts', { exerciseSetId: Number(id) });
         setExercise(ex);
         setAttemptId(at.attemptId);
         if (at.existingAnswers?.length) {
           const restored: Record<number, AnswerResult> = {};
           for (const a of at.existingAnswers) {
-            restored[a.questionId] = { isCorrect: a.isCorrect, correctAnswer: a.correctAnswer, explanation: a.explanation };
+            restored[a.questionId] = { isCorrect: a.isCorrect, correctAnswer: a.correctAnswer, explanation: a.explanation, reasoningFeedback: a.reasoningFeedback };
           }
           setAnswers(restored);
         }
@@ -123,9 +132,16 @@ export default function Player() {
 
   async function submitAnswer(question: PlayQuestion, answer: unknown, startedAt: number) {
     if (answers[question.id]) return;
+    const reasoningText = typeof answer === 'object' && answer && 'reasoningText' in answer
+      ? String((answer as { reasoningText?: unknown }).reasoningText ?? '')
+      : undefined;
+    const answerPayload = reasoningText !== undefined && typeof answer === 'object' && answer
+      ? { selectedIndex: (answer as { selectedIndex?: unknown }).selectedIndex }
+      : answer;
     const res = await api.post<AnswerResult>(`/api/play/attempts/${attemptId}/answers`, {
       questionId: question.id,
-      answer,
+      answer: answerPayload,
+      reasoningText,
       timeSpentMs: Date.now() - startedAt,
     });
     setAnswers((prev) => ({ ...prev, [question.id]: res }));
@@ -269,7 +285,7 @@ function OlderPlayer({
                 {result && <span className={`badge ${result.isCorrect ? 'correct' : 'wrong'}`}>{result.isCorrect ? 'ถูก' : 'ผิด'}</span>}
               </div>
               <div className="question-prompt" style={{ textAlign: 'left', margin: '4px 0 10px' }}><RichText text={q.prompt} /></div>
-              <QuestionBody exercise={exercise} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
+              <QuestionBody exercise={exercise} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} aiFeedbackAvailable={exercise.aiFeedbackAvailable} />
               {result && <Feedback result={result} />}
             </div>
           );
@@ -366,7 +382,7 @@ function SimplePlayer({
           })}
         </div>
 
-        <QuestionBody exercise={exercise} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} />
+        <QuestionBody exercise={exercise} q={q} result={result} onAnswer={(a) => onAnswer(q, a)} aiFeedbackAvailable={exercise.aiFeedbackAvailable} />
         <div className="question-prompt"><RichText text={q.prompt} /></div>
       </div>
 

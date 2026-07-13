@@ -107,6 +107,12 @@ await check('load parent R2 file list', async () => {
   if (res.status !== 200 || !Array.isArray(body?.files)) throw new Error(`expected R2 file list, got ${res.status}`);
 });
 
+await check('load parent AI settings without exposing credentials', async () => {
+  const { res, body } = await request('/api/parent/ai-settings');
+  if (res.status !== 200 || typeof body?.configured !== 'boolean') throw new Error(`expected AI settings, got ${res.status}`);
+  if ('encrypted_api_key' in body || 'apiKey' in body) throw new Error('AI settings response exposed credential material');
+});
+
 if (process.env.SMOKE_SUPER_ADMIN_TOKEN) {
   await check('load super-admin summary', async () => {
     const { res, body } = await request('/api/super-admin/summary', {

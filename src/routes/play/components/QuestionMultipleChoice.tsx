@@ -5,12 +5,15 @@ export function QuestionMultipleChoice({
   q,
   result,
   onAnswer,
+  aiFeedbackAvailable,
 }: {
   q: PlayQuestion;
   result: AnswerResult | null;
   onAnswer: (answer: unknown) => void;
+  aiFeedbackAvailable: boolean;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [reasoningText, setReasoningText] = useState('');
   const options = ((q.content as { options?: string[] }).options ?? []) as string[];
   const correctIndex = result ? (result.correctAnswer as { correctIndex?: number }).correctIndex : null;
 
@@ -23,6 +26,8 @@ export function QuestionMultipleChoice({
     return i === selected ? 'option-btn selected' : 'option-btn';
   }
 
+  const reasoningEnabled = aiFeedbackAvailable && !!q.reasoningPrompt;
+
   return (
     <div className="option-list">
       {options.map((opt, i) => (
@@ -32,13 +37,30 @@ export function QuestionMultipleChoice({
           disabled={!!result}
           onClick={() => {
             setSelected(i);
-            onAnswer({ selectedIndex: i });
+            if (!reasoningEnabled) onAnswer({ selectedIndex: i });
           }}
         >
           <span className="option-radio" />
           <span>{opt}</span>
         </button>
       ))}
+      {reasoningEnabled && !result && selected !== null && (
+        <div className="reasoning-entry">
+          <label htmlFor={`reasoning-${q.id}`}>{q.reasoningPrompt}</label>
+          <textarea
+            id={`reasoning-${q.id}`}
+            rows={3}
+            maxLength={500}
+            placeholder="เขียนอธิบายสั้นๆ ได้เลย"
+            value={reasoningText}
+            onChange={(event) => setReasoningText(event.target.value)}
+          />
+          <div className="reasoning-entry-footer">
+            <span>{reasoningText.length}/500</span>
+            <button onClick={() => onAnswer({ selectedIndex: selected, reasoningText })}>ส่งคำตอบ</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

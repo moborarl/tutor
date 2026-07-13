@@ -17,8 +17,10 @@ export async function insertDraftQuestions(
 
     await db
       .prepare(
-        `INSERT INTO questions (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id, diagram_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO questions
+           (exercise_set_id, order_index, question_type, prompt, content_json, answer_json, explanation, image_id, diagram_json,
+            difficulty, learning_objective, reasoning_prompt, reasoning_rubric_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         exerciseSetId,
@@ -30,6 +32,10 @@ export async function insertDraftQuestions(
         q.explanation ?? null,
         imageId,
         diagramJson,
+        q.difficulty ?? null,
+        q.learningObjective ?? null,
+        q.reasoningPrompt ?? null,
+        q.reasoningRubric ? JSON.stringify(q.reasoningRubric) : null,
       )
       .run();
   }

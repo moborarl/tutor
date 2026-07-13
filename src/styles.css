@@ -2912,6 +2912,119 @@ input:not(.rt-TextFieldInput):hover, select:hover, textarea:not(.rt-TextAreaInpu
   }
 }
 
+/* Parent-owned AI settings and child reasoning feedback */
+.ai-connected-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid #b9cbb9;
+  border-radius: 6px;
+  background: #f4f7f1;
+  color: #294d36;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ai-consent-panel {
+  max-width: 760px;
+  padding: 28px !important;
+}
+
+.ai-consent-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: #e3eadf;
+  color: #315e42;
+}
+
+.ai-consent-list {
+  margin: 18px 0 22px;
+  padding-left: 22px;
+  color: #39473d;
+  line-height: 1.75;
+}
+
+.ai-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 22px;
+}
+
+.ai-provider-option {
+  min-height: 76px;
+  padding: 14px;
+  border: 1px solid #ccd6ca;
+  border-radius: 7px;
+  background: #f8faf6;
+  color: #1f2922;
+  text-align: left;
+}
+
+.ai-provider-option span { display: block; margin-top: 4px; color: #667168; font-size: 12px; }
+.ai-provider-option.selected { border-color: #537c60; box-shadow: inset 3px 0 #537c60; background: #e8eee4; }
+
+.ai-settings-form { display: grid; gap: 13px; max-width: 720px; }
+.ai-settings-form > label, .ai-limit-grid label { display: grid; gap: 6px; color: #334038; font-size: 13px; font-weight: 700; }
+.ai-settings-form .rt-Text { display: flex; align-items: center; gap: 6px; }
+.ai-limit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ai-enabled-row { display: flex !important; align-items: center; gap: 9px !important; }
+.ai-usage-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.ai-usage-summary span { min-width: 170px; padding: 10px 12px; border: 1px solid #d1d8cf; border-radius: 6px; background: #f6f8f4; color: #48534b; }
+.ai-usage-summary b { color: #24362a; font-size: 18px; }
+
+.ai-help-section { padding: 6px 2px 20px; }
+.ai-help-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.ai-help-links a { display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border: 1px solid #c7d2c5; border-radius: 6px; background: #f8faf6; color: #294d36; font-weight: 700; text-decoration: none; }
+.ai-help-section > .rt-Text:last-child { display: block; margin-top: 12px; }
+.ai-help-guide-list { display: grid; gap: 12px; }
+.ai-help-guide { padding: 20px 22px; border: 1px solid #cbd4c8; border-radius: 7px; background: #f9faf7; }
+.ai-help-guide ol { margin: 12px 0; padding-left: 22px; color: #3e4a42; line-height: 1.8; }
+.ai-cost-warning { display: grid; gap: 5px; padding: 16px 18px; border-left: 4px solid #9b733c; background: #faf5e9; color: #493b28; }
+.ai-history-section { display: grid; gap: 13px; padding-top: 8px; }
+.ai-history-row { display: grid; gap: 5px; padding: 14px 2px; border-bottom: 1px solid #d4dbd2; color: #354139; }
+.ai-history-row span { font-size: 13px; }
+
+.reasoning-entry {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 15px;
+  border: 1px solid #c9d3c6;
+  border-radius: 7px;
+  background: #f7f9f5;
+  color: #202923;
+}
+
+.reasoning-entry label { font-weight: 800; }
+.reasoning-entry-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #667168; font-size: 12px; }
+.reasoning-entry-footer button { min-width: 120px; }
+
+.reasoning-feedback {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 13px 15px;
+  border: 1px solid #cbd3c9;
+  border-radius: 7px;
+  background: #f5f7f3;
+  color: #27322b;
+}
+.reasoning-feedback.completed { border-left: 4px solid #4f775c; }
+.reasoning-feedback.failed, .reasoning-feedback.limit_reached { border-left: 4px solid #a26f35; background: #faf5eb; }
+.reasoning-review-box { display: grid; gap: 4px; margin-top: 10px; padding: 11px 13px; border-left: 3px solid #66866c; background: #f2f5ef; color: #344238; }
+.reasoning-review-box span { font-size: 13px; }
+
+@media (max-width: 720px) {
+  .ai-provider-grid, .ai-limit-grid { grid-template-columns: 1fr; }
+  .ai-consent-panel { padding: 20px !important; }
+}
+
 @media print {
   body { background: white; }
   .explorer-tree-toggle { display: none !important; }

@@ -47,6 +47,8 @@ compile('shared/import-preflight.ts', 'shared/import-preflight.js');
 compile('worker/lib/grading.ts', 'worker/lib/grading.js');
 compile('worker/lib/json-import.ts', 'worker/lib/json-import.js');
 compile('worker/lib/crypto.ts', 'worker/lib/crypto.js');
+compile('worker/lib/credential-crypto.ts', 'worker/lib/credential-crypto.js');
+compile('worker/lib/reasoning-ai.ts', 'worker/lib/reasoning-ai.js');
 compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
 compile('worker/lib/progress.ts', 'worker/lib/progress.js');
 compile('worker/middleware/auth.ts', 'worker/middleware/auth.js');
@@ -56,6 +58,7 @@ compile('worker/routes/questions.ts', 'worker/routes/questions.js');
 compile('worker/routes/subjects.ts', 'worker/routes/subjects.js');
 compile('worker/routes/super-admin.ts', 'worker/routes/super-admin.js');
 compile('worker/routes/admin.ts', 'worker/routes/admin.js');
+compile('worker/routes/ai-settings.ts', 'worker/routes/ai-settings.js');
 writeSharedPackage('diagram');
 writeSharedPackage('json-repair');
 
@@ -65,12 +68,14 @@ const { parseImportedJson, preflightImportedJson, validateQuestionPayload } = aw
 );
 const { Hono } = await import('hono');
 const { signValue } = await import(pathToFileURL(join(outDir, 'worker/lib/crypto.js')));
+const { encryptCredential, decryptCredential } = await import(pathToFileURL(join(outDir, 'worker/lib/credential-crypto.js')));
 const { childrenRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/children.js')));
 const { playRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/play.js')));
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
 const { subjectRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/subjects.js')));
 const { superAdminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/super-admin.js')));
 const { adminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/admin.js')));
+const { aiSettingsRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/ai-settings.js')));
 
 function makeQuestionsApp(questionOverrides = {}) {
   const question = {
@@ -284,6 +289,28 @@ function makeSubjectsApp() {
   return { app, db, state };
 }
 
+function makeAiSettingsApp() {
+  const app = new Hono();
+  app.use('*', async (c, next) => { c.set('session', { parentId: 1 }); await next(); });
+  app.route('/ai-settings', aiSettingsRoutes);
+  const env = {
+    DB: {
+      prepare() {
+        return {
+          bind() {
+            return {
+              async first() { return null; },
+              async all() { return { results: [] }; },
+              async run() { return { meta: { changes: 0 } }; },
+            };
+          },
+        };
+      },
+    },
+  };
+  return { app, env };
+}
+
 function makeChildrenApp() {
   const state = {
     children: [],
@@ -381,6 +408,31 @@ test('gradeAnswer accepts equivalent reduced fractions', () => {
     }),
     true,
   );
+});
+
+test('parent AI credentials encrypt without exposing plaintext and decrypt with the same secret', async () => {
+  const encrypted = await encryptCredential('sk-parent-secret', 'worker-encryption-secret');
+  assert.match(encrypted, /^v1:/);
+  assert.equal(encrypted.includes('sk-parent-secret'), false);
+  assert.equal(await decryptCredential(encrypted, 'worker-encryption-secret'), 'sk-parent-secret');
+  await assert.rejects(() => decryptCredential(encrypted, 'different-secret'));
+});
+
+test('parent AI settings require explicit cost consent and configured encryption', async () => {
+  const { app, env } = makeAiSettingsApp();
+  const withoutConsent = await app.request('/ai-settings', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider: 'openai', model: 'gpt-5-mini', apiKey: 'secret' }),
+  }, env);
+  assert.equal(withoutConsent.status, 400);
+  assert.equal((await withoutConsent.json()).error, 'consent_required');
+
+  const withoutEncryption = await app.request('/ai-settings', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider: 'openai', model: 'gpt-5-mini', apiKey: 'secret', consentAccepted: true }),
+  }, env);
+  assert.equal(withoutEncryption.status, 503);
+  assert.equal((await withoutEncryption.json()).error, 'encryption_not_configured');
 });
 
 test('gradeAnswer rejects invalid fractions and wrong ordering', () => {

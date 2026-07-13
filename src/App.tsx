@@ -14,6 +14,8 @@ const StudentWorksheet = lazy(() => import('./routes/parent/StudentWorksheet'));
 const ImportShared = lazy(() => import('./routes/parent/ImportShared'));
 const ChildProgress = lazy(() => import('./routes/parent/ChildProgress'));
 const Admin = lazy(() => import('./routes/parent/Admin'));
+const AiSettings = lazy(() => import('./routes/parent/AiSettings'));
+const AiHelp = lazy(() => import('./routes/parent/AiHelp'));
 const ProfilePicker = lazy(() => import('./routes/play/ProfilePicker'));
 const PlayExerciseList = lazy(() => import('./routes/play/PlayExerciseList'));
 const Player = lazy(() => import('./routes/play/Player'));
@@ -45,6 +47,8 @@ export default function App() {
           <Route path="admin" element={<Navigate to="/parent" replace />} />
           <Route path="exercises" element={<ExerciseList />} />
           <Route path="upload" element={<Upload />} />
+          <Route path="ai" element={<AiSettings />} />
+          <Route path="ai/help" element={<AiHelp />} />
           <Route path="exercises/:id" element={<ReviewExercise />} />
           <Route path="exercises/:id/teacher" element={<TeacherView />} />
           <Route path="exercises/:id/student" element={<StudentWorksheet />} />

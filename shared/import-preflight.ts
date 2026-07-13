@@ -140,6 +140,7 @@ export function preflightImportedJson(raw: string, options: { uploadedImageCount
   const referencedImagePages = new Set<number>();
   const questions: ExtractedQuestion[] = [];
   let diagramCount = 0;
+  const correctIndexCounts = new Map<number, number>();
 
   if (parsed === null) {
     return {
@@ -211,6 +212,51 @@ export function preflightImportedJson(raw: string, options: { uploadedImageCount
       continue;
     }
 
+    let difficulty: ExtractedQuestion['difficulty'];
+    let learningObjective: string | undefined;
+    let reasoningPrompt: string | undefined;
+    let reasoningRubric: ExtractedQuestion['reasoningRubric'];
+    let distractorRationales: string[] | undefined;
+    if (questionType === 'multiple_choice') {
+      const options = (content as { options: string[] }).options;
+      const correctIndex = (answer as { correctIndex: number }).correctIndex;
+      const normalized = options.map((option) => option.trim().toLocaleLowerCase());
+      if (new Set(normalized).size !== normalized.length) {
+        issues.push({ level: 'warning', questionNumber, message: 'ตัวเลือกปรนัยมีข้อความซ้ำกัน ควรปรับก่อนเผยแพร่' });
+      }
+      if (options.length < 4) {
+        issues.push({ level: 'warning', questionNumber, message: 'ข้อปรนัยมีน้อยกว่า 4 ตัวเลือก อาจเดาคำตอบได้ง่ายเกินไป' });
+      }
+      const averageLength = options.reduce((sum, option) => sum + option.length, 0) / options.length;
+      if (averageLength > 0 && options[correctIndex].length > averageLength * 1.8 && options[correctIndex].length - averageLength > 12) {
+        issues.push({ level: 'warning', questionNumber, message: 'คำตอบถูกยาวกว่าตัวเลือกอื่นมาก อาจทำให้เดาคำตอบได้' });
+      }
+      if (options.some((option) => /ถูกทุกข้อ|ทุกข้อถูก|ไม่มีข้อใดถูก|none of the above|all of the above/i.test(option))) {
+        issues.push({ level: 'warning', questionNumber, message: 'หลีกเลี่ยงตัวเลือก “ถูกทุกข้อ/ไม่มีข้อใดถูก” เพื่อวัดความเข้าใจให้ชัดขึ้น' });
+      }
+      difficulty = ['easy', 'medium', 'challenging'].includes(String(q.difficulty))
+        ? q.difficulty as ExtractedQuestion['difficulty'] : undefined;
+      learningObjective = isNonEmptyString(q.learningObjective) ? q.learningObjective.trim() : undefined;
+      reasoningPrompt = isNonEmptyString(q.reasoningPrompt) ? q.reasoningPrompt.trim() : undefined;
+      const rubric = isPlainObject(q.reasoningRubric) ? q.reasoningRubric : null;
+      const keyIdeas = rubric ? stringArray(rubric.keyIdeas) : null;
+      const misconceptions = rubric?.misconceptions === undefined ? undefined : stringArray(rubric.misconceptions) ?? undefined;
+      reasoningRubric = keyIdeas ? { keyIdeas, misconceptions } : undefined;
+      distractorRationales = stringArray(q.distractorRationales) ?? undefined;
+      if (!difficulty) issues.push({ level: 'warning', questionNumber, message: 'ควรระบุ difficulty เป็น easy, medium หรือ challenging' });
+      if (!learningObjective) issues.push({ level: 'warning', questionNumber, message: 'ควรระบุ learningObjective เพื่อให้โจทย์วัดทักษะที่ชัดเจน' });
+      if (!isPlainObject(answer) || !isNonEmptyString(answer.rationale)) {
+        issues.push({ level: 'warning', questionNumber, message: 'ควรระบุ answer.rationale ว่าทำไมคำตอบนี้จึงถูก' });
+      }
+      if (!distractorRationales || distractorRationales.length !== options.length - 1) {
+        issues.push({ level: 'warning', questionNumber, message: 'ควรมี distractorRationales สำหรับตัวเลือกที่ผิดทุกข้อ' });
+      }
+      if (reasoningPrompt && !reasoningRubric) {
+        issues.push({ level: 'warning', questionNumber, message: 'มี reasoningPrompt แต่ reasoningRubric.keyIdeas ยังไม่ครบ' });
+      }
+      correctIndexCounts.set(correctIndex, (correctIndexCounts.get(correctIndex) ?? 0) + 1);
+    }
+
     const imagePage = typeof q.imagePage === 'number' && q.imagePage > 0 ? q.imagePage : undefined;
     if (imagePage !== undefined) {
       referencedImagePages.add(imagePage);
@@ -234,7 +280,17 @@ export function preflightImportedJson(raw: string, options: { uploadedImageCount
       explanation: typeof q.explanation === 'string' ? q.explanation : undefined,
       imagePage,
       diagram,
+      difficulty,
+      learningObjective,
+      reasoningPrompt,
+      reasoningRubric,
+      distractorRationales,
     });
+  }
+
+  const multipleChoiceCount = questionTypeCounts.multiple_choice ?? 0;
+  if (multipleChoiceCount >= 4 && [...correctIndexCounts.values()].some((count) => count / multipleChoiceCount > 0.6)) {
+    issues.push({ level: 'warning', message: 'ตำแหน่งคำตอบถูกของข้อปรนัยกระจุกอยู่ index เดียวมากเกินไป ควรสลับตำแหน่งให้สมดุล' });
   }
 
   const uploadedImageCount = options.uploadedImageCount ?? 0;

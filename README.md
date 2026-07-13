@@ -9,7 +9,8 @@
 - **D1** (SQLite) เก็บข้อมูลทั้งหมด, **R2** เก็บรูปถ่ายแบบฝึกหัด
 - **AI แกะโจทย์แบบ fallback chain**: Claude API (หลัก) → cloud สำรอง (ถ้าตั้งค่า) → Raspberry Pi 5
   รัน OCR+Ollama ในบ้าน (ดู [pi-extraction/](pi-extraction/README.md)) เมื่อโควตา cloud หมด
-- เด็กเข้าใช้โดยเลือกโปรไฟล์ + PIN 4 หลัก ภายใต้ session ผู้ปกครองบน iPad ที่ใช้ร่วมกัน
+- เด็กเข้าใช้โดยเลือกโปรไฟล์ ภายใต้ session ผู้ปกครองบนอุปกรณ์ที่ใช้ร่วมกัน
+- AI feedback ใช้ API key ของผู้ปกครองรายครอบครัวเท่านั้น โดยเข้ารหัสก่อนเก็บใน D1
 - UI เด็กเล็ก (`young`) ปุ่มใหญ่/ข้อความน้อยกว่า UI เด็กโต (`older`) อัตโนมัติ
 
 ## Dev local
@@ -32,6 +33,7 @@ npx wrangler r2 bucket create kids-tutor-worksheets
 npx wrangler secret put SESSION_SECRET     # สุ่ม string ยาวๆ
 npx wrangler secret put ANTHROPIC_API_KEY  # จาก console.anthropic.com
 npx wrangler secret put PI_WORKER_TOKEN    # สุ่ม string ยาวๆ (ใช้ค่าเดียวกันบน Pi)
+npx wrangler secret put AI_CREDENTIAL_ENCRYPTION_KEY # key สุ่มอย่างน้อย 32 bytes สำหรับเข้ารหัส API key ของผู้ปกครอง
 
 # 3. migrate + deploy
 npm run db:migrate:remote
@@ -43,6 +45,8 @@ npm run deploy
 ตั้ง repo secret ชื่อ `CLOUDFLARE_API_TOKEN` (สร้างจาก Cloudflare dashboard → API Tokens
 → template "Edit Cloudflare Workers" + เพิ่มสิทธิ์ D1) แล้ว push ขึ้น `main`
 — workflow จะ typecheck → build → migrate → deploy ให้เอง
+
+ก่อนเปิดหน้า `AI สำหรับคำอธิบาย` บน production ต้องตั้ง `AI_CREDENTIAL_ENCRYPTION_KEY` ด้วย `wrangler secret put` หนึ่งครั้ง ห้ามเปลี่ยนหรือลบ secret นี้ขณะที่ยังมี API key ที่เข้ารหัสอยู่ มิฉะนั้น key เดิมจะถอดรหัสไม่ได้
 
 ## โครงสร้าง
 

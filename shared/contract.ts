@@ -9,7 +9,7 @@
 // When the schema changes (e.g. a new diagram type), bump CONTRACT_VERSION and
 // note it in the CHANGELOG section at the bottom of the markdown.
 
-export const CONTRACT_VERSION = 3;
+export const CONTRACT_VERSION = 4;
 
 // The core prompt: paste into an AI chat together with worksheet photos (or let
 // an agent fetch it). Kept in Thai because worksheet content is Thai-first and
@@ -25,7 +25,7 @@ export const PROMPT_TEMPLATE = `คุณคือผู้ช่วยแกะ
 ตัวอย่างโจทย์แต่ละประเภท (แต่ละข้อใน "questions" ให้เลือกใช้ 1 แบบตาม questionType โดยใส่ content/answer ตรงๆ ไม่ต้องมี key ครอบซ้ำ):
 
 แบบ multiple_choice (ปรนัย):
-{"questionType":"multiple_choice","prompt":"ข้อความโจทย์","content":{"options":["ตัวเลือก1","ตัวเลือก2","ตัวเลือก3"]},"answer":{"correctIndex":0},"explanation":"เหตุผลที่ตอบข้อนี้"}
+{"questionType":"multiple_choice","difficulty":"medium","learningObjective":"ทักษะหรือความเข้าใจที่ข้อนี้วัด","prompt":"ข้อความโจทย์","content":{"options":["ตัวเลือก1","ตัวเลือก2","ตัวเลือก3","ตัวเลือก4"]},"answer":{"correctIndex":0,"rationale":"เหตุผลที่คำตอบนี้ถูก"},"distractorRationales":["เหตุผลที่ตัวเลือก 2 ผิด","เหตุผลที่ตัวเลือก 3 ผิด","เหตุผลที่ตัวเลือก 4 ผิด"],"reasoningPrompt":"อธิบายว่าทำไมจึงเลือกคำตอบนี้","reasoningRubric":{"keyIdeas":["แนวคิดสำคัญที่ควรกล่าวถึง"],"misconceptions":["ความเข้าใจผิดที่พบบ่อย"]},"explanation":"คำอธิบายเฉลยที่เด็กเข้าใจง่าย"}
 
 แบบ fill_blank (เติมคำ ใช้ ___ แทนช่องว่างใน prompt):
 {"questionType":"fill_blank","prompt":"ท้องฟ้าสีอะไร ___","content":{"hint":"คำใบ้ถ้ามี"},"answer":{"answers":["ฟ้า","สีฟ้า"]},"explanation":"เหตุผลที่ตอบแบบนี้"}
@@ -62,6 +62,11 @@ export const PROMPT_TEMPLATE = `คุณคือผู้ช่วยแกะ
 - แกะทุกข้อที่เห็นในทุกรูป ห้ามข้าม รวมถึงข้อที่มีแผนภาพ/กราฟ/รูปวาดประกอบ
 - ถ้าโจทย์ไม่มีเฉลยในรูป ให้คิดคำตอบที่ถูกต้องเอง
 - ทุกข้อต้องมี "explanation" อธิบายเหตุผลเสมอ เขียนให้เด็กเข้าใจง่าย
+- ข้อ multiple_choice ต้องวัด learning objective เดียว มีคำตอบดีที่สุดเพียงข้อเดียว และควรมี 4 ตัวเลือก
+- ตัวลวงของ multiple_choice ต้องสมเหตุสมผล เกี่ยวข้องกับบทเรียน และสะท้อนความเข้าใจผิดที่พบบ่อย ห้ามใช้ตัวเลือกไร้สาระ "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"
+- ห้ามทำให้คำตอบถูกเด่นจากความยาว รายละเอียด หรือรูปแบบภาษา และต้องกระจาย correctIndex ให้สมดุลทั้งชุด
+- multiple_choice ต้องมี difficulty, learningObjective, answer.rationale และ distractorRationales
+- ถ้าต้องการฝึกการอธิบาย ให้ใส่ reasoningPrompt และ reasoningRubric; ระบบจะให้ AI อ่านเหตุผลเฉพาะเมื่อผู้ปกครองตั้งค่า API เอง
 - ใช้ภาษาเดียวกับโจทย์ต้นฉบับ (ไทยหรืออังกฤษ)
 - correctIndex และ pairs เริ่มนับจาก 0
 - ห้ามใส่ key ครอบ เช่น "_multiple_choice" หรือ "multiple_choice" ใน content/answer — ใส่ options/correctIndex/answers/pairs/value ตรงๆ ตามตัวอย่างเท่านั้น
@@ -115,6 +120,7 @@ ${PROMPT_TEMPLATE}
 - [ ] มี "title" และ "questions" ครบ
 - [ ] ทุกข้อมี questionType / prompt / content / answer / explanation
 - [ ] correctIndex และ pairs นับจาก 0
+- [ ] multiple_choice มีตัวลวงที่น่าเชื่อ, learningObjective, difficulty และ rationale ครบ
 - [ ] ไม่มีเลขข้อนำหน้า prompt
 - [ ] field "diagram" (ถ้ามี) ใช้เฉพาะ 3 แบบที่กำหนด ไม่มี SVG/รูปวาดเอง
 - [ ] วงเล็บปีกกา/เหลี่ยมปิดครบ (JSON สมบูรณ์)
@@ -130,5 +136,6 @@ ${PROMPT_TEMPLATE}
 - v1 — สี่ประเภทโจทย์ (multiple_choice / fill_blank / matching / true_false) + แผนภาพ 3 แบบ (force-arrows / force-arrows-grid / direction-arrows)
 - v2 — เพิ่ม fraction type (เด็กกรอกตัวเศษและตัวส่วน)
 - v3 — เพิ่ม ordering type (เด็กลากเรียงลำดับ)
+- v4 — เพิ่มมาตรฐานคุณภาพข้อปรนัยและ optional reasoning rubric สำหรับ AI feedback
 `;
 }

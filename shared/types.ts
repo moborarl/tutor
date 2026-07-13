@@ -47,6 +47,21 @@ export interface MultipleChoiceContent {
 }
 export interface MultipleChoiceAnswer {
   correctIndex: number;
+  rationale?: string;
+}
+
+export type QuestionDifficulty = 'easy' | 'medium' | 'challenging';
+export type AiProvider = 'openai' | 'gemini' | 'anthropic';
+
+export interface ReasoningRubric {
+  keyIdeas: string[];
+  misconceptions?: string[];
+}
+
+export interface ReasoningFeedback {
+  status: 'completed' | 'unavailable' | 'limit_reached' | 'failed';
+  assessment?: 'understands' | 'partial' | 'misconception';
+  message: string;
 }
 
 // prompt contains ___ where the blank goes; answers accepts any listed string
@@ -99,6 +114,10 @@ export interface Question {
   // Structured diagram data, rendered deterministically by our own components.
   // Only used when imageId is not set (a real photo always takes priority).
   diagram: DiagramSpec | null;
+  difficulty?: QuestionDifficulty | null;
+  learningObjective?: string | null;
+  reasoningPrompt?: string | null;
+  reasoningRubric?: ReasoningRubric | null;
 }
 
 // Parent review view includes the answer; kid play view does not.
@@ -132,6 +151,7 @@ export interface PlayQuestion {
   content: unknown;
   imageId: number | null;
   diagram: DiagramSpec | null;
+  reasoningPrompt: string | null;
 }
 
 export interface AnswerResult {
@@ -139,6 +159,7 @@ export interface AnswerResult {
   // revealed after answering so the kid gets feedback
   correctAnswer: unknown;
   explanation: string | null;
+  reasoningFeedback?: ReasoningFeedback | null;
 }
 
 // --- Progress (parent dashboard) ---
@@ -197,4 +218,9 @@ export interface ExtractedQuestion {
   // Structured diagram data (e.g. force arrows) for questions that need a
   // visual — rendered deterministically by our own components, not AI-drawn.
   diagram?: DiagramSpec;
+  difficulty?: QuestionDifficulty;
+  learningObjective?: string;
+  reasoningPrompt?: string;
+  reasoningRubric?: ReasoningRubric;
+  distractorRationales?: string[];
 }

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { validateDiagram } from '@shared/diagram';
-import type { QuestionType } from '@shared/types';
+import type { QuestionDifficulty, QuestionType, ReasoningRubric } from '@shared/types';
 import { isValidQuestionType, validateQuestionPayload } from '../lib/json-import';
 
 export const questionRoutes = new Hono<AppEnv>();
@@ -38,6 +38,10 @@ questionRoutes.patch('/:id', async (c) => {
       explanation?: string;
       imageId?: number | null;
       diagram?: unknown;
+      difficulty?: QuestionDifficulty | null;
+      learningObjective?: string | null;
+      reasoningPrompt?: string | null;
+      reasoningRubric?: ReasoningRubric | null;
     }>()
     .catch(() => null);
   if (!body) return c.json({ error: 'invalid_body' }, 400);
@@ -79,6 +83,29 @@ questionRoutes.patch('/:id', async (c) => {
   if (typeof body.explanation === 'string') {
     updates.push('explanation = ?');
     values.push(body.explanation.trim() || null);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'difficulty')) {
+    if (body.difficulty !== null && !['easy', 'medium', 'challenging'].includes(String(body.difficulty))) {
+      return c.json({ error: 'invalid_difficulty' }, 400);
+    }
+    updates.push('difficulty = ?');
+    values.push(body.difficulty ?? null);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'learningObjective')) {
+    updates.push('learning_objective = ?');
+    values.push(typeof body.learningObjective === 'string' ? body.learningObjective.trim().slice(0, 300) || null : null);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'reasoningPrompt')) {
+    updates.push('reasoning_prompt = ?');
+    values.push(typeof body.reasoningPrompt === 'string' ? body.reasoningPrompt.trim().slice(0, 500) || null : null);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'reasoningRubric')) {
+    const rubric = body.reasoningRubric;
+    if (rubric !== null && (!Array.isArray(rubric?.keyIdeas) || !rubric.keyIdeas.every((item) => typeof item === 'string' && item.trim()))) {
+      return c.json({ error: 'invalid_reasoning_rubric' }, 400);
+    }
+    updates.push('reasoning_rubric_json = ?');
+    values.push(rubric ? JSON.stringify(rubric) : null);
   }
   if (Object.prototype.hasOwnProperty.call(body, 'imageId')) {
     const imageId = body.imageId;

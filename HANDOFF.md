@@ -618,3 +618,20 @@ kids-tutor/
 - เปลี่ยนข้อความ `โหมดเด็ก` ที่ยังเหลือในหน้า parent เป็น `หน้าครอบครัว`
 - ตรวจแล้ว: `npm test` ผ่าน 19/19 และ `npm run build` ผ่าน; route chunks ยังแยกตามหน้า
 - visual screenshot รอบนี้ทำไม่ได้ เพราะ in-app browser ถูกตั้งค่าไม่ให้เปิด `127.0.0.1:5173`; ควรตรวจภาพจริงหลัง deploy
+
+# อัปเดตล่าสุดจาก Codex (2026-07-12)
+
+- หน้า `/parent/upload` รองรับการนำเข้า JSON จาก AI สองทาง: วาง JSON ในช่องข้อความ หรือกด `เลือกไฟล์ JSON` เพื่ออ่านไฟล์ `.json` โดยตรง
+- หลังเลือกไฟล์ ระบบจะแสดงชื่อไฟล์, นำข้อมูลเข้า textarea และรัน import preflight เดิมก่อนอนุญาตให้สร้างแบบฝึกหัด
+- ใช้ flow นี้เป็นทางเลือกหลักเมื่อ Claude/AI ภายนอก POST เข้า `https://kids-tutor.nupark.workers.dev` ไม่ได้เพราะ sandbox egress allowlist (`403 Host not in allowlist`): ให้ AI สร้าง `payload.json` แล้วผู้ปกครองนำเข้าเองที่ `/parent/upload`; ชุดที่สร้างจะอยู่สถานะ `pending_review`
+- ตรวจแล้ว: `npm test` ผ่าน 19/19 และ `npm run build` ผ่าน (Wrangler log permission warning หลัง build ไม่ทำให้ build ล้ม)
+- เพิ่ม AI reasoning feedback แบบ Bring Your Own API key รายครอบครัว
+  - provider รุ่นแรก: OpenAI, Gemini, Claude; เลือกได้หนึ่ง provider ต่อครอบครัว
+  - ไม่มี fallback key กลางของระบบ ผู้ปกครองรับผิดชอบค่า API เอง และต้องยอมรับหน้าเตือนค่าใช้จ่ายก่อนตั้งค่า
+  - API key เข้ารหัส AES-GCM ก่อนเก็บใน D1 และ API ส่งกลับเฉพาะท้าย key 4 ตัว
+  - ต้องตั้ง Worker secret `AI_CREDENTIAL_ENCRYPTION_KEY` ก่อนใช้งาน production
+- เพิ่ม migration `0012_parent_ai_reasoning.sql` สำหรับ provider settings, reasoning fields, AI feedback และ usage log
+- เพิ่มหน้า `/parent/ai` สำหรับ consent, provider/model/key, daily/monthly limit, test connection, usage และล้างประวัติ พร้อมคู่มือ `/parent/ai/help`
+- ข้อปรนัยยังตรวจถูก/ผิดแบบ deterministic; AI อ่านเฉพาะคำอธิบายของเด็กและไม่เปลี่ยนคะแนน หากไม่มี config/เกิน limit/provider ล่ม การทำแบบฝึกหัดหลักยังทำงานต่อ
+- อัปเดต AI Contract เป็น v4: learning objective, difficulty, rationale, distractor rationales และ optional reasoning rubric
+- preflight เพิ่ม warning เรื่องตัวเลือกซ้ำ, ตัวลวงอ่อน, คำตอบถูกยาวโดดเด่น, ตัวเลือก “ถูกทุกข้อ/ไม่มีข้อใดถูก” และ correctIndex กระจุกตัว

@@ -8,6 +8,7 @@ export interface Env {
   PI_WORKER_TOKEN?: string;
   OPENAI_API_KEY?: string; // Reserved for future use
   SUPER_ADMIN_TOKEN?: string;
+  AI_CREDENTIAL_ENCRYPTION_KEY?: string;
 }
 
 export interface SessionInfo {

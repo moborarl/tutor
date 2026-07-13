@@ -243,7 +243,8 @@ exerciseRoutes.get('/:id', async (c) => {
   if (!set) return c.json({ error: 'not_found' }, 404);
 
   const questions = await c.env.DB.prepare(
-    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation, image_id, diagram_json
+    `SELECT id, order_index, question_type, prompt, content_json, answer_json, status, explanation, image_id, diagram_json,
+            difficulty, learning_objective, reasoning_prompt, reasoning_rubric_json
      FROM questions WHERE exercise_set_id = ? ORDER BY order_index, id`,
   )
     .bind(id)
@@ -283,6 +284,10 @@ exerciseRoutes.get('/:id', async (c) => {
       explanation: q.explanation ?? null,
       imageId: q.image_id ?? null,
       diagram: q.diagram_json ? JSON.parse(q.diagram_json as string) : null,
+      difficulty: q.difficulty ?? null,
+      learningObjective: q.learning_objective ?? null,
+      reasoningPrompt: q.reasoning_prompt ?? null,
+      reasoningRubric: q.reasoning_rubric_json ? JSON.parse(q.reasoning_rubric_json as string) : null,
     })),
   });
 });

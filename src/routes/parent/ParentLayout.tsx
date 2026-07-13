@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@radix-ui/themes';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { BookOpen, House, LogOut, Settings2, Upload, UsersRound } from 'lucide-react';
+import { BookOpen, House, LogOut, Settings2, Sparkles, Upload, UsersRound } from 'lucide-react';
 import { api } from '../../lib/api-client';
 
 export default function ParentLayout() {
@@ -34,6 +34,7 @@ export default function ParentLayout() {
           <NavLink to="/parent" end><Settings2 aria-hidden="true" /><span>ดูแลข้อมูล</span></NavLink>
           <NavLink to="/parent/exercises"><BookOpen aria-hidden="true" /><span>แบบฝึกหัด</span></NavLink>
           <NavLink to="/parent/upload"><Upload aria-hidden="true" /><span>อัปโหลด</span></NavLink>
+          <NavLink to="/parent/ai"><Sparkles aria-hidden="true" /><span>AI</span></NavLink>
           <NavLink to="/parent/children"><UsersRound aria-hidden="true" /><span>เด็ก</span></NavLink>
         </div>
         <span className="grow" />

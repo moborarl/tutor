@@ -322,6 +322,10 @@ function QuestionEditor({
   const [contentText, setContentText] = useState(JSON.stringify(q.content, null, 2));
   const [answerText, setAnswerText] = useState(JSON.stringify(q.answer, null, 2));
   const [explanation, setExplanation] = useState(q.explanation ?? '');
+  const [difficulty, setDifficulty] = useState(q.difficulty ?? 'medium');
+  const [learningObjective, setLearningObjective] = useState(q.learningObjective ?? '');
+  const [reasoningPrompt, setReasoningPrompt] = useState(q.reasoningPrompt ?? '');
+  const [reasoningRubricText, setReasoningRubricText] = useState(q.reasoningRubric ? JSON.stringify(q.reasoningRubric, null, 2) : '');
   const [imageId, setImageId] = useState<number | null>(q.imageId);
   const [diagramText, setDiagramText] = useState(q.diagram ? JSON.stringify(q.diagram, null, 2) : '');
   const [cropping, setCropping] = useState(false);
@@ -329,17 +333,21 @@ function QuestionEditor({
 
   async function save() {
     setErr('');
-    let content: unknown, answer: unknown, diagram: unknown = null;
+    let content: unknown, answer: unknown, diagram: unknown = null, reasoningRubric: unknown = null;
     try {
       content = JSON.parse(contentText);
       answer = JSON.parse(answerText);
       if (diagramText.trim()) diagram = JSON.parse(diagramText);
+      if (reasoningRubricText.trim()) reasoningRubric = JSON.parse(reasoningRubricText);
     } catch {
       setErr('รูปแบบ JSON ไม่ถูกต้อง');
       return;
     }
     try {
-      await api.patch(`/api/parent/questions/${q.id}`, { prompt, content, answer, explanation, imageId, diagram });
+      await api.patch(`/api/parent/questions/${q.id}`, {
+        prompt, content, answer, explanation, imageId, diagram,
+        difficulty, learningObjective, reasoningPrompt, reasoningRubric,
+      });
       setEditing(false);
       onChanged();
     } catch {
@@ -433,6 +441,13 @@ function QuestionEditor({
               💡 คำอธิบาย: {q.explanation}
             </div>
           )}
+          {q.questionType === 'multiple_choice' && (
+            <div className="reasoning-review-box">
+              <b>คุณภาพข้อปรนัย</b>
+              <span>{q.difficulty ? `ระดับ ${q.difficulty}` : 'ยังไม่ระบุระดับ'}{q.learningObjective ? ` · วัด: ${q.learningObjective}` : ''}</span>
+              {q.reasoningPrompt && <span>คำถามชวนอธิบาย: {q.reasoningPrompt}</span>}
+            </div>
+          )}
         </div>
       ) : (
         <div className="question-editor-panel">
@@ -451,6 +466,20 @@ function QuestionEditor({
           />
           <label className="muted">คำอธิบายเฉลย (แสดงให้เด็กเห็นหลังตอบ)</label>
           <textarea rows={2} value={explanation} onChange={(e) => setExplanation(e.target.value)} />
+          {q.questionType === 'multiple_choice' && (
+            <>
+              <label className="muted">ระดับความยาก</label>
+              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}>
+                <option value="easy">ง่าย</option><option value="medium">กลาง</option><option value="challenging">ท้าทาย</option>
+              </select>
+              <label className="muted">Learning objective</label>
+              <input value={learningObjective} onChange={(e) => setLearningObjective(e.target.value)} />
+              <label className="muted">คำถามชวนให้เด็กอธิบาย (เว้นว่างเพื่อไม่ใช้ AI feedback)</label>
+              <textarea rows={2} value={reasoningPrompt} onChange={(e) => setReasoningPrompt(e.target.value)} />
+              <label className="muted">Reasoning rubric JSON</label>
+              <textarea rows={4} value={reasoningRubricText} onChange={(e) => setReasoningRubricText(e.target.value)} style={{ fontFamily: 'monospace' }} placeholder='{"keyIdeas":["..."],"misconceptions":["..."]}' />
+            </>
+          )}
           <label className="muted">แผนภาพ (diagram JSON — เว้นว่างถ้าไม่มี)</label>
           <textarea
             rows={3}

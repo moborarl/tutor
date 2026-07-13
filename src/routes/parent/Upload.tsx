@@ -75,6 +75,7 @@ export default function Upload() {
   const [subjectId, setSubjectId] = useState('');
   const [newSubject, setNewSubject] = useState('');
   const [questionsJson, setQuestionsJson] = useState('');
+  const [jsonFileName, setJsonFileName] = useState('');
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -132,6 +133,20 @@ export default function Upload() {
     previews.forEach((p) => URL.revokeObjectURL(p));
     setFiles(picked);
     setPreviews(picked.map((f) => URL.createObjectURL(f)));
+  }
+
+  async function pickJsonFile(file: File | undefined) {
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      setQuestionsJson(content);
+      setJsonFileName(file.name);
+      setError('');
+    } catch {
+      setJsonFileName('');
+      setError('อ่านไฟล์ JSON ไม่สำเร็จ ลองเลือกไฟล์อีกครั้ง');
+    }
   }
 
   async function copyPrompt() {
@@ -232,7 +247,7 @@ export default function Upload() {
         </div>
 
         <div className="upload-section">
-          <label className="section-label">ตัวเลือก A: Paste JSON + อัปโหลดรูป</label>
+          <label className="section-label">ตัวเลือก A: นำเข้า JSON + อัปโหลดรูป</label>
           <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label className="muted" style={{ fontSize: '.9rem' }}>อัปโหลดรูป (ไม่จำเป็น)</label>
             <input
@@ -250,12 +265,29 @@ export default function Upload() {
             )}
             {files.length > 1 && <div className="muted" style={{ fontSize: '.85rem' }}>{files.length} หน้า</div>}
 
-            <label className="muted" style={{ fontSize: '.9rem', marginTop: 4 }}>วาง JSON ที่ได้จาก AI</label>
+            <div className="row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              <label className="muted" style={{ fontSize: '.9rem' }}>วาง JSON ที่ได้จาก AI</label>
+              <label>
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(e) => void pickJsonFile(e.target.files?.[0])}
+                  style={{ display: 'none' }}
+                />
+                <Button type="button" variant="soft" color="gray" asChild>
+                  <span>เลือกไฟล์ JSON</span>
+                </Button>
+              </label>
+              {jsonFileName && <Text color="gray" size="1">อ่านไฟล์: {jsonFileName}</Text>}
+            </div>
             <textarea
               rows={6}
               placeholder='{"title": "...", "questions": [...]}'
               value={questionsJson}
-              onChange={(e) => setQuestionsJson(e.target.value)}
+              onChange={(e) => {
+                setQuestionsJson(e.target.value);
+                setJsonFileName('');
+              }}
               style={{ fontFamily: 'monospace', fontSize: '.85rem' }}
             />
             <PreflightPanel report={preflight} />
