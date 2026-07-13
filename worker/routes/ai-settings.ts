@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
-import type { AiProvider } from '@shared/types';
+import type { AiProvider, CustomAiFormat } from '@shared/types';
 import type { AppEnv } from '../env';
 import { decryptCredential, encryptCredential } from '../lib/credential-crypto';
+import { normalizeCustomAiConfig } from '../lib/custom-ai';
 import { DEFAULT_AI_MODELS, runReasoningFeedback } from '../lib/reasoning-ai';
 
 export const aiSettingsRoutes = new Hono<AppEnv>();
-const PROVIDERS: AiProvider[] = ['openai', 'gemini', 'anthropic'];
+const PROVIDERS: AiProvider[] = ['openai', 'gemini', 'anthropic', 'custom'];
 
 async function audit(db: D1Database, parentId: number, action: string, detail: Record<string, unknown> = {}) {
   try {
@@ -23,6 +24,8 @@ type SettingsRow = {
   model: string;
   encrypted_api_key: string;
   key_last4: string;
+  base_url: string | null;
+  api_format: CustomAiFormat;
   enabled: number;
   daily_limit: number;
   monthly_limit: number;
@@ -35,6 +38,8 @@ function publicSettings(row: SettingsRow | null) {
     provider: row.provider,
     model: row.model,
     keyLast4: row.key_last4,
+    baseUrl: row.base_url,
+    apiFormat: row.api_format,
     enabled: row.enabled === 1,
     dailyLimit: row.daily_limit,
     monthlyLimit: row.monthly_limit,
@@ -44,7 +49,8 @@ function publicSettings(row: SettingsRow | null) {
 
 async function loadSettings(db: D1Database, parentId: number): Promise<SettingsRow | null> {
   return db.prepare(
-    `SELECT provider, model, encrypted_api_key, key_last4, enabled, daily_limit, monthly_limit, consent_at
+    `SELECT provider, model, encrypted_api_key, key_last4, base_url, api_format,
+            enabled, daily_limit, monthly_limit, consent_at
      FROM parent_ai_settings WHERE parent_id = ?`,
   ).bind(parentId).first<SettingsRow>();
 }
@@ -99,8 +105,15 @@ aiSettingsRoutes.delete('/history', async (c) => {
 aiSettingsRoutes.put('/', async (c) => {
   const { parentId } = c.get('session');
   const body = await c.req.json<{
-    provider?: AiProvider; model?: string; apiKey?: string; enabled?: boolean;
-    dailyLimit?: number; monthlyLimit?: number; consentAccepted?: boolean;
+    provider?: AiProvider;
+    model?: string;
+    apiKey?: string;
+    enabled?: boolean;
+    dailyLimit?: number;
+    monthlyLimit?: number;
+    consentAccepted?: boolean;
+    baseUrl?: string;
+    apiFormat?: CustomAiFormat;
   }>().catch(() => null);
   if (!body?.provider || !PROVIDERS.includes(body.provider)) return c.json({ error: 'invalid_provider' }, 400);
   if (!body.consentAccepted) return c.json({ error: 'consent_required' }, 400);
@@ -109,27 +122,62 @@ aiSettingsRoutes.put('/', async (c) => {
   const existing = await loadSettings(c.env.DB, parentId);
   const apiKey = body.apiKey?.trim();
   if (apiKey && apiKey.length > 512) return c.json({ error: 'api_key_too_long' }, 400);
-  if (!apiKey && !existing) return c.json({ error: 'api_key_required' }, 400);
-  if (!apiKey && existing && existing.provider !== body.provider) return c.json({ error: 'api_key_required_for_provider' }, 400);
+  if (!apiKey && !existing && body.provider !== 'custom') return c.json({ error: 'api_key_required' }, 400);
+  if (!apiKey && existing && existing.provider !== body.provider && body.provider !== 'custom') {
+    return c.json({ error: 'api_key_required_for_provider' }, 400);
+  }
+
+  let baseUrl: string | null = null;
+  let apiFormat: CustomAiFormat = 'responses';
+  if (body.provider === 'custom') {
+    try {
+      const customConfig = normalizeCustomAiConfig(body.baseUrl ?? existing?.base_url ?? '', body.apiFormat ?? existing?.api_format);
+      baseUrl = customConfig.baseUrl;
+      apiFormat = customConfig.apiFormat;
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : 'custom_base_url_invalid' }, 400);
+    }
+  }
+
   const model = body.model?.trim().slice(0, 100) || DEFAULT_AI_MODELS[body.provider];
   const dailyLimit = Math.min(500, Math.max(1, Math.floor(body.dailyLimit ?? 30)));
   const monthlyLimit = Math.min(10000, Math.max(dailyLimit, Math.floor(body.monthlyLimit ?? 300)));
-  const encrypted = apiKey
-    ? await encryptCredential(apiKey, c.env.AI_CREDENTIAL_ENCRYPTION_KEY)
-    : existing!.encrypted_api_key;
-  const last4 = apiKey ? apiKey.slice(-4) : existing!.key_last4;
+  const canReuseExistingKey = existing && existing.provider === body.provider;
+  const nextApiKey = apiKey
+    ?? (canReuseExistingKey ? await decryptCredential(existing.encrypted_api_key, c.env.AI_CREDENTIAL_ENCRYPTION_KEY) : '')
+    ?? '';
+  const encrypted = await encryptCredential(nextApiKey, c.env.AI_CREDENTIAL_ENCRYPTION_KEY);
+  const last4 = nextApiKey ? nextApiKey.slice(-4) : '';
 
   await c.env.DB.prepare(
     `INSERT INTO parent_ai_settings
-       (parent_id, provider, model, encrypted_api_key, key_last4, enabled, daily_limit, monthly_limit, consent_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       (parent_id, provider, model, encrypted_api_key, key_last4, base_url, api_format, enabled, daily_limit, monthly_limit, consent_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(parent_id) DO UPDATE SET provider = excluded.provider, model = excluded.model,
        encrypted_api_key = excluded.encrypted_api_key, key_last4 = excluded.key_last4,
+       base_url = excluded.base_url, api_format = excluded.api_format,
        enabled = excluded.enabled, daily_limit = excluded.daily_limit, monthly_limit = excluded.monthly_limit,
        consent_at = excluded.consent_at, updated_at = datetime('now')`,
-  ).bind(parentId, body.provider, model, encrypted, last4, body.enabled === false ? 0 : 1, dailyLimit, monthlyLimit).run();
+  ).bind(
+    parentId,
+    body.provider,
+    model,
+    encrypted,
+    last4,
+    baseUrl,
+    apiFormat,
+    body.enabled === false ? 0 : 1,
+    dailyLimit,
+    monthlyLimit,
+  ).run();
   await audit(c.env.DB, parentId, existing ? 'ai_settings_updated' : 'ai_settings_created', {
-    provider: body.provider, model, enabled: body.enabled !== false, dailyLimit, monthlyLimit,
+    provider: body.provider,
+    model,
+    baseUrl,
+    apiFormat: body.provider === 'custom' ? apiFormat : null,
+    enabled: body.enabled !== false,
+    dailyLimit,
+    monthlyLimit,
   });
   return c.json(publicSettings((await loadSettings(c.env.DB, parentId))!));
 });
@@ -141,11 +189,18 @@ aiSettingsRoutes.post('/test', async (c) => {
   try {
     const apiKey = await decryptCredential(row.encrypted_api_key, c.env.AI_CREDENTIAL_ENCRYPTION_KEY);
     await runReasoningFeedback({
-      provider: row.provider, model: row.model, apiKey,
+      provider: row.provider,
+      model: row.model,
+      apiKey,
+      baseUrl: row.base_url,
+      apiFormat: row.api_format,
       question: 'น้ำแข็งละลายเมื่อได้รับความร้อน ข้อความนี้ถูกหรือไม่',
-      options: ['ถูก', 'ผิด'], correctIndex: 0, selectedIndex: 0,
+      options: ['ถูก', 'ผิด'],
+      correctIndex: 0,
+      selectedIndex: 0,
       reasoningText: 'เพราะความร้อนทำให้น้ำแข็งเปลี่ยนสถานะ',
-      reasoningPrompt: 'อธิบายสั้นๆ', rubric: { keyIdeas: ['ความร้อน', 'เปลี่ยนสถานะ'] },
+      reasoningPrompt: 'อธิบายสั้นๆ',
+      rubric: { keyIdeas: ['ความร้อน', 'เปลี่ยนสถานะ'] },
     });
     return c.json({ ok: true });
   } catch (error) {

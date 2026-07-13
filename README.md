@@ -11,6 +11,7 @@
   รัน OCR+Ollama ในบ้าน (ดู [pi-extraction/](pi-extraction/README.md)) เมื่อโควตา cloud หมด
 - เด็กเข้าใช้โดยเลือกโปรไฟล์ ภายใต้ session ผู้ปกครองบนอุปกรณ์ที่ใช้ร่วมกัน
 - AI feedback ใช้ API key ของผู้ปกครองรายครอบครัวเท่านั้น โดยเข้ารหัสก่อนเก็บใน D1
+- รองรับ custom/local AI แบบ OpenAI-compatible ผ่าน HTTPS public endpoint ของครอบครัวเอง
 - UI เด็กเล็ก (`young`) ปุ่มใหญ่/ข้อความน้อยกว่า UI เด็กโต (`older`) อัตโนมัติ
 
 ## Dev local
@@ -47,6 +48,11 @@ npm run deploy
 — workflow จะ typecheck → build → migrate → deploy ให้เอง
 
 ก่อนเปิดหน้า `AI สำหรับคำอธิบาย` บน production ต้องตั้ง `AI_CREDENTIAL_ENCRYPTION_KEY` ด้วย `wrangler secret put` หนึ่งครั้ง ห้ามเปลี่ยนหรือลบ secret นี้ขณะที่ยังมี API key ที่เข้ารหัสอยู่ มิฉะนั้น key เดิมจะถอดรหัสไม่ได้
+
+ถ้าจะใช้ custom/local AI:
+- ต้องมี HTTPS public endpoint ที่ Worker เรียกได้จริง
+- ต้องเป็น OpenAI-compatible `Responses API` หรือ `Chat Completions API`
+- ห้ามใช้ `localhost`, `127.0.0.1`, `192.168.x.x`, `.local` หรือ private network อื่น ๆ เพราะ production Worker จะเรียกไม่ถึง
 
 ## โครงสร้าง
 

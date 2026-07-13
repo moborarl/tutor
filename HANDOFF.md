@@ -630,6 +630,11 @@ kids-tutor/
   - ไม่มี fallback key กลางของระบบ ผู้ปกครองรับผิดชอบค่า API เอง และต้องยอมรับหน้าเตือนค่าใช้จ่ายก่อนตั้งค่า
   - API key เข้ารหัส AES-GCM ก่อนเก็บใน D1 และ API ส่งกลับเฉพาะท้าย key 4 ตัว
   - ต้องตั้ง Worker secret `AI_CREDENTIAL_ENCRYPTION_KEY` ก่อนใช้งาน production
+- เพิ่ม custom/local AI phase แรก
+  - provider `custom` รองรับ OpenAI-compatible `Responses API` และ `Chat Completions API`
+  - ผู้ปกครองกรอก `HTTPS base URL`, `model`, `API key/token` (ถ้ามี) และเลือก compatibility mode ในหน้า `/parent/ai`
+  - บล็อก `localhost`, private IP, `.local`, non-HTTPS และ URL ที่มี query/hash เพื่อกัน config ที่ Worker production เรียกไม่ได้
+  - local model ใช้งานได้ก็ต่อเมื่อเปิดผ่าน public HTTPS gateway ของครอบครัวเอง; Worker จะเรียกเครื่องในบ้านโดยตรงไม่ได้
 - เพิ่ม migration `0012_parent_ai_reasoning.sql` สำหรับ provider settings, reasoning fields, AI feedback และ usage log
 - เพิ่มหน้า `/parent/ai` สำหรับ consent, provider/model/key, daily/monthly limit, test connection, usage และล้างประวัติ พร้อมคู่มือ `/parent/ai/help`
 - ข้อปรนัยยังตรวจถูก/ผิดแบบ deterministic; AI อ่านเฉพาะคำอธิบายของเด็กและไม่เปลี่ยนคะแนน หากไม่มี config/เกิน limit/provider ล่ม การทำแบบฝึกหัดหลักยังทำงานต่อ

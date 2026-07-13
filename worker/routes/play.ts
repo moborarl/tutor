@@ -4,7 +4,7 @@ import { requireParentSession, requireChildSession } from '../middleware/auth';
 import { gradeAnswer } from '../lib/grading';
 import { loadChildProgress } from '../lib/progress';
 import type { QuestionType } from '@shared/types';
-import type { AiProvider, ReasoningFeedback, ReasoningRubric } from '@shared/types';
+import type { AiProvider, CustomAiFormat, ReasoningFeedback, ReasoningRubric } from '@shared/types';
 import { decryptCredential } from '../lib/credential-crypto';
 import { runReasoningFeedback } from '../lib/reasoning-ai';
 
@@ -285,10 +285,11 @@ playRoutes.post('/attempts/:id/answers', requireChildSession, async (c) => {
   let reasoningFeedback: ReasoningFeedback | null = null;
   if (reasoningText && question.question_type === 'multiple_choice' && question.reasoning_prompt) {
     const setting = await c.env.DB.prepare(
-      `SELECT provider, model, encrypted_api_key, enabled, daily_limit, monthly_limit
+      `SELECT provider, model, encrypted_api_key, base_url, api_format, enabled, daily_limit, monthly_limit
        FROM parent_ai_settings WHERE parent_id = ?`,
     ).bind(c.get('session').parentId).first<{
-      provider: AiProvider; model: string; encrypted_api_key: string; enabled: number;
+      provider: AiProvider; model: string; encrypted_api_key: string; base_url: string | null; api_format: CustomAiFormat;
+      enabled: number;
       daily_limit: number; monthly_limit: number;
     }>();
     if (!setting || setting.enabled !== 1 || !c.env.AI_CREDENTIAL_ENCRYPTION_KEY) {
@@ -318,6 +319,8 @@ playRoutes.post('/attempts/:id/answers', requireChildSession, async (c) => {
             provider: setting.provider,
             model: setting.model,
             apiKey,
+            baseUrl: setting.base_url,
+            apiFormat: setting.api_format,
             question: question.prompt,
             options: content.options ?? [],
             correctIndex: correct.correctIndex ?? -1,

@@ -2951,7 +2951,7 @@ input:not(.rt-TextFieldInput):hover, select:hover, textarea:not(.rt-TextAreaInpu
 
 .ai-provider-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 16px 0 22px;
 }
@@ -2974,6 +2974,8 @@ input:not(.rt-TextFieldInput):hover, select:hover, textarea:not(.rt-TextAreaInpu
 .ai-settings-form .rt-Text { display: flex; align-items: center; gap: 6px; }
 .ai-limit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .ai-enabled-row { display: flex !important; align-items: center; gap: 9px !important; }
+.ai-provider-note { display: grid; gap: 4px; margin-top: 16px; padding: 12px 14px; border: 1px solid #d4ddd1; border-radius: 6px; background: #f7f9f4; color: #415045; }
+.ai-provider-note b { color: #1f2922; }
 .ai-usage-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .ai-usage-summary span { min-width: 170px; padding: 10px 12px; border: 1px solid #d1d8cf; border-radius: 6px; background: #f6f8f4; color: #48534b; }
 .ai-usage-summary b { color: #24362a; font-size: 18px; }

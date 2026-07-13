@@ -51,7 +51,8 @@ export interface MultipleChoiceAnswer {
 }
 
 export type QuestionDifficulty = 'easy' | 'medium' | 'challenging';
-export type AiProvider = 'openai' | 'gemini' | 'anthropic';
+export type AiProvider = 'openai' | 'gemini' | 'anthropic' | 'custom';
+export type CustomAiFormat = 'responses' | 'chat_completions';
 
 export interface ReasoningRubric {
   keyIdeas: string[];

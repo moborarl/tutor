@@ -1,10 +1,12 @@
-import type { AiProvider, ReasoningFeedback, ReasoningRubric } from '@shared/types';
+import type { AiProvider, CustomAiFormat, ReasoningFeedback, ReasoningRubric } from '@shared/types';
 import { parseJsonWithRepair } from '@shared/json-repair';
 
 export interface ReasoningRequest {
   provider: AiProvider;
   model: string;
   apiKey: string;
+  baseUrl?: string | null;
+  apiFormat?: CustomAiFormat | null;
   question: string;
   options: string[];
   correctIndex: number;
@@ -58,6 +60,37 @@ async function providerText(input: ReasoningRequest): Promise<string> {
     return data.content?.filter((item) => item.type === 'text').map((item) => item.text ?? '').join('') ?? '';
   }
 
+  if (input.provider === 'custom') {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (input.apiKey) headers.authorization = `Bearer ${input.apiKey}`;
+    const baseUrl = (input.baseUrl ?? '').replace(/\/+$/, '');
+    if (!baseUrl) throw new Error('provider_invalid_config');
+
+    if (input.apiFormat === 'chat_completions') {
+      response = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: input.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 220,
+        }),
+      });
+      if (!response.ok) throw new Error(`provider_http_${response.status}`);
+      const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+      return data.choices?.[0]?.message?.content ?? '';
+    }
+
+    response = await fetchWithTimeout(`${baseUrl}/responses`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: input.model, input: prompt, max_output_tokens: 220 }),
+    });
+    if (!response.ok) throw new Error(`provider_http_${response.status}`);
+    const data = await response.json() as { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> };
+    return data.output_text ?? data.output?.flatMap((item) => item.content ?? []).map((item) => item.text ?? '').join('') ?? '';
+  }
+
   response = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:generateContent`,
     {
@@ -91,4 +124,5 @@ export const DEFAULT_AI_MODELS: Record<AiProvider, string> = {
   openai: 'gpt-5-mini',
   gemini: 'gemini-3.5-flash',
   anthropic: 'claude-sonnet-4-5',
+  custom: 'gpt-4.1-mini',
 };

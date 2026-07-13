@@ -48,6 +48,7 @@ compile('worker/lib/grading.ts', 'worker/lib/grading.js');
 compile('worker/lib/json-import.ts', 'worker/lib/json-import.js');
 compile('worker/lib/crypto.ts', 'worker/lib/crypto.js');
 compile('worker/lib/credential-crypto.ts', 'worker/lib/credential-crypto.js');
+compile('worker/lib/custom-ai.ts', 'worker/lib/custom-ai.js');
 compile('worker/lib/reasoning-ai.ts', 'worker/lib/reasoning-ai.js');
 compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
 compile('worker/lib/progress.ts', 'worker/lib/progress.js');
@@ -290,25 +291,50 @@ function makeSubjectsApp() {
 }
 
 function makeAiSettingsApp() {
+  const state = {
+    row: null,
+  };
   const app = new Hono();
   app.use('*', async (c, next) => { c.set('session', { parentId: 1 }); await next(); });
   app.route('/ai-settings', aiSettingsRoutes);
   const env = {
     DB: {
-      prepare() {
+      prepare(sql) {
         return {
-          bind() {
+          bind(...args) {
             return {
-              async first() { return null; },
+              async first() {
+                if (sql.includes('FROM parent_ai_settings WHERE parent_id = ?')) return state.row;
+                if (sql.includes('FROM ai_feedback_usage WHERE parent_id = ?')) return { daily_count: 0, monthly_count: 0 };
+                return null;
+              },
               async all() { return { results: [] }; },
-              async run() { return { meta: { changes: 0 } }; },
+              async run() {
+                if (sql.includes('INSERT INTO parent_ai_settings')) {
+                  state.row = {
+                    provider: args[1],
+                    model: args[2],
+                    encrypted_api_key: args[3],
+                    key_last4: args[4],
+                    base_url: args[5],
+                    api_format: args[6],
+                    enabled: args[7],
+                    daily_limit: args[8],
+                    monthly_limit: args[9],
+                    consent_at: '2026-07-13T00:00:00Z',
+                  };
+                  return { meta: { changes: 1 } };
+                }
+                return { meta: { changes: 0 } };
+              },
             };
           },
         };
       },
     },
+    AI_CREDENTIAL_ENCRYPTION_KEY: 'worker-encryption-secret',
   };
-  return { app, env };
+  return { app, env, state };
 }
 
 function makeChildrenApp() {
@@ -427,12 +453,48 @@ test('parent AI settings require explicit cost consent and configured encryption
   assert.equal(withoutConsent.status, 400);
   assert.equal((await withoutConsent.json()).error, 'consent_required');
 
+  delete env.AI_CREDENTIAL_ENCRYPTION_KEY;
   const withoutEncryption = await app.request('/ai-settings', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ provider: 'openai', model: 'gpt-5-mini', apiKey: 'secret', consentAccepted: true }),
   }, env);
   assert.equal(withoutEncryption.status, 503);
   assert.equal((await withoutEncryption.json()).error, 'encryption_not_configured');
+});
+
+test('parent AI settings accept custom public HTTPS endpoints and reject localhost', async () => {
+  const { app, env, state } = makeAiSettingsApp();
+
+  const rejected = await app.request('/ai-settings', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      provider: 'custom',
+      model: 'local-model',
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      apiFormat: 'chat_completions',
+      consentAccepted: true,
+    }),
+  }, env);
+  assert.equal(rejected.status, 400);
+  assert.equal((await rejected.json()).error, 'custom_base_url_https_only');
+
+  const accepted = await app.request('/ai-settings', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      provider: 'custom',
+      model: 'local-model',
+      baseUrl: 'https://ai.family.example/v1/',
+      apiFormat: 'chat_completions',
+      consentAccepted: true,
+    }),
+  }, env);
+  assert.equal(accepted.status, 200);
+  assert.equal(state.row.provider, 'custom');
+  assert.equal(state.row.base_url, 'https://ai.family.example/v1');
+  assert.equal(state.row.api_format, 'chat_completions');
+  assert.equal(typeof state.row.encrypted_api_key, 'string');
 });
 
 test('gradeAnswer rejects invalid fractions and wrong ordering', () => {
