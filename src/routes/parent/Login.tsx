@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AppState } from '../../components/AppState';
 import { api, ApiError } from '../../lib/api-client';
 
 export default function Login() {
@@ -26,19 +28,52 @@ export default function Login() {
   }
 
   return (
-    <div className="page" style={{ maxWidth: 420, paddingTop: 60 }}>
-      <div className="card">
-        <h2>เข้าสู่ระบบผู้ปกครอง</h2>
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input type="email" placeholder="อีเมล" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input type="password" placeholder="รหัสผ่าน" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          {error && <div className="error-text">{error}</div>}
-          <button type="submit" disabled={busy}>เข้าสู่ระบบ</button>
+    <main className="auth-shell">
+      <section className="auth-intro" aria-labelledby="login-title">
+        <Link className="auth-back-link" to="/play">
+          <ArrowLeft aria-hidden="true" /> กลับหน้าครอบครัว
+        </Link>
+        <div className="auth-intro-copy">
+          <span className="auth-mark"><ShieldCheck aria-hidden="true" /></span>
+          <p className="auth-eyebrow">Kids Tutor</p>
+          <h1 id="login-title">พื้นที่สำหรับผู้ปกครอง</h1>
+          <p>จัดการสมาชิก แบบฝึกหัด และความคืบหน้าของครอบครัวในที่เดียว</p>
+        </div>
+      </section>
+
+      <section className="auth-form-panel" aria-label="เข้าสู่ระบบ">
+        <div className="auth-form-heading">
+          <span>ยินดีต้อนรับกลับ</span>
+          <h2>เข้าสู่ระบบ</h2>
+          <p>ใช้บัญชีผู้ปกครองของครอบครัว</p>
+        </div>
+        <form className="auth-form" onSubmit={submit}>
+          <label htmlFor="login-email">อีเมล</label>
+          <input
+            id="login-email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <label htmlFor="login-password">รหัสผ่าน</label>
+          <input
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          {error && <AppState tone="error" title={error} />}
+          <button className="cfs-button cfs-button-primary auth-submit" type="submit" disabled={busy}>
+            {busy ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+          </button>
         </form>
-        <p className="muted" style={{ marginTop: 14 }}>
-          ยังไม่มีบัญชี? <Link to="/parent/signup">สมัครสมาชิก</Link>
-        </p>
-      </div>
-    </div>
+        <p className="auth-switch">ยังไม่มีบัญชี? <Link to="/parent/signup">สร้างบัญชีครอบครัว</Link></p>
+      </section>
+    </main>
   );
 }

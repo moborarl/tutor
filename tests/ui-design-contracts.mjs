@@ -42,3 +42,18 @@ test('AppShell provides desktop and mobile navigation landmarks', () => {
   assert.match(source, /aria-label="Main navigation"/);
   assert.match(source, /aria-label="Mobile navigation"/);
 });
+
+test('parent authentication uses labelled, autofill-friendly forms', () => {
+  const login = read('src/routes/parent/Login.tsx');
+  const signup = read('src/routes/parent/Signup.tsx');
+
+  for (const source of [login, signup]) {
+    assert.match(source, /className="auth-shell"/);
+    assert.match(source, /<label/);
+    assert.match(source, /<AppState tone="error"/);
+  }
+
+  assert.match(login, /autoComplete="email"/);
+  assert.match(login, /autoComplete="current-password"/);
+  assert.match(signup, /autoComplete="new-password"/);
+});
