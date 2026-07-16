@@ -57,3 +57,12 @@ test('parent authentication uses labelled, autofill-friendly forms', () => {
   assert.match(login, /autoComplete="current-password"/);
   assert.match(signup, /autoComplete="new-password"/);
 });
+
+test('family homepage exposes semantic member choices and shared states', () => {
+  const source = read('src/routes/play/ProfilePicker.tsx');
+  assert.match(source, /<main className="family-home"/);
+  assert.match(source, /<LockKeyhole/);
+  assert.match(source, /<AppState tone="loading"/);
+  assert.match(source, /<AppState tone="error"/);
+  assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
+});
