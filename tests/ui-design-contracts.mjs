@@ -33,3 +33,12 @@ test('AppState announces errors separately from normal status', () => {
   assert.match(source, /tone === 'error' \? 'alert' : 'status'/);
   assert.match(source, /aria-live="polite"/);
 });
+
+test('AppShell provides desktop and mobile navigation landmarks', () => {
+  const source = read('src/components/AppShell.tsx');
+  assert.match(source, /<header className="app-shell-header">/);
+  assert.match(source, /className="app-shell-desktop-nav"/);
+  assert.match(source, /className="app-shell-mobile-nav"/);
+  assert.match(source, /aria-label="Main navigation"/);
+  assert.match(source, /aria-label="Mobile navigation"/);
+});
