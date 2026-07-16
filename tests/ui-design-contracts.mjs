@@ -66,3 +66,13 @@ test('family homepage exposes semantic member choices and shared states', () => 
   assert.match(source, /<AppState tone="error"/);
   assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
 });
+
+test('explorer navigation closes after a mobile tree selection', () => {
+  const layout = read('src/components/ExplorerLayout.tsx');
+  const tree = read('src/components/TreePanel.tsx');
+  assert.match(layout, /ExplorerTreeContext/);
+  assert.match(layout, /aria-controls="explorer-tree-panel"/);
+  assert.match(layout, /aria-expanded=/);
+  assert.match(tree, /data-tree-node=/);
+  assert.match(tree, /closeTree\(\)/);
+});

@@ -1,21 +1,31 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 
-export function ExplorerLayout({ tree, children }: { tree: ReactNode; children: ReactNode }) {
+const ExplorerTreeContext = createContext<() => void>(() => undefined);
+export const useExplorerTreeControls = () => useContext(ExplorerTreeContext);
+
+export function ExplorerLayout({ tree, children, mobileLabel = 'เมนูข้อมูล' }: {
+  tree: ReactNode;
+  children: ReactNode;
+  mobileLabel?: string;
+}) {
   const [treeOpen, setTreeOpen] = useState(false);
 
   return (
     <div className={`explorer-layout ${treeOpen ? 'tree-open' : ''}`}>
       <button
-        className="explorer-tree-toggle secondary"
+        className="explorer-tree-toggle cfs-button cfs-button-secondary"
         type="button"
+        aria-controls="explorer-tree-panel"
         aria-expanded={treeOpen}
         onClick={() => setTreeOpen((open) => !open)}
       >
         {treeOpen ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
-        {treeOpen ? 'ซ่อนเมนู' : 'แสดงเมนู'}
+        {treeOpen ? `ซ่อน${mobileLabel}` : `แสดง${mobileLabel}`}
       </button>
-      <aside className="explorer-tree">{tree}</aside>
+      <ExplorerTreeContext.Provider value={() => setTreeOpen(false)}>
+        <aside className="explorer-tree" id="explorer-tree-panel">{tree}</aside>
+      </ExplorerTreeContext.Provider>
       <section className="explorer-workspace">{children}</section>
     </div>
   );

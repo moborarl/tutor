@@ -12,6 +12,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
+import { useExplorerTreeControls } from './ExplorerLayout';
 
 export interface TreeNodeItem {
   id: string;
@@ -33,6 +34,13 @@ export function TreePanel({
   activeId: string;
   onSelect: (id: string) => void;
 }) {
+  const closeTree = useExplorerTreeControls();
+
+  function selectItem(id: string) {
+    onSelect(id);
+    closeTree();
+  }
+
   function iconFor(item: TreeNodeItem) {
     if (item.danger) return <Trash2 aria-hidden="true" />;
     if (typeof item.icon !== 'string') return item.icon ?? <Circle aria-hidden="true" />;
@@ -62,9 +70,10 @@ export function TreePanel({
         return (
           <button
             key={item.id}
+            data-tree-node={item.id}
             className={`tree-node ${depth ? 'child' : ''} ${item.danger ? 'danger' : ''} ${activeId === item.id ? 'active' : ''}`}
             style={style}
-            onClick={() => onSelect(item.id)}
+            onClick={() => selectItem(item.id)}
             type="button"
             aria-current={activeId === item.id ? 'page' : undefined}
             title={item.label}
