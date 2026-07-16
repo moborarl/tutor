@@ -3,6 +3,7 @@ dist/
 .tmp-tests/
 .npm-cache/
 .wrangler/
+.worktrees/
 .dev.vars
 *.local
 .DS_Store
