@@ -130,3 +130,19 @@ test('phase 2 data workspace shares the mobile breakpoint and keyboard focus tre
   assert.match(css, /entity-row-link:focus-visible/);
   assert.doesNotMatch(css, /font-size\s*:\s*clamp\(/);
 });
+
+test('desktop explorer tree scrolls independently and returns to page flow on mobile', () => {
+  const css = read('src/styles/explorer.css');
+  assert.match(css, /\.folder-tree\s*\{[^}]*max-height\s*:\s*calc\(100dvh\s*-/s);
+  assert.match(css, /\.folder-tree\s*\{[^}]*overflow-y\s*:\s*auto/s);
+  assert.match(css, /@media\s*\(max-width:\s*767px\)[\s\S]*\.folder-tree\s*\{[^}]*max-height\s*:\s*none[^}]*overflow-y\s*:\s*visible/s);
+});
+
+test('exercise title buttons override the legacy filled button treatment', () => {
+  const css = read('src/styles/data-workspace.css');
+  const rule = css.match(/button\.entity-title-button:not\(\.rt-Button\)\s*\{[^}]*\}/)?.[0] ?? '';
+  assert.match(rule, /color\s*:\s*var\(--cfs-ink\)/);
+  assert.match(rule, /background\s*:\s*transparent/);
+  assert.match(rule, /border\s*:\s*0/);
+  assert.match(css, /@media\s*\(max-width:\s*767px\)[\s\S]*button\.entity-title-button:not\(\.rt-Button\)\s*\{[^}]*min-height\s*:\s*44px/s);
+});
