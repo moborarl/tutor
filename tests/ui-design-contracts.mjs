@@ -111,3 +111,22 @@ test('child tree uses names while detail workspace owns the avatar', () => {
   assert.doesNotMatch(treeBlock, /ChildAvatar/);
   assert.match(source, /<ChildAvatar/);
 });
+
+test('phase 2 explorer keeps tree rows light, aligned, and adaptive', () => {
+  const css = read('src/styles/explorer.css');
+  const rowRules = css.match(/\.folder-tree button\.tree-node(?:\.(?:active)|:hover)?\s*\{[^}]*\}/g)?.join('\n') ?? '';
+  assert.doesNotMatch(rowRules, /background\s*:\s*var\(--cfs-accent\)\s*;/);
+  assert.match(css, /width\s*:\s*calc\(100%\s*-\s*var\(--tree-indent/);
+  assert.match(css, /@media\s*\(max-width:\s*767px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*767px\)[\s\S]*tree-node[\s\S]*min-height\s*:\s*44px/);
+  assert.match(css, /tree-node:focus-visible/);
+  assert.doesNotMatch(css, /font-size\s*:\s*clamp\(/);
+});
+
+test('phase 2 data workspace shares the mobile breakpoint and keyboard focus treatment', () => {
+  const css = read('src/styles/data-workspace.css');
+  assert.match(css, /@media\s*\(max-width:\s*767px\)/);
+  assert.match(css, /entity-title-button:focus-visible/);
+  assert.match(css, /entity-row-link:focus-visible/);
+  assert.doesNotMatch(css, /font-size\s*:\s*clamp\(/);
+});

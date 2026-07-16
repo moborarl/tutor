@@ -69,6 +69,11 @@
   border-color: var(--cfs-border);
 }
 
+.folder-tree button.tree-node:focus-visible {
+  outline: 3px solid var(--cfs-focus);
+  outline-offset: 2px;
+}
+
 .folder-tree button.tree-node.active::before {
   content: '';
   position: absolute;
@@ -105,4 +110,5 @@
   .explorer-tree-toggle { width: 100%; display: inline-flex; }
   .explorer-layout:not(.tree-open) .explorer-tree { display: none; }
   .folder-tree { position: static; }
+  .folder-tree button.tree-node { min-height: 44px; }
 }

@@ -54,6 +54,16 @@
 
 ## หมายเหตุงานที่เหลือ (Phase 1b)
 inline styles ~150 จุดใน `src/routes/**` ยังต้องทยอยรวบเป็น utility/component class เพื่อความสม่ำเสมอเต็มรูปแบบ
+## Calm Family Studio CSS ownership (Phase 2)
+
+- `src/styles/tokens.css` is the canonical source for semantic color, spacing, radius, shadow, and focus tokens.
+- `src/styles/foundation.css`, `shell.css`, and `shared-components.css` own page structure and shared application components.
+- `src/styles/explorer.css` owns `ExplorerLayout` and `TreePanel` behavior for `/parent`, `/parent/exercises`, and `/parent/children`.
+- `src/styles/data-workspace.css` owns toolbars, entity rows, status badges, and progress presentation on those parent routes.
+- Explorer layouts use two panes above 767px and recompose to one pane at 767px and below. The 1024px breakpoint only tightens the desktop grid.
+- Mobile tree rows and actionable entity controls have a minimum 44px touch target and visible `:focus-visible` treatment.
+- `src/styles.css` remains the legacy compatibility layer for routes deferred to Phases 3 and 4. Do not add Phase 2 component rules there.
+
 # Workspace Refresh (2026-07-11)
 
 - Theme ของ Radix ใช้ `grass` + `olive` เพื่อให้ component จาก library อยู่ใน palette เดียวกับระบบ
