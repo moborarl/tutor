@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
@@ -1000,6 +1000,36 @@ function exercise(overrides = {}) {
     ...overrides,
   };
 }
+
+async function importChildLearningState() {
+  const sourcePath = join(root, 'src/routes/play/child-learning-state.ts');
+  assert.equal(existsSync(sourcePath), true, 'child learning state helper should exist');
+  compile('src/routes/play/child-learning-state.ts', 'src/routes/play/child-learning-state.js');
+  return import(pathToFileURL(join(outDir, 'src/routes/play/child-learning-state.js')));
+}
+
+test('resume selection returns the first in-progress exercise', async () => {
+  const { selectResumeExercise } = await importChildLearningState();
+  const rows = [
+    exercise({ id: 4, hasInProgress: false }),
+    exercise({ id: 2, hasInProgress: true }),
+    exercise({ id: 8, hasInProgress: true }),
+  ];
+
+  assert.equal(selectResumeExercise(rows)?.id, 2);
+  assert.equal(selectResumeExercise(rows.map((row) => ({ ...row, hasInProgress: false }))), null);
+});
+
+test('subject filtering preserves API order', async () => {
+  const { filterExercisesBySubject } = await importChildLearningState();
+  const rows = [
+    exercise({ id: 4, subjectName: 'วิทยาศาสตร์' }),
+    exercise({ id: 2, subjectName: 'คณิตศาสตร์' }),
+  ];
+
+  assert.deepEqual(filterExercisesBySubject(rows, 'ทั้งหมด').map((row) => row.id), [4, 2]);
+  assert.deepEqual(filterExercisesBySubject(rows, 'คณิตศาสตร์').map((row) => row.id), [2]);
+});
 
 test('recommendation prioritizes resumable, related, incomplete, then retry work', () => {
   const current = exercise({ id: 1, completedCount: 1, assignedAt: '2026-01-01T00:00:00.000Z' });

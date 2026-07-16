@@ -1,154 +1,169 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { api } from '../../lib/api-client';
-import { ChildAvatar } from '../../components/ChildAvatar';
+import { useCallback, useEffect, useState } from 'react';
+import { BarChart3, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Child, PlayExercise } from '@shared/types';
+import { AppState } from '../../components/AppState';
+import { api } from '../../lib/api-client';
+import {
+  ALL_SUBJECTS,
+  filterExercisesBySubject,
+  selectResumeExercise,
+} from './child-learning-state';
+import { ChildExerciseList } from './components/ChildExerciseList';
+import { ChildLearningShell } from './components/ChildLearningShell';
+import { ChildProgressMeter } from './components/ChildProgressMeter';
+import { ResumeExercisePanel } from './components/ResumeExercisePanel';
+import { SubjectSwitcher, type ChildSubjectSummary } from './components/SubjectSwitcher';
 
-const FALLBACK_SUBJECT = 'ไม่ระบุวิชา';
+function summarizeSubjects(exercises: PlayExercise[]): ChildSubjectSummary[] {
+  const subjects = new Map<string, ChildSubjectSummary>();
+  for (const exercise of exercises) {
+    if (!exercise.subjectName) continue;
+    const summary = subjects.get(exercise.subjectName) ?? {
+      subjectName: exercise.subjectName,
+      completed: 0,
+      total: 0,
+    };
+    summary.total += 1;
+    if (exercise.completedCount > 0 || exercise.bestScore != null) summary.completed += 1;
+    subjects.set(exercise.subjectName, summary);
+  }
+  return [...subjects.values()];
+}
 
 export default function PlayExerciseList() {
-  const nav = useNavigate();
+  const navigate = useNavigate();
   const [exercises, setExercises] = useState<PlayExercise[] | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [activeSubject, setActiveSubject] = useState('all');
+  const [activeSubject, setActiveSubject] = useState(ALL_SUBJECTS);
   const child: Child | null = JSON.parse(sessionStorage.getItem('activeChild') ?? 'null');
 
-  useEffect(() => {
-    api
-      .get<PlayExercise[]>('/api/play/exercises')
+  const loadExercises = useCallback(() => {
+    setLoadError(false);
+    setExercises(null);
+    api.get<PlayExercise[]>('/api/play/exercises')
       .then(setExercises)
       .catch(() => setLoadError(true));
   }, []);
 
+  useEffect(() => {
+    loadExercises();
+  }, [loadExercises]);
+
   async function switchProfile() {
     await api.post('/api/play/switch-profile');
     sessionStorage.removeItem('activeChild');
-    nav('/play');
+    navigate('/play');
   }
 
-  const uiSimple = child?.ageBand === 'young';
-  const subjectRows = exercises
-    ? [...exercises.reduce((map, ex) => {
-      const name = ex.subjectName ?? FALLBACK_SUBJECT;
-      const row = map.get(name) ?? { subjectName: name, total: 0, completed: 0 };
-      row.total += 1;
-      if (ex.bestScore != null) row.completed += 1;
-      map.set(name, row);
-      return map;
-    }, new Map<string, { subjectName: string; total: number; completed: number }>()).values()]
-      .sort((a, b) => a.subjectName.localeCompare(b.subjectName, 'th'))
-    : [];
+  if (!child) {
+    return (
+      <main className="child-learning child-learning-entry-state">
+        <AppState
+          tone="empty"
+          title="Choose a family member"
+          description="Select a learner before opening the dashboard."
+          action={<Link className="child-primary-action" to="/play">Choose member</Link>}
+        />
+      </main>
+    );
+  }
 
-  const groupedExercises = exercises
-    ? [...exercises.reduce((map, ex) => {
-      const name = ex.subjectName ?? FALLBACK_SUBJECT;
-      if (activeSubject !== 'all' && name !== activeSubject) return map;
-      if (!map.has(name)) map.set(name, []);
-      map.get(name)!.push(ex);
-      return map;
-    }, new Map<string, PlayExercise[]>()).entries()]
-      .sort(([a], [b]) => a.localeCompare(b, 'th'))
-    : [];
-
-  const totalCount = exercises?.length ?? 0;
-  const completedCount = exercises?.filter((ex) => ex.bestScore != null).length ?? 0;
-  const percentDone = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+  const rows = exercises ?? [];
+  const completedCount = rows.filter((exercise) => exercise.completedCount > 0 || exercise.bestScore != null).length;
+  const resumeExercise = selectResumeExercise(rows);
+  const subjectSummaries = summarizeSubjects(rows);
+  const filteredExercises = filterExercisesBySubject(rows, activeSubject);
 
   return (
-    <div className={`play-root ${uiSimple ? 'ui-simple' : ''}`}>
-      <div className="kid-home-panel">
-        <div className="kid-topbar">
-          {child ? <ChildAvatar child={child} size="sm" /> : <span className="kid-topbar-avatar">🙂</span>}
-          <div className="grow">
-            <h2>{child?.name ?? ''} มาทำแบบฝึกหัดกัน!</h2>
-            <div className="muted">{completedCount}/{totalCount} ชุด · ทำไปแล้ว {percentDone}%</div>
-          </div>
-          <Link to="/play/progress"><button className="secondary">ดูความคืบหน้า</button></Link>
-          <button className="secondary" onClick={switchProfile}>สลับคน</button>
-          <Link to="/parent/exercises"><button className="secondary">ผู้ปกครอง</button></Link>
-        </div>
-        {totalCount > 0 && (
-          <div className="kid-home-progress">
-            <div className="progress-track"><div className="progress-fill" style={{ width: `${percentDone}%` }} /></div>
-            <span>{percentDone}%</span>
-          </div>
-        )}
-      </div>
-
+    <ChildLearningShell
+      child={child}
+      eyebrow="My learning"
+      title={`Ready, ${child.name}?`}
+      summary={`${completedCount} of ${rows.length} sets completed`}
+      actions={(
+        <>
+          <Link className="child-secondary-action" to="/play/progress">
+            <BarChart3 aria-hidden="true" />
+            Progress
+          </Link>
+          <button className="child-secondary-action" type="button" onClick={switchProfile}>
+            <Users aria-hidden="true" />
+            Switch member
+          </button>
+          <Link className="child-secondary-action" to="/parent/exercises">
+            <ShieldCheck aria-hidden="true" />
+            Parent
+          </Link>
+        </>
+      )}
+    >
       {exercises === null && !loadError && (
-        <div className="state-card">
-          <div className="state-spinner" />
-          <b>กำลังโหลดแบบฝึกหัด</b>
-          <span>รอสักครู่นะ</span>
-        </div>
+        <AppState tone="loading" title="Loading your exercises" description="Your next activity will be ready shortly." />
       )}
+
       {loadError && (
-        <div className="state-card error-state">
-          <b>โหลดแบบฝึกหัดไม่สำเร็จ</b>
-          <span>ลองกลับไปเลือกโปรไฟล์ใหม่อีกครั้ง</span>
-          <button className="secondary" onClick={() => nav('/play')}>กลับไปเลือกโปรไฟล์</button>
-        </div>
-      )}
-      {exercises?.length === 0 && (
-        <div className="state-card empty-state">
-          <div className="state-illustration">🎉</div>
-          <h3>ยังไม่มีแบบฝึกหัด</h3>
-          <span>รอผู้ปกครองมอบหมายแบบฝึกหัดให้นะ</span>
-        </div>
-      )}
-
-      {subjectRows.length > 0 && (
-        <div className="kid-subject-switcher" aria-label="เลือกวิชา">
-          <button className={activeSubject === 'all' ? 'active' : ''} onClick={() => setActiveSubject('all')}>ทั้งหมด</button>
-          {subjectRows.map((s) => (
-            <button key={s.subjectName} className={activeSubject === s.subjectName ? 'active' : ''} onClick={() => setActiveSubject(s.subjectName)}>
-              {s.subjectName}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {subjectRows.length > 0 && (
-        <div className="kid-dashboard">
-          {subjectRows.map((s) => {
-            const done = Math.round((s.completed / s.total) * 100);
-            return (
-              <button key={s.subjectName} className={`kid-dashboard-card ${activeSubject === s.subjectName ? 'active' : ''}`} onClick={() => setActiveSubject(s.subjectName)}>
-                <b>{s.subjectName}</b>
-                <span>{s.completed}/{s.total} ชุด</span>
-                <small>{s.total - s.completed === 0 ? 'ครบแล้ว' : `เหลือ ${s.total - s.completed} ชุด`}</small>
-                <div className="progress-track"><div className="progress-fill" style={{ width: `${done}%` }} /></div>
+        <AppState
+          tone="error"
+          title="Exercises could not be loaded"
+          description="Try again, or use parent access if the problem continues."
+          action={(
+            <div className="child-state-actions">
+              <button className="child-primary-action" type="button" onClick={loadExercises}>
+                <RefreshCw aria-hidden="true" />
+                Retry
               </button>
-            );
-          })}
-        </div>
+              <Link className="child-secondary-action" to="/parent/exercises">
+                <ShieldCheck aria-hidden="true" />
+                Parent access
+              </Link>
+            </div>
+          )}
+        />
       )}
 
-      <div className="kid-exercise-list">
-        {groupedExercises.map(([subjectName, items]) => (
-          <div key={subjectName} className="kid-subject-section">
-            <h3>{subjectName}</h3>
-            {items.map((ex) => (
-              <Link key={ex.id} to={`/play/exercises/${ex.id}`} style={{ textDecoration: 'none' }}>
-                <div className="card row kid-exercise-card">
-                  <div className="kid-exercise-icon">{ex.bestScore != null && ex.bestScore >= 0.999 ? '🌟' : '📝'}</div>
-                  <div className="grow">
-                    <div className="kid-exercise-title">{ex.title || 'แบบฝึกหัด'}</div>
-                    <div className="muted">
-                      {ex.subjectName ? `${ex.subjectName} · ` : ''}{ex.questionCount} ข้อ
-                      {ex.bestScore != null && ` · คะแนนดีที่สุด ${Math.round(ex.bestScore * 100)}%`}
-                    </div>
-                  </div>
-                  <span className={`kid-exercise-status ${ex.bestScore == null ? 'todo' : ex.bestScore >= 0.8 ? 'great' : 'done'}`}>
-                    {ex.bestScore == null ? 'ยังไม่ทำ' : `${Math.round(ex.bestScore * 100)}%`}
-                  </span>
-                  <span className="kid-exercise-arrow">▶</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
+      {exercises?.length === 0 && (
+        <AppState
+          tone="empty"
+          title="No exercises yet"
+          description="A parent can assign practice sets when they are ready."
+          action={<Link className="child-secondary-action" to="/play">Back to member selection</Link>}
+        />
+      )}
+
+      {exercises && exercises.length > 0 && (
+        <>
+          <section className="child-overall-progress" aria-labelledby="overall-progress-heading">
+            <div>
+              <p className="child-section-kicker">Today and beyond</p>
+              <h2 id="overall-progress-heading">Overall progress</h2>
+            </div>
+            <ChildProgressMeter
+              value={completedCount}
+              max={exercises.length}
+              label={`${completedCount} of ${exercises.length} exercise sets completed`}
+            />
+          </section>
+
+          {resumeExercise && <ResumeExercisePanel exercise={resumeExercise} />}
+
+          <section className="child-assigned-work" aria-labelledby="assigned-work-heading">
+            <div className="child-section-heading">
+              <div>
+                <p className="child-section-kicker">Assigned work</p>
+                <h2 id="assigned-work-heading">Choose an exercise</h2>
+              </div>
+              <span>{filteredExercises.length} sets</span>
+            </div>
+            <SubjectSwitcher
+              subjects={subjectSummaries}
+              activeSubject={activeSubject}
+              onChange={setActiveSubject}
+            />
+            <ChildExerciseList exercises={filteredExercises} />
+          </section>
+        </>
+      )}
+    </ChildLearningShell>
   );
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -159,4 +159,58 @@ test('learning mode badge is informational', () => {
   const source = read('src/components/LearningModeBadge.tsx');
   assert.match(source, /LearningModeBadge/);
   assert.doesNotMatch(source, /<(button|select)/);
+});
+
+test('child learning foundation provides responsive targets, focus, and neutral progress', () => {
+  const cssPath = 'src/styles/child-learning.css';
+  assert.equal(existsSync(join(root, cssPath)), true, 'child-learning.css should exist');
+  const css = read(cssPath);
+
+  assert.match(css, /\.child-primary-action\s*\{[^}]*min-height\s*:\s*48px/s);
+  assert.match(css, /\.child-secondary-action\s*\{[^}]*min-height\s*:\s*44px/s);
+  assert.match(css, /\.child-progress-meter progress\s*\{[^}]*accent-color\s*:\s*#3f6f8f/s);
+  assert.match(css, /--child-progress-track\s*:\s*#(?:dfe7df|e2e8e2)/);
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*768px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*390px\)/);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  assert.doesNotMatch(css, /font-size\s*:\s*(?:clamp|min|max)\(/);
+
+  const selectedRule = css.match(/\.child-subject-switcher \[aria-selected='true'\]\s*\{[^}]*\}/s)?.[0] ?? '';
+  assert.match(selectedRule, /color\s*:\s*var\(--ink-strong\)/);
+  assert.match(selectedRule, /background\s*:\s*var\(--surface-selected\)/);
+  assert.doesNotMatch(selectedRule, /background\s*:\s*(?:var\(--cfs-accent\)|#[0-4][0-9a-f]{5})/i);
+});
+
+test('child dashboard uses focused semantic components without reordering or nested controls', () => {
+  const componentPaths = [
+    'src/routes/play/components/ChildLearningShell.tsx',
+    'src/routes/play/components/ChildProgressMeter.tsx',
+    'src/routes/play/components/ResumeExercisePanel.tsx',
+    'src/routes/play/components/SubjectSwitcher.tsx',
+    'src/routes/play/components/ChildExerciseList.tsx',
+  ];
+  for (const path of componentPaths) {
+    assert.equal(existsSync(join(root, path)), true, `${path} should exist`);
+  }
+
+  const components = componentPaths.map(read).join('\n');
+  const dashboard = read('src/routes/play/PlayExerciseList.tsx');
+  const progress = read('src/routes/play/PlayProgress.tsx');
+  const main = read('src/main.tsx');
+
+  assert.match(components, /<progress/);
+  assert.match(components, /role="tablist"/);
+  assert.match(components, /role="list"/);
+  assert.match(dashboard, /filterExercisesBySubject/);
+  assert.match(dashboard, /selectResumeExercise/);
+  assert.match(dashboard, /<ChildExerciseList/);
+  assert.doesNotMatch(dashboard, /\.sort\(/);
+  assert.match(progress, /<ChildProgressMeter/);
+  assert.match(main, /\.\/styles\/child-learning\.css/);
+  for (const source of [components, dashboard, progress]) {
+    assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
+    assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
+  }
 });
