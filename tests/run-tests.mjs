@@ -58,6 +58,7 @@ compile('worker/lib/ai-providers/index.ts', 'worker/lib/ai-providers.js');
 compile('worker/lib/exercise-sets.ts', 'worker/lib/exercise-sets.js');
 compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
 compile('worker/lib/progress.ts', 'worker/lib/progress.js');
+compile('worker/lib/exercise-recommendation.ts', 'worker/lib/exercise-recommendation.js');
 compile('worker/middleware/auth.ts', 'worker/middleware/auth.js');
 compile('worker/routes/children.ts', 'worker/routes/children.js');
 compile('worker/routes/play.ts', 'worker/routes/play.js');
@@ -71,6 +72,9 @@ writeSharedPackage('diagram');
 writeSharedPackage('json-repair');
 
 const { gradeAnswer } = await import(pathToFileURL(join(outDir, 'worker/lib/grading.js')));
+const { recommendNextExercise } = await import(
+  pathToFileURL(join(outDir, 'worker/lib/exercise-recommendation.js')),
+);
 const { parseImportedJson, preflightImportedJson, validateQuestionPayload } = await import(
   pathToFileURL(join(outDir, 'worker/lib/json-import.js'))
 );
@@ -437,7 +441,58 @@ async function makePlayApp() {
   const sessionId = 'session-1';
   const state = {
     activeChildId: null,
+    exerciseListSql: null,
     children: [{ id: 2, parent_id: 1, name: 'Dawin', avatar: 'panda', age_band: 'young' }],
+    exerciseRows: [
+      {
+        id: 10,
+        title: 'Completed maths',
+        subject_name: 'Maths',
+        question_count: 4,
+        best_score: 1,
+        completed_count: 1,
+        learning_mode: 'guided',
+        in_progress_attempt_id: null,
+        in_progress_answered_count: 0,
+        assigned_at: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 20,
+        title: 'Later maths',
+        subject_name: 'Maths',
+        question_count: 3,
+        best_score: null,
+        completed_count: 0,
+        learning_mode: 'exam',
+        in_progress_attempt_id: null,
+        in_progress_answered_count: 0,
+        assigned_at: '2026-01-03T00:00:00.000Z',
+      },
+      {
+        id: 30,
+        title: 'Resume science',
+        subject_name: 'Science',
+        question_count: 5,
+        best_score: null,
+        completed_count: 0,
+        learning_mode: 'guided',
+        in_progress_attempt_id: 300,
+        in_progress_answered_count: 2,
+        assigned_at: '2026-01-04T00:00:00.000Z',
+      },
+      {
+        id: 40,
+        title: 'Earlier history',
+        subject_name: 'History',
+        question_count: 2,
+        best_score: null,
+        completed_count: 0,
+        learning_mode: 'guided',
+        in_progress_attempt_id: null,
+        in_progress_answered_count: 0,
+        assigned_at: '2026-01-02T00:00:00.000Z',
+      },
+    ],
   };
   const db = {
     prepare(sql) {
@@ -461,6 +516,17 @@ async function makePlayApp() {
               return { meta: { changes: 1 } };
             },
             async all() {
+              if (sql.includes('FROM assignments asg')) {
+                state.exerciseListSql = sql;
+                return {
+                  results: [
+                    state.exerciseRows[2],
+                    state.exerciseRows[3],
+                    state.exerciseRows[1],
+                    state.exerciseRows[0],
+                  ],
+                };
+              }
               return { results: [] };
             },
           };
@@ -917,6 +983,118 @@ test('play route selects a child without a PIN', async () => {
     child: { id: 2, name: 'Dawin', avatar: 'panda', ageBand: 'young' },
   });
   assert.equal(state.activeChildId, 2);
+});
+
+function exercise(overrides = {}) {
+  return {
+    id: 1,
+    title: 'Exercise',
+    subjectName: 'Maths',
+    questionCount: 3,
+    bestScore: null,
+    completedCount: 0,
+    learningMode: 'guided',
+    hasInProgress: false,
+    inProgressAnsweredCount: 0,
+    assignedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+test('recommendation prioritizes resumable, related, incomplete, then retry work', () => {
+  const current = exercise({ id: 1, completedCount: 1, assignedAt: '2026-01-01T00:00:00.000Z' });
+  const sameSubject = exercise({ id: 2, assignedAt: '2026-01-03T00:00:00.000Z' });
+  const inProgress = exercise({
+    id: 3,
+    subjectName: 'Science',
+    hasInProgress: true,
+    assignedAt: '2026-01-04T00:00:00.000Z',
+  });
+  const anotherSubject = exercise({
+    id: 4,
+    subjectName: 'History',
+    assignedAt: '2026-01-02T00:00:00.000Z',
+  });
+  const exercises = [current, sameSubject, inProgress, anotherSubject];
+
+  assert.equal(recommendNextExercise(exercises, current.id)?.id, inProgress.id);
+  assert.equal(recommendNextExercise(exercises.filter((row) => row.id !== inProgress.id), current.id)?.id, sameSubject.id);
+  assert.equal(
+    recommendNextExercise(exercises.filter((row) => row.id !== inProgress.id && row.id !== sameSubject.id), current.id)?.id,
+    anotherSubject.id,
+  );
+  assert.equal(recommendNextExercise([current], current.id)?.id, current.id);
+});
+
+test('play exercise list returns resumable metadata before incomplete and completed work', async () => {
+  const { app, env, state, cookie } = await makePlayApp();
+  const selected = await app.request(
+    '/play/select-child',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ childId: 2 }),
+    },
+    env,
+  );
+  assert.equal(selected.status, 200);
+
+  const response = await app.request('/play/exercises', { headers: { cookie } }, env);
+  assert.equal(response.status, 200);
+  assert.match(
+    state.exerciseListSql,
+    /ORDER BY\s+CASE WHEN in_progress_attempt_id IS NOT NULL THEN 0\s+WHEN completed_count = 0 THEN 1 ELSE 2 END,\s+asg\.assigned_at ASC,\s+es\.id ASC/,
+  );
+  assert.deepEqual(await response.json(), [
+    {
+      id: 30,
+      title: 'Resume science',
+      subjectName: 'Science',
+      questionCount: 5,
+      bestScore: null,
+      completedCount: 0,
+      learningMode: 'guided',
+      hasInProgress: true,
+      inProgressAnsweredCount: 2,
+      assignedAt: '2026-01-04T00:00:00.000Z',
+    },
+    {
+      id: 40,
+      title: 'Earlier history',
+      subjectName: 'History',
+      questionCount: 2,
+      bestScore: null,
+      completedCount: 0,
+      learningMode: 'guided',
+      hasInProgress: false,
+      inProgressAnsweredCount: 0,
+      assignedAt: '2026-01-02T00:00:00.000Z',
+    },
+    {
+      id: 20,
+      title: 'Later maths',
+      subjectName: 'Maths',
+      questionCount: 3,
+      bestScore: null,
+      completedCount: 0,
+      learningMode: 'exam',
+      hasInProgress: false,
+      inProgressAnsweredCount: 0,
+      assignedAt: '2026-01-03T00:00:00.000Z',
+    },
+    {
+      id: 10,
+      title: 'Completed maths',
+      subjectName: 'Maths',
+      questionCount: 4,
+      bestScore: 1,
+      completedCount: 1,
+      learningMode: 'guided',
+      hasInProgress: false,
+      inProgressAnsweredCount: 0,
+      assignedAt: '2026-01-01T00:00:00.000Z',
+    },
+  ]);
 });
 
 test('admin R2 route deletes multiple parent-owned files without key retyping', async () => {

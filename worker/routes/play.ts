@@ -72,14 +72,28 @@ playRoutes.get('/exercises', requireChildSession, async (c) => {
     `SELECT es.id, es.title, s.name AS subject_name,
             (SELECT COUNT(*) FROM questions q WHERE q.exercise_set_id = es.id) AS question_count,
             (SELECT MAX(a.score) FROM attempts a WHERE a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'completed') AS best_score,
-            (SELECT COUNT(*) FROM attempts a WHERE a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'completed') AS completed_count
+            (SELECT COUNT(*) FROM attempts a WHERE a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'completed') AS completed_count,
+            es.learning_mode,
+            in_progress_attempt.id AS in_progress_attempt_id,
+            (SELECT COUNT(*) FROM attempt_answers aa WHERE aa.attempt_id = in_progress_attempt.id) AS in_progress_answered_count,
+            asg.assigned_at
      FROM assignments asg
      JOIN exercise_sets es ON es.id = asg.exercise_set_id
      LEFT JOIN subjects s ON s.id = es.subject_id
+     LEFT JOIN attempts in_progress_attempt ON in_progress_attempt.id = (
+       SELECT a.id FROM attempts a
+       WHERE a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'in_progress'
+       ORDER BY a.started_at DESC, a.id DESC
+       LIMIT 1
+     )
      WHERE asg.child_id = ? AND es.status = 'published'
-     ORDER BY asg.assigned_at DESC`,
+     ORDER BY
+       CASE WHEN in_progress_attempt_id IS NOT NULL THEN 0
+            WHEN completed_count = 0 THEN 1 ELSE 2 END,
+       asg.assigned_at ASC,
+       es.id ASC`,
   )
-    .bind(activeChildId, activeChildId, activeChildId)
+    .bind(activeChildId, activeChildId, activeChildId, activeChildId)
     .all();
   return c.json(
     rows.results.map((r) => ({
@@ -89,6 +103,10 @@ playRoutes.get('/exercises', requireChildSession, async (c) => {
       questionCount: r.question_count,
       bestScore: r.best_score,
       completedCount: r.completed_count,
+      learningMode: r.learning_mode,
+      hasInProgress: r.in_progress_attempt_id != null,
+      inProgressAnsweredCount: r.in_progress_answered_count,
+      assignedAt: r.assigned_at,
     })),
   );
 });
