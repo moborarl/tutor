@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
+import { AlertDialog, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { api, ApiError } from '../../lib/api-client';
+import { AppState } from '../../components/AppState';
 import { ChildAvatar } from '../../components/ChildAvatar';
+import { DataToolbar } from '../../components/DataToolbar';
+import { EntityList, EntityRow } from '../../components/EntityList';
+import { ExplorerLayout } from '../../components/ExplorerLayout';
+import { PageHeader } from '../../components/PageHeader';
+import { StatusBadge } from '../../components/StatusBadge';
 import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
 
 type AdminSection = 'overview' | 'profile' | 'password' | 'sets' | 'children' | 'r2' | 'cleanup';
@@ -302,14 +308,7 @@ export default function Admin() {
   }
 
   if (!summary || !profile) {
-    return (
-      <Card className="parent-panel">
-        <Flex align="center" gap="3">
-          <div className="state-spinner" />
-          <Text color="gray">กำลังโหลดข้อมูล...</Text>
-        </Flex>
-      </Card>
-    );
+    return <AppState tone="loading" title="กำลังโหลดข้อมูลครอบครัว" />;
   }
   const c = summary.counts;
   const selectedCount = selectedSetIds.length;
@@ -352,20 +351,21 @@ export default function Admin() {
 
   return (
     <div className="parent-stack">
-      <div className="page-heading">
-        <div>
-          <Heading as="h2" size="6">ดูแลข้อมูล</Heading>
-          <Text color="gray" size="2">{profile.familyName} · จัดการครอบครัว แบบฝึกหัด เด็ก ไฟล์ และพื้นที่ใช้งานจากที่เดียว</Text>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={profile.familyName}
+        title="ดูแลข้อมูล"
+        description="จัดการครอบครัว แบบฝึกหัด เด็ก ไฟล์ และพื้นที่ใช้งานจากที่เดียว"
+      />
 
-      <div className="management-shell admin-management-shell">
-        <TreePanel
+      <ExplorerLayout
+        mobileLabel="พื้นที่ดูแลข้อมูล"
+        tree={<TreePanel
           label="พื้นที่ดูแลข้อมูล"
           items={adminTreeItems}
           activeId={adminActiveId}
           onSelect={selectAdminTree}
-        />
+        />}
+      >
 
         <section className="management-workspace">
           {section === 'overview' && (
@@ -380,7 +380,7 @@ export default function Admin() {
                   <Button variant="soft" color="gray" onClick={() => setSection('profile')}>แก้ไขโปรไฟล์</Button>
                 </Flex>
               </Card>
-              <div className="stats-grid admin-stats">
+              <div className="summary-grid stats-grid admin-stats">
                 <Card className="stat-card"><div className="stat-value">{c.exerciseSets}</div><Text color="gray" size="2">แบบฝึกหัด</Text></Card>
                 <Card className="stat-card"><div className="stat-value">{c.archivedSets}</div><Text color="gray" size="2">เก็บเข้าคลัง</Text></Card>
                 <Card className="stat-card"><div className="stat-value">{c.children}</div><Text color="gray" size="2">เด็ก</Text></Card>
@@ -389,23 +389,23 @@ export default function Admin() {
                 <Card className="stat-card"><div className="stat-value">{c.r2Objects}</div><Text color="gray" size="2">ไฟล์ R2</Text></Card>
                 <Card className="stat-card"><div className="stat-value">{formatBytes(c.r2Bytes)}</div><Text color="gray" size="2">พื้นที่ไฟล์โดยประมาณ</Text></Card>
               </div>
-              <Card className="parent-panel">
+              <section className="parent-panel workspace-section">
                 <Heading as="h3" size="4">สมาชิกครอบครัว</Heading>
-                <div className="family-child-list">
+                <EntityList
+                  label="สมาชิกครอบครัว"
+                  isEmpty={profile.children.length === 0}
+                  empty={<AppState tone="empty" title="ยังไม่มีโปรไฟล์เด็ก" />}
+                >
                   {profile.children.map((child) => (
-                    <div key={child.id} className="family-child-row">
-                      <ChildAvatar child={child} />
-                      <div className="grow">
-                        <Text as="div" weight="bold">{child.name}</Text>
-                        <Text as="div" color="gray" size="2">
-                          {ageBandLabel(child.ageBand)} · มอบหมาย {child.assignedCount} · ทำแล้ว {child.completedCount}
-                        </Text>
-                      </div>
-                    </div>
+                    <EntityRow
+                      key={child.id}
+                      selection={<ChildAvatar child={child} />}
+                      title={child.name}
+                      metadata={`${ageBandLabel(child.ageBand)} · มอบหมาย ${child.assignedCount} · ทำแล้ว ${child.completedCount}`}
+                    />
                   ))}
-                  {profile.children.length === 0 && <Text color="gray">ยังไม่มีโปรไฟล์เด็ก</Text>}
-                </div>
-              </Card>
+                </EntityList>
+              </section>
             </div>
           )}
 
@@ -437,136 +437,149 @@ export default function Admin() {
           )}
 
           {section === 'sets' && (
-            <Card className="parent-panel">
-              <Flex align="center" gap="3" wrap="wrap" className="list-toolbar">
-                <div className="grow">
+            <section className="parent-panel workspace-section">
+              <div className="workspace-section-heading">
                   <Heading as="h3" size="4">{setFilter === 'all' ? 'แบบฝึกหัดทั้งหมด' : setFilter}</Heading>
                   <Text color="gray" size="2">เลือกหลายชุดแล้วลบพร้อมกันได้จากหน้านี้</Text>
-                </div>
-                <label className="select-all-row">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    disabled={filteredSets.length === 0}
-                    onChange={(e) => toggleVisibleSets(e.target.checked)}
-                  />
-                  <span>เลือกทั้งหมดที่เห็น</span>
-                </label>
-                <ConfirmDanger
-                  label={busy ? 'กำลังลบ...' : `ลบที่เลือก (${selectedCount})`}
-                  title="ลบแบบฝึกหัดที่เลือก?"
-                  description="จะลบโจทย์ รูปภาพ การมอบหมาย และประวัติการทำของแบบฝึกหัดที่เลือกทั้งหมด"
-                  disabled={selectedCount === 0 || busy}
-                  onConfirm={() => deleteSelectedSets(selectedSetIds)}
-                />
-              </Flex>
-              <div className="admin-list selectable-list">
-                {filteredSets.map((s) => (
-                  <div key={s.id} className={`admin-row selectable-row ${selectedSetIds.includes(s.id) ? 'selected' : ''}`}>
+              </div>
+              <DataToolbar
+                selection={(
+                  <label className="select-all-row">
                     <input
                       className="compact-checkbox"
                       type="checkbox"
-                      checked={selectedSetIds.includes(s.id)}
-                      onChange={(e) => toggleSet(s.id, e.target.checked)}
-                      aria-label={`เลือก ${s.title || `ชุดที่ ${s.id}`}`}
+                      checked={allVisibleSelected}
+                      disabled={filteredSets.length === 0}
+                      onChange={(e) => toggleVisibleSets(e.target.checked)}
                     />
-                    <div className="grow">
-                      <Text as="div" weight="bold">{s.title || `ชุดที่ ${s.id}`}</Text>
-                      <Text as="div" color="gray" size="2">{s.subjectName ?? 'ไม่ระบุวิชา'} · {ageBandLabel(s.ageBand)} · {s.questionCount} ข้อ · มอบหมาย {s.assignedCount}</Text>
-                    </div>
-                    <Badge variant="soft">{s.status}</Badge>
-                  </div>
+                    <span>เลือกทั้งหมดที่เห็น</span>
+                  </label>
+                )}
+                actions={(
+                  <ConfirmDanger
+                    label={busy ? 'กำลังลบ...' : `ลบที่เลือก (${selectedCount})`}
+                    title="ลบแบบฝึกหัดที่เลือก?"
+                    description="จะลบโจทย์ รูปภาพ การมอบหมาย และประวัติการทำของแบบฝึกหัดที่เลือกทั้งหมด"
+                    disabled={selectedCount === 0 || busy}
+                    onConfirm={() => deleteSelectedSets(selectedSetIds)}
+                  />
+                )}
+              />
+              <EntityList
+                label="แบบฝึกหัด"
+                isEmpty={filteredSets.length === 0}
+                empty={<AppState tone="empty" title="ไม่มีแบบฝึกหัดในโฟลเดอร์นี้" />}
+              >
+                {filteredSets.map((s) => (
+                  <EntityRow
+                    key={s.id}
+                    selected={selectedSetIds.includes(s.id)}
+                    selection={<input
+                        className="compact-checkbox"
+                        type="checkbox"
+                        checked={selectedSetIds.includes(s.id)}
+                        onChange={(e) => toggleSet(s.id, e.target.checked)}
+                        aria-label={`เลือก ${s.title || `ชุดที่ ${s.id}`}`}
+                      />}
+                    title={s.title || `ชุดที่ ${s.id}`}
+                    metadata={`${s.subjectName ?? 'ไม่ระบุวิชา'} · ${ageBandLabel(s.ageBand)} · ${s.questionCount} ข้อ · มอบหมาย ${s.assignedCount}`}
+                    status={<StatusBadge tone={s.status === 'published' ? 'success' : 'warning'}>{s.status}</StatusBadge>}
+                  />
                 ))}
-                {filteredSets.length === 0 && <Text color="gray">ไม่มีแบบฝึกหัดในโฟลเดอร์นี้</Text>}
-              </div>
-            </Card>
+              </EntityList>
+            </section>
           )}
 
           {section === 'children' && (
-            <Card className="parent-panel">
+            <section className="parent-panel workspace-section">
               <Heading as="h3" size="4">เด็กทั้งหมด</Heading>
-              <div className="admin-list">
+              <EntityList
+                label="เด็กทั้งหมด"
+                isEmpty={summary.children.length === 0}
+                empty={<AppState tone="empty" title="ไม่มีโปรไฟล์เด็ก" />}
+              >
                 {summary.children.map((ch) => (
-                  <div key={ch.id} className="admin-row">
-                    <ChildAvatar child={ch} />
-                    <div className="grow">
-                      <Text as="div" weight="bold">{ch.name}</Text>
-                      <Text as="div" color="gray" size="2">{ageBandLabel(ch.ageBand)} · มอบหมาย {ch.assignedCount} · ทำแล้ว {ch.attemptCount}</Text>
-                    </div>
-                    <ConfirmDanger
+                  <EntityRow
+                    key={ch.id}
+                    selection={<ChildAvatar child={ch} />}
+                    title={ch.name}
+                    metadata={`${ageBandLabel(ch.ageBand)} · มอบหมาย ${ch.assignedCount} · ทำแล้ว ${ch.attemptCount}`}
+                    actions={<ConfirmDanger
                       label="ลบ"
                       title={`ลบ ${ch.name}?`}
                       description="จะลบโปรไฟล์เด็ก การมอบหมาย และประวัติการทำทั้งหมดของเด็กคนนี้"
                       disabled={busy}
                       onConfirm={() => runCleanup(`/api/parent/admin/children/${ch.id}`)}
-                    />
-                  </div>
+                    />}
+                  />
                 ))}
-                {summary.children.length === 0 && <Text color="gray">ไม่มีโปรไฟล์เด็ก</Text>}
-              </div>
-            </Card>
+              </EntityList>
+            </section>
           )}
 
           {section === 'r2' && (
-            <Card className="parent-panel">
-              <Flex align="center" gap="3" wrap="wrap">
-                <div className="grow">
+            <section className="parent-panel workspace-section">
+              <div className="workspace-section-heading">
                   <Heading as="h3" size="4">ไฟล์ R2</Heading>
                   <Text color="gray" size="2">ไฟล์รูปภายใต้บัญชีนี้เท่านั้น ลบเฉพาะไฟล์ที่มั่นใจว่าไม่ใช้แล้ว</Text>
-                </div>
-                <label className="select-all-row">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleR2Selected}
-                    disabled={r2Files.length === 0}
-                    onChange={(e) => toggleVisibleR2Files(e.target.checked)}
+              </div>
+              <DataToolbar
+                selection={(
+                  <label className="select-all-row">
+                    <input
+                      className="compact-checkbox"
+                      type="checkbox"
+                      checked={allVisibleR2Selected}
+                      disabled={r2Files.length === 0}
+                      onChange={(e) => toggleVisibleR2Files(e.target.checked)}
+                    />
+                    <span>เลือกทั้งหมดที่โหลด</span>
+                  </label>
+                )}
+                actions={<>
+                  <ConfirmR2Delete
+                    count={selectedR2Count}
+                    busy={busy}
+                    disabled={selectedR2Count === 0}
+                    onConfirm={() => deleteR2Files(selectedR2Keys)}
                   />
-                  <span>เลือกทั้งหมดที่โหลด</span>
-                </label>
-                <ConfirmR2Delete
-                  count={selectedR2Count}
-                  busy={busy}
-                  disabled={selectedR2Count === 0}
-                  onConfirm={() => deleteR2Files(selectedR2Keys)}
-                />
-                <Button variant="soft" color="gray" onClick={() => loadR2Files(true)} disabled={r2Loading}>
-                  {r2Files.length === 0 ? 'โหลดรายการไฟล์' : 'รีเฟรช'}
-                </Button>
-              </Flex>
+                  <Button variant="soft" color="gray" onClick={() => loadR2Files(true)} disabled={r2Loading}>
+                    {r2Files.length === 0 ? 'โหลดรายการไฟล์' : 'รีเฟรช'}
+                  </Button>
+                </>}
+              />
               <div className="r2-summary-strip">
                 <div><b>{c.r2Objects}</b><span>ไฟล์ทั้งหมด</span></div>
                 <div><b>{formatBytes(c.r2Bytes)}</b><span>พื้นที่โดยประมาณ</span></div>
                 <div><b>{r2Files.length}</b><span>โหลดมาแล้ว</span></div>
               </div>
-              <div className="admin-list">
+              <EntityList
+                label="ไฟล์ R2"
+                isEmpty={r2Files.length === 0}
+                empty={<AppState tone="empty" title="ยังไม่ได้โหลดรายการไฟล์" />}
+              >
                 {r2Files.map((file) => (
-                  <div key={file.key} className={`admin-row selectable-row r2-file-row ${selectedR2Keys.includes(file.key) ? 'selected' : ''}`}>
-                    <input
-                      className="compact-checkbox"
-                      type="checkbox"
-                      checked={selectedR2Keys.includes(file.key)}
-                      onChange={(e) => toggleR2File(file.key, e.target.checked)}
-                      aria-label={`เลือก ${file.key}`}
-                    />
-                    <div className="grow">
-                      <Text as="div" weight="bold" className="r2-file-key">{file.key}</Text>
-                      <Text as="div" color="gray" size="2">{formatBytes(file.size)} · อัปโหลด {formatDate(file.uploaded)}</Text>
-                    </div>
-                    <ConfirmR2Delete
-                      count={1}
-                      busy={busy}
-                      onConfirm={() => deleteR2Files([file.key])}
-                    />
-                  </div>
+                  <EntityRow
+                    key={file.key}
+                    selected={selectedR2Keys.includes(file.key)}
+                    selection={<input
+                        className="compact-checkbox"
+                        type="checkbox"
+                        checked={selectedR2Keys.includes(file.key)}
+                        onChange={(e) => toggleR2File(file.key, e.target.checked)}
+                        aria-label={`เลือก ${file.key}`}
+                      />}
+                    title={<span className="r2-file-key">{file.key}</span>}
+                    metadata={`${formatBytes(file.size)} · อัปโหลด ${formatDate(file.uploaded)}`}
+                  />
                 ))}
-                {r2Files.length === 0 && <Text color="gray">ยังไม่ได้โหลดรายการไฟล์</Text>}
-              </div>
+              </EntityList>
               {r2Cursor && (
                 <Button variant="soft" color="gray" onClick={() => loadR2Files(false)} disabled={r2Loading}>
                   โหลดเพิ่ม
                 </Button>
               )}
-            </Card>
+            </section>
           )}
 
           {section === 'cleanup' && (
@@ -587,7 +600,7 @@ export default function Admin() {
             </Card>
           )}
         </section>
-      </div>
+      </ExplorerLayout>
     </div>
   );
 }

@@ -85,3 +85,11 @@ test('data workspace primitives expose semantic list and status structure', () =
   assert.match(badge, /aria-hidden="true"/);
   assert.match(badge, /\{children\}/);
 });
+
+test('parent overview consumes shared workspace components', () => {
+  const source = read('src/routes/parent/Admin.tsx');
+  for (const name of ['PageHeader', 'ExplorerLayout', 'TreePanel', 'EntityList', 'StatusBadge']) {
+    assert.match(source, new RegExp(name));
+  }
+  assert.doesNotMatch(source, /r2-file-row[\s\S]{0,900}<ConfirmR2Delete/);
+});
