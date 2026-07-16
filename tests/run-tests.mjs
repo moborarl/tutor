@@ -50,6 +50,7 @@ compile('worker/lib/crypto.ts', 'worker/lib/crypto.js');
 compile('worker/lib/credential-crypto.ts', 'worker/lib/credential-crypto.js');
 compile('worker/lib/custom-ai.ts', 'worker/lib/custom-ai.js');
 compile('worker/lib/reasoning-ai.ts', 'worker/lib/reasoning-ai.js');
+compile('worker/lib/attempt-mode.ts', 'worker/lib/attempt-mode.js');
 compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
 compile('worker/lib/progress.ts', 'worker/lib/progress.js');
 compile('worker/middleware/auth.ts', 'worker/middleware/auth.js');
@@ -70,6 +71,9 @@ const { parseImportedJson, preflightImportedJson, validateQuestionPayload } = aw
 const { Hono } = await import('hono');
 const { signValue } = await import(pathToFileURL(join(outDir, 'worker/lib/crypto.js')));
 const { encryptCredential, decryptCredential } = await import(pathToFileURL(join(outDir, 'worker/lib/credential-crypto.js')));
+const { canUseAnswerEndpoint, sanitizeAttemptAnswer } = await import(
+  pathToFileURL(join(outDir, 'worker/lib/attempt-mode.js')),
+);
 const { childrenRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/children.js')));
 const { playRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/play.js')));
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
@@ -434,6 +438,41 @@ test('gradeAnswer accepts equivalent reduced fractions', () => {
     }),
     true,
   );
+});
+
+test('learning mode migration defaults both tables to guided', () => {
+  const sql = readFileSync('db/migrations/0014_learning_modes.sql', 'utf8');
+  assert.match(sql, /ALTER TABLE exercise_sets[\s\S]*learning_mode[\s\S]*DEFAULT 'guided'/);
+  assert.match(sql, /ALTER TABLE attempts[\s\S]*learning_mode[\s\S]*DEFAULT 'guided'/);
+  assert.match(sql, /CHECK \(learning_mode IN \('guided', 'exam'\)\)/);
+});
+
+test('exam in-progress answers hide grading fields', () => {
+  assert.deepEqual(
+    sanitizeAttemptAnswer('exam', false, {
+      questionId: 7,
+      givenAnswer: { selectedIndex: 1 },
+      timeSpentMs: 800,
+      reasoningText: 'เพราะตัวเลือกนี้ตรงกับโจทย์',
+      isCorrect: true,
+      correctAnswer: { correctIndex: 1 },
+      explanation: 'คำอธิบาย',
+      reasoningFeedback: { status: 'completed', message: 'เข้าใจแล้ว' },
+    }),
+    {
+      questionId: 7,
+      givenAnswer: { selectedIndex: 1 },
+      timeSpentMs: 800,
+      reasoningText: 'เพราะตัวเลือกนี้ตรงกับโจทย์',
+    },
+  );
+});
+
+test('answer endpoints are mode-specific', () => {
+  assert.equal(canUseAnswerEndpoint('guided', 'guided-submit'), true);
+  assert.equal(canUseAnswerEndpoint('guided', 'exam-save'), false);
+  assert.equal(canUseAnswerEndpoint('exam', 'guided-submit'), false);
+  assert.equal(canUseAnswerEndpoint('exam', 'exam-save'), true);
 });
 
 test('parent AI credentials encrypt without exposing plaintext and decrypt with the same secret', async () => {
