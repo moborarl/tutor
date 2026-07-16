@@ -21,3 +21,15 @@ test('new UI styles do not use viewport-scaled font sizes', () => {
     .map((name) => read(`src/styles/${name}.css`)).join('\n');
   assert.doesNotMatch(css, /font-size\s*:\s*(?:clamp|min|max)\(/);
 });
+
+test('PageHeader exposes one semantic page heading', () => {
+  const source = read('src/components/PageHeader.tsx');
+  assert.match(source, /<header className="page-header">/);
+  assert.equal(source.match(/<h1>/g)?.length, 1);
+});
+
+test('AppState announces errors separately from normal status', () => {
+  const source = read('src/components/AppState.tsx');
+  assert.match(source, /tone === 'error' \? 'alert' : 'status'/);
+  assert.match(source, /aria-live="polite"/);
+});
