@@ -66,3 +66,67 @@ test('family homepage exposes semantic member choices and shared states', () => 
   assert.match(source, /<AppState tone="error"/);
   assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
 });
+
+test('explorer navigation closes after a mobile tree selection', () => {
+  const layout = read('src/components/ExplorerLayout.tsx');
+  const tree = read('src/components/TreePanel.tsx');
+  assert.match(layout, /ExplorerTreeContext/);
+  assert.match(layout, /aria-controls="explorer-tree-panel"/);
+  assert.match(layout, /aria-expanded=/);
+  assert.match(tree, /data-tree-node=/);
+  assert.match(tree, /closeTree\(\)/);
+});
+
+test('data workspace primitives expose semantic list and status structure', () => {
+  const list = read('src/components/EntityList.tsx');
+  const badge = read('src/components/StatusBadge.tsx');
+  assert.match(list, /role="list"/);
+  assert.match(list, /role="listitem"/);
+  assert.match(badge, /aria-hidden="true"/);
+  assert.match(badge, /\{children\}/);
+});
+
+test('parent overview consumes shared workspace components', () => {
+  const source = read('src/routes/parent/Admin.tsx');
+  for (const name of ['PageHeader', 'ExplorerLayout', 'TreePanel', 'EntityList', 'StatusBadge']) {
+    assert.match(source, new RegExp(name));
+  }
+  assert.doesNotMatch(source, /r2-file-row[\s\S]{0,900}<ConfirmR2Delete/);
+});
+
+test('exercise management keeps exercises out of the tree', () => {
+  const source = read('src/routes/parent/ExerciseList.tsx');
+  for (const name of ['PageHeader', 'DataToolbar', 'EntityList', 'StatusBadge']) {
+    assert.match(source, new RegExp(name));
+  }
+  const treeBlock = source.match(/const treeItems[\s\S]*?;\r?\n/)?.[0] ?? '';
+  assert.doesNotMatch(treeBlock, /exercise\.title|ex\.title/);
+});
+
+test('child tree uses names while detail workspace owns the avatar', () => {
+  const source = read('src/routes/parent/ChildrenList.tsx');
+  assert.match(source, /PageHeader/);
+  assert.match(source, /EntityList/);
+  const treeBlock = source.match(/const treeItems[\s\S]*?;\r?\n/)?.[0] ?? '';
+  assert.doesNotMatch(treeBlock, /ChildAvatar/);
+  assert.match(source, /<ChildAvatar/);
+});
+
+test('phase 2 explorer keeps tree rows light, aligned, and adaptive', () => {
+  const css = read('src/styles/explorer.css');
+  const rowRules = css.match(/\.folder-tree button\.tree-node(?:\.(?:active)|:hover)?\s*\{[^}]*\}/g)?.join('\n') ?? '';
+  assert.doesNotMatch(rowRules, /background\s*:\s*var\(--cfs-accent\)\s*;/);
+  assert.match(css, /width\s*:\s*calc\(100%\s*-\s*var\(--tree-indent/);
+  assert.match(css, /@media\s*\(max-width:\s*767px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*767px\)[\s\S]*tree-node[\s\S]*min-height\s*:\s*44px/);
+  assert.match(css, /tree-node:focus-visible/);
+  assert.doesNotMatch(css, /font-size\s*:\s*clamp\(/);
+});
+
+test('phase 2 data workspace shares the mobile breakpoint and keyboard focus treatment', () => {
+  const css = read('src/styles/data-workspace.css');
+  assert.match(css, /@media\s*\(max-width:\s*767px\)/);
+  assert.match(css, /entity-title-button:focus-visible/);
+  assert.match(css, /entity-row-link:focus-visible/);
+  assert.doesNotMatch(css, /font-size\s*:\s*clamp\(/);
+});

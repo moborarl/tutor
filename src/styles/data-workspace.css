@@ -1,0 +1,142 @@
+.data-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cfs-space-3);
+  align-items: center;
+  padding: var(--cfs-space-3);
+  background: var(--cfs-surface);
+  border: 1px solid var(--cfs-border);
+  border-radius: 8px;
+}
+
+.data-toolbar-search { flex: 1 1 260px; }
+.data-toolbar-filters,
+.data-toolbar-selection,
+.data-toolbar-actions { display: flex; flex-wrap: wrap; gap: var(--cfs-space-2); align-items: center; }
+.data-toolbar-actions { margin-left: auto; }
+
+.data-toolbar input[type='text'],
+.data-toolbar input[type='search'],
+.data-toolbar-search > input,
+.data-toolbar select {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  color: var(--cfs-ink);
+  background: var(--cfs-surface);
+  border: 1px solid var(--cfs-border-strong);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.data-toolbar-filters > select { width: auto; min-width: 150px; }
+
+.entity-list {
+  background: var(--cfs-surface);
+  border: 1px solid var(--cfs-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.entity-row {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: var(--cfs-space-3);
+  align-items: center;
+  padding: var(--cfs-space-3) var(--cfs-space-4);
+  border-bottom: 1px solid var(--cfs-border);
+}
+
+.entity-row:last-child { border-bottom: 0; }
+.entity-row:hover { background: #f3f6f1; }
+.entity-row.is-selected { background: var(--cfs-accent-soft); }
+.entity-row-copy { min-width: 0; }
+.entity-row-title { color: var(--cfs-ink); font-weight: 750; }
+.entity-row-metadata { color: var(--cfs-muted); font-size: 13px; }
+.entity-row-actions { display: flex; flex-wrap: wrap; gap: var(--cfs-space-2); }
+
+.entity-title-button {
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  color: var(--cfs-ink);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-title-button:focus-visible,
+.entity-row-link:focus-visible {
+  outline: 3px solid var(--cfs-focus);
+  outline-offset: 2px;
+}
+
+.entity-row-link {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  color: var(--cfs-accent-ink);
+  border: 1px solid var(--cfs-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.compact-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cfs-accent);
+}
+
+.status-badge {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.status-badge svg { width: 14px; height: 14px; }
+.status-badge-neutral { color: var(--cfs-ink); background: var(--cfs-surface-muted); }
+.status-badge-success { color: #1f6139; background: var(--cfs-success-soft); }
+.status-badge-warning { color: #6e4b13; background: var(--cfs-warning-soft); }
+.status-badge-danger { color: #8d2831; background: var(--cfs-danger-soft); }
+.status-badge-info { color: #27556a; background: var(--cfs-info-soft); }
+.progress-track,
+.progress-bar-track { background: #dce4d9; }
+.progress-fill,
+.progress-bar-fill { background: var(--cfs-info); }
+
+.entity-row-metadata .progress-bar-track {
+  width: min(360px, 100%);
+  height: 7px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.entity-row-metadata .progress-bar-fill { height: 100%; border-radius: 4px; }
+.progress-value { color: var(--cfs-info); font-size: 13px; font-weight: 750; white-space: nowrap; }
+.workspace-section { display: flex; flex-direction: column; gap: var(--cfs-space-3); }
+.workspace-section-heading { display: flex; flex-direction: column; gap: 3px; }
+
+@media (max-width: 767px) {
+  .data-toolbar > * { flex: 1 1 100%; }
+  .data-toolbar-actions { margin-left: 0; }
+  .entity-row { grid-template-columns: auto minmax(0, 1fr); }
+  .entity-row-status,
+  .entity-row-actions { grid-column: 2; justify-self: start; }
+  .entity-title-button,
+  .entity-row-link { min-height: 44px; }
+}
