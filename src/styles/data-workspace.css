@@ -71,6 +71,21 @@
   white-space: nowrap;
 }
 
+button.entity-title-button:not(.rt-Button) {
+  min-height: 0;
+  padding: 0;
+  color: var(--cfs-ink);
+  background: transparent;
+  border: 0;
+  transform: none;
+}
+
+button.entity-title-button:not(.rt-Button):hover:not(:disabled) {
+  color: var(--cfs-accent-ink);
+  background: transparent;
+  transform: none;
+}
+
 .entity-title-button:focus-visible,
 .entity-row-link:focus-visible {
   outline: 3px solid var(--cfs-focus);
@@ -139,4 +154,5 @@
   .entity-row-actions { grid-column: 2; justify-self: start; }
   .entity-title-button,
   .entity-row-link { min-height: 44px; }
+  button.entity-title-button:not(.rt-Button) { min-height: 44px; }
 }

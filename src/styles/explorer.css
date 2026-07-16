@@ -18,10 +18,15 @@
 .folder-tree {
   position: sticky;
   top: 96px;
+  max-height: calc(100dvh - 112px);
   display: flex;
   flex-direction: column;
   gap: 2px;
+  box-sizing: border-box;
   padding: var(--cfs-space-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   background: var(--cfs-surface);
   border: 1px solid var(--cfs-border);
   border-radius: 8px;
@@ -109,6 +114,12 @@
 
   .explorer-tree-toggle { width: 100%; display: inline-flex; }
   .explorer-layout:not(.tree-open) .explorer-tree { display: none; }
-  .folder-tree { position: static; }
+  .folder-tree {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+  }
   .folder-tree button.tree-node { min-height: 44px; }
 }
