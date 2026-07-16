@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertDialog, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { api } from '../../lib/api-client';
+import { AppState } from '../../components/AppState';
 import { ChildAvatar, CHILD_AVATAR_OPTIONS } from '../../components/ChildAvatar';
+import { EntityList, EntityRow } from '../../components/EntityList';
 import { ExplorerLayout } from '../../components/ExplorerLayout';
+import { PageHeader } from '../../components/PageHeader';
 import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
 import { useNotify } from '../../components/AppNotifications';
 import type { Child, AgeBand, ChildProgress as ChildProgressData } from '@shared/types';
@@ -119,16 +122,19 @@ export default function ChildrenList() {
 
   return (
     <div className="parent-stack">
-      <div className="page-heading">
-        <div>
-          <Heading as="h2" size="6">เด็ก</Heading>
-          <Text color="gray" size="2">จัดการสมาชิกครอบครัว ความคืบหน้า แบบฝึกหัดที่มอบหมาย และโปรไฟล์</Text>
-        </div>
-        <Button onClick={() => { setEditing(null); setShowForm(true); }}>เพิ่มเด็ก</Button>
-      </div>
+      <PageHeader
+        title="เด็ก"
+        description="จัดการสมาชิกครอบครัว ความคืบหน้า แบบฝึกหัดที่มอบหมาย และโปรไฟล์"
+        actions={<Button onClick={() => { setEditing(null); setShowForm(true); }}>เพิ่มเด็ก</Button>}
+      />
 
       {children.length === 0 && !showForm && (
-        <Card className="parent-panel"><Text color="gray">ยังไม่มีโปรไฟล์เด็ก กด “เพิ่มเด็ก” เพื่อเริ่มต้น</Text></Card>
+        <AppState
+          tone="empty"
+          title="ยังไม่มีโปรไฟล์เด็ก"
+          description="เพิ่มสมาชิกเพื่อเริ่มมอบหมายแบบฝึกหัดและติดตามความคืบหน้า"
+          action={<Button onClick={() => { setEditing(null); setShowForm(true); }}>เพิ่มเด็ก</Button>}
+        />
       )}
 
       {children.length > 0 && (
@@ -153,21 +159,28 @@ export default function ChildrenList() {
           )}
 
           {activeNode.kind === 'home' && (
-            <Card className="parent-panel">
+            <section className="parent-panel workspace-section">
               <Heading as="h3" size="4">สมาชิกครอบครัว</Heading>
-              <div className="children-explorer-list">
+              <EntityList label="สมาชิกครอบครัว">
                 {children.map((child) => (
-                  <div key={child.id} className="child-explorer-row">
-                    <input className="compact-checkbox" type="checkbox" checked={selected.has(child.id)} onChange={() => toggleSelected(child.id)} disabled={loading} />
-                    <ChildAvatar child={child} />
-                    <button className="plain-row-button" type="button" onClick={() => setActiveId(nodeId({ kind: 'child', childId: child.id, view: 'progress' }))}>
-                      <Text as="div" weight="bold">{child.name}</Text>
-                      <Text as="div" color="gray" size="2">{ageBandLabel(child.ageBand)}</Text>
-                    </button>
-                  </div>
+                  <EntityRow
+                    key={child.id}
+                    selected={selected.has(child.id)}
+                    selection={<input
+                        className="compact-checkbox"
+                        type="checkbox"
+                        checked={selected.has(child.id)}
+                        onChange={() => toggleSelected(child.id)}
+                        disabled={loading}
+                        aria-label={`เลือก ${child.name}`}
+                      />}
+                    title={<button className="entity-title-button" type="button" onClick={() => setActiveId(nodeId({ kind: 'child', childId: child.id, view: 'progress' }))}>{child.name}</button>}
+                    metadata={ageBandLabel(child.ageBand)}
+                    actions={<Button variant="soft" color="gray" onClick={() => setActiveId(nodeId({ kind: 'child', childId: child.id, view: 'progress' }))}>ดูความคืบหน้า</Button>}
+                  />
                 ))}
-              </div>
-            </Card>
+              </EntityList>
+            </section>
           )}
 
           {activeChild && activeNode.kind === 'child' && (
@@ -183,7 +196,7 @@ export default function ChildrenList() {
                 </Flex>
               </Card>
 
-              {!activeProgress && <Card className="parent-panel"><Flex align="center" gap="3"><div className="state-spinner" /><Text color="gray">กำลังโหลดข้อมูล...</Text></Flex></Card>}
+              {!activeProgress && <AppState tone="loading" title="กำลังโหลดข้อมูลเด็ก" />}
 
               {activeProgress && activeNode.view === 'progress' && <ProgressPanel data={activeProgress} />}
               {activeProgress && activeNode.view === 'assigned' && <AssignedPanel data={activeProgress} />}
@@ -225,47 +238,55 @@ export default function ChildrenList() {
 
 function ProgressPanel({ data }: { data: ChildProgressData }) {
   return (
-    <Card className="parent-panel">
+    <section className="parent-panel workspace-section">
       <Heading as="h3" size="4">ความคืบหน้าตามวิชา</Heading>
-      {data.subjects.length === 0 && <Text color="gray">ยังไม่มีข้อมูลตามวิชา</Text>}
-      <div className="subject-progress-grid">
+      <EntityList
+        label="ความคืบหน้าตามวิชา"
+        isEmpty={data.subjects.length === 0}
+        empty={<AppState tone="empty" title="ยังไม่มีข้อมูลตามวิชา" />}
+      >
         {data.subjects.map((subject) => (
-          <div key={subject.subjectName} className="subject-progress-card">
-            <Text as="div" weight="bold">{subject.subjectName}</Text>
-            <Text as="div" color="gray" size="2">ทำครบแล้ว {subject.completedSetCount}/{subject.assignedCount} ชุด · เหลือ {subject.remainingSetCount} ชุด</Text>
-            <div className="progress-bar-track" style={{ marginTop: 8 }}>
-              <div className="progress-bar-fill" style={{ width: `${completion(subject.completedSetCount, subject.assignedCount)}%` }} />
-            </div>
-            <Text as="div" size="2" weight="bold" style={{ color: 'var(--green)', marginTop: 6 }}>คะแนนดีที่สุด {pct(subject.bestScore)} · ทำทั้งหมด {subject.completedAttempts} ครั้ง</Text>
-          </div>
+          <EntityRow
+            key={subject.subjectName}
+            title={subject.subjectName}
+            metadata={<>
+              <span>ทำครบแล้ว {subject.completedSetCount}/{subject.assignedCount} ชุด · เหลือ {subject.remainingSetCount} ชุด</span>
+              <div className="progress-bar-track" aria-label={`ทำสำเร็จ ${completion(subject.completedSetCount, subject.assignedCount)}%`}>
+                <div className="progress-bar-fill" style={{ width: `${completion(subject.completedSetCount, subject.assignedCount)}%` }} />
+              </div>
+            </>}
+            status={<span className="progress-value">ดีที่สุด {pct(subject.bestScore)} · {subject.completedAttempts} ครั้ง</span>}
+          />
         ))}
-      </div>
-    </Card>
+      </EntityList>
+    </section>
   );
 }
 
 function AssignedPanel({ data }: { data: ChildProgressData }) {
   return (
-    <Card className="parent-panel">
+    <section className="parent-panel workspace-section">
       <Heading as="h3" size="4">แบบฝึกหัดที่มอบหมาย</Heading>
-      {data.sets.length === 0 && <Text color="gray">ยังไม่มีแบบฝึกหัดที่มอบหมาย</Text>}
-      <div className="progress-set-list">
+      <EntityList
+        label="แบบฝึกหัดที่มอบหมาย"
+        isEmpty={data.sets.length === 0}
+        empty={<AppState tone="empty" title="ยังไม่มีแบบฝึกหัดที่มอบหมาย" />}
+      >
         {data.sets.map((set) => (
-          <div key={set.exerciseSetId} className="progress-set-row">
-            <div className="row">
-              <div className="grow">
-                <Text as="div" weight="bold">{set.title || `ชุดที่ ${set.exerciseSetId}`}</Text>
-                <Text as="div" color="gray" size="2">{set.subjectName ?? 'ไม่ระบุวิชา'} · ทำ {set.attemptCount} ครั้ง</Text>
+          <EntityRow
+            key={set.exerciseSetId}
+            title={set.title || `ชุดที่ ${set.exerciseSetId}`}
+            metadata={<>
+              <span>{set.subjectName ?? 'ไม่ระบุวิชา'} · ทำ {set.attemptCount} ครั้ง</span>
+              <div className="progress-bar-track" aria-label={`คะแนนดีที่สุด ${pct(set.bestScore)}`}>
+                <div className="progress-bar-fill" style={{ width: `${(set.bestScore ?? 0) * 100}%` }} />
               </div>
-              <Text weight="bold" style={{ color: 'var(--green)' }}>{pct(set.bestScore)}</Text>
-            </div>
-            <div className="progress-bar-track" style={{ marginTop: 8 }}>
-              <div className="progress-bar-fill" style={{ width: `${(set.bestScore ?? 0) * 100}%` }} />
-            </div>
-          </div>
+            </>}
+            status={<span className="progress-value">{pct(set.bestScore)}</span>}
+          />
         ))}
-      </div>
-    </Card>
+      </EntityList>
+    </section>
   );
 }
 

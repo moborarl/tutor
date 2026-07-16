@@ -99,6 +99,15 @@ test('exercise management keeps exercises out of the tree', () => {
   for (const name of ['PageHeader', 'DataToolbar', 'EntityList', 'StatusBadge']) {
     assert.match(source, new RegExp(name));
   }
-  const treeBlock = source.match(/const treeItems[\s\S]*?;\n/)?.[0] ?? '';
+  const treeBlock = source.match(/const treeItems[\s\S]*?;\r?\n/)?.[0] ?? '';
   assert.doesNotMatch(treeBlock, /exercise\.title|ex\.title/);
+});
+
+test('child tree uses names while detail workspace owns the avatar', () => {
+  const source = read('src/routes/parent/ChildrenList.tsx');
+  assert.match(source, /PageHeader/);
+  assert.match(source, /EntityList/);
+  const treeBlock = source.match(/const treeItems[\s\S]*?;\r?\n/)?.[0] ?? '';
+  assert.doesNotMatch(treeBlock, /ChildAvatar/);
+  assert.match(source, /<ChildAvatar/);
 });
