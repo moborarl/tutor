@@ -1,0 +1,104 @@
+:root {
+  --bg: var(--cfs-bg);
+  --card: var(--cfs-surface);
+  --surface: var(--cfs-surface);
+  --surface-muted: var(--cfs-surface-muted);
+  --ink: var(--cfs-ink);
+  --muted: var(--cfs-muted);
+  --border: var(--cfs-border);
+  --border-strong: var(--cfs-border-strong);
+  --accent: var(--cfs-accent);
+  --accent-hover: var(--cfs-accent-hover);
+  --accent-soft: var(--cfs-accent-soft);
+  --accent-ink: var(--cfs-accent-ink);
+  --green: var(--cfs-success);
+  --green-soft: var(--cfs-success-soft);
+  --red: var(--cfs-danger);
+  --red-soft: var(--cfs-danger-soft);
+  --warning: var(--cfs-warning);
+  --warning-soft: var(--cfs-warning-soft);
+}
+
+html {
+  color-scheme: light;
+  background: var(--cfs-bg);
+}
+
+body {
+  margin: 0;
+  background: var(--cfs-bg);
+  color: var(--cfs-ink);
+  font-family: 'Sarabun', ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.55;
+}
+
+a { color: inherit; }
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--cfs-focus) 34%, transparent);
+  outline-offset: 2px;
+}
+
+.cfs-page {
+  width: min(var(--cfs-container), 100%);
+  margin-inline: auto;
+  padding: var(--cfs-space-6) var(--cfs-space-5) 80px;
+}
+
+.cfs-surface {
+  background: var(--cfs-surface);
+  border: 1px solid var(--cfs-border);
+  border-radius: var(--cfs-radius);
+  box-shadow: var(--cfs-shadow-sm);
+}
+
+.cfs-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cfs-space-4);
+}
+
+.cfs-muted { color: var(--cfs-muted); }
+
+.cfs-button,
+.cfs-link-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cfs-space-2);
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--cfs-radius-sm);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cfs-button-primary {
+  color: #fff;
+  background: var(--cfs-accent);
+}
+
+.cfs-button-primary:hover { background: var(--cfs-accent-hover); }
+
+.cfs-button-secondary {
+  color: var(--cfs-ink);
+  background: var(--cfs-surface);
+  border-color: var(--cfs-border);
+}
+
+@media (max-width: 720px) {
+  .cfs-page { padding: var(--cfs-space-5) var(--cfs-space-4) 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
