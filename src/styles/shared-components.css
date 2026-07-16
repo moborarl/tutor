@@ -1,0 +1,82 @@
+.page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cfs-space-5);
+  align-items: end;
+  margin-bottom: var(--cfs-space-5);
+}
+
+.page-header-copy { min-width: 0; }
+
+.page-header-eyebrow {
+  display: block;
+  margin-bottom: var(--cfs-space-2);
+  color: var(--cfs-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: var(--cfs-ink);
+  font-size: 32px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.page-header p {
+  max-width: 680px;
+  margin: var(--cfs-space-2) 0 0;
+  color: var(--cfs-muted);
+}
+
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cfs-space-2);
+  justify-content: flex-end;
+}
+
+.app-state {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--cfs-space-2);
+  padding: var(--cfs-space-5);
+  text-align: center;
+  color: var(--cfs-muted);
+  background: var(--cfs-surface);
+  border: 1px solid var(--cfs-border);
+  border-radius: var(--cfs-radius);
+}
+
+.app-state > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--cfs-accent);
+}
+
+.app-state h2,
+.app-state p { margin: 0; }
+
+.app-state h2 {
+  color: var(--cfs-ink);
+  font-size: 20px;
+}
+
+.app-state-error > svg { color: var(--cfs-danger); }
+.app-state-spinner { animation: cfs-spin .8s linear infinite; }
+
+@keyframes cfs-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 720px) {
+  .page-header {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .page-header h1 { font-size: 28px; }
+  .page-header-actions { justify-content: stretch; }
+  .page-header-actions > * { flex: 1 1 100%; }
+}

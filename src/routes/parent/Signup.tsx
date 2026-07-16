@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { ArrowLeft, UsersRound } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AppState } from '../../components/AppState';
 import { api, ApiError } from '../../lib/api-client';
 
 export default function Signup() {
@@ -27,20 +29,64 @@ export default function Signup() {
   }
 
   return (
-    <div className="page" style={{ maxWidth: 420, paddingTop: 60 }}>
-      <div className="card">
-        <h2>สมัครสมาชิกผู้ปกครอง</h2>
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input type="text" placeholder="ชื่อครอบครัว เช่น ครอบครัวนุภาค" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
-          <input type="email" placeholder="อีเมล" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input type="password" placeholder="รหัสผ่าน (8 ตัวขึ้นไป)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-          {error && <div className="error-text">{error}</div>}
-          <button type="submit" disabled={busy}>สมัครสมาชิก</button>
+    <main className="auth-shell">
+      <section className="auth-intro" aria-labelledby="signup-title">
+        <Link className="auth-back-link" to="/play">
+          <ArrowLeft aria-hidden="true" /> กลับหน้าครอบครัว
+        </Link>
+        <div className="auth-intro-copy">
+          <span className="auth-mark auth-mark-warm"><UsersRound aria-hidden="true" /></span>
+          <p className="auth-eyebrow">Kids Tutor</p>
+          <h1 id="signup-title">เริ่มพื้นที่การเรียนรู้ของครอบครัว</h1>
+          <p>สร้างบัญชีผู้ปกครอง แล้วเพิ่มสมาชิกและแบบฝึกหัดได้ทันที</p>
+        </div>
+      </section>
+
+      <section className="auth-form-panel" aria-label="สร้างบัญชีครอบครัว">
+        <div className="auth-form-heading">
+          <span>เริ่มต้นใช้งาน</span>
+          <h2>สร้างบัญชีครอบครัว</h2>
+          <p>ข้อมูลนี้แก้ไขภายหลังได้ในหน้าดูแลข้อมูล</p>
+        </div>
+        <form className="auth-form" onSubmit={submit}>
+          <label htmlFor="signup-family">ชื่อครอบครัว</label>
+          <input
+            id="signup-family"
+            type="text"
+            autoComplete="organization"
+            placeholder="เช่น ครอบครัวนุภาค"
+            value={familyName}
+            onChange={(e) => setFamilyName(e.target.value)}
+          />
+          <label htmlFor="signup-email">อีเมล</label>
+          <input
+            id="signup-email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <label htmlFor="signup-password">รหัสผ่าน</label>
+          <input
+            id="signup-password"
+            type="password"
+            autoComplete="new-password"
+            aria-describedby="signup-password-help"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+          />
+          <span id="signup-password-help" className="auth-field-help">อย่างน้อย 8 ตัวอักษร</span>
+          {error && <AppState tone="error" title={error} />}
+          <button className="cfs-button cfs-button-primary auth-submit" type="submit" disabled={busy}>
+            {busy ? 'กำลังสร้างบัญชี...' : 'สร้างบัญชี'}
+          </button>
         </form>
-        <p className="muted" style={{ marginTop: 14 }}>
-          มีบัญชีแล้ว? <Link to="/parent/login">เข้าสู่ระบบ</Link>
-        </p>
-      </div>
-    </div>
+        <p className="auth-switch">มีบัญชีแล้ว? <Link to="/parent/login">เข้าสู่ระบบ</Link></p>
+      </section>
+    </main>
   );
 }

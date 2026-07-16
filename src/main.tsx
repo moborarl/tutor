@@ -5,6 +5,11 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import '@radix-ui/themes/styles.css';
 import './styles.css';
+import './styles/tokens.css';
+import './styles/foundation.css';
+import './styles/shared-components.css';
+import './styles/shell.css';
+import './styles/auth-family.css';
 import { AppNotifications } from './components/AppNotifications';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

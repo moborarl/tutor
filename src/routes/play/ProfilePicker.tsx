@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { api } from '../../lib/api-client';
-import { ChildAvatar } from '../../components/ChildAvatar';
+import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Child } from '@shared/types';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { AppState } from '../../components/AppState';
+import { ChildAvatar } from '../../components/ChildAvatar';
+import { api } from '../../lib/api-client';
 
 export default function ProfilePicker() {
   const nav = useNavigate();
@@ -37,54 +38,67 @@ export default function ProfilePicker() {
 
   if (needLogin) {
     return (
-      <div className="play-root centered-play">
-        <div className="state-illustration">🔒</div>
-        <h2>ให้ผู้ปกครองเข้าสู่ระบบก่อนนะ</h2>
-        <Link to="/parent/login"><button>ผู้ปกครองเข้าสู่ระบบ</button></Link>
-      </div>
+      <main className="family-home family-home-state">
+        <LockKeyhole className="family-home-lock" aria-hidden="true" />
+        <AppState
+          tone="error"
+          title="เข้าสู่ระบบผู้ปกครองก่อน"
+          description="บัญชีผู้ปกครองใช้เปิดพื้นที่ครอบครัวและดูแลข้อมูลสมาชิก"
+          action={<Link className="cfs-link-button cfs-button-primary" to="/parent/login">เข้าสู่ระบบ</Link>}
+        />
+      </main>
     );
   }
 
   if (!children) {
     return (
-      <div className="play-root centered-play">
-        <div className="state-card">
-          <div className="state-spinner" />
-          <b>กำลังโหลดโปรไฟล์เด็ก</b>
-          <span>รอสักครู่นะ</span>
-        </div>
-      </div>
+      <main className="family-home family-home-state">
+        <AppState tone="loading" title="กำลังเตรียมพื้นที่ครอบครัว" description="รอสักครู่" />
+      </main>
     );
   }
 
   return (
-    <div className="play-root">
-      <div className="family-home-heading">
-        <span className="family-home-eyebrow">พื้นที่การเรียนรู้ของครอบครัว</span>
-        <h1 className="kid-page-title">{familyName}</h1>
-        <h2 className="family-member-title">วันนี้ใครจะเข้าใช้งาน?</h2>
-      </div>
-      <div className="profile-grid">
-        {children.map((ch) => (
-          <button key={ch.id} className="profile-tile" onClick={() => selectChild(ch.id)}>
-            <ChildAvatar child={ch} size="lg" />
-            <span className="profile-name">{ch.name}</span>
-            <span className="profile-action">ทำแบบฝึกหัด <ArrowRight aria-hidden="true" /></span>
+    <main className="family-home">
+      <header className="family-home-header">
+        <span>พื้นที่การเรียนรู้ของครอบครัว</span>
+        <h1>{familyName}</h1>
+        <p>เลือกสมาชิกเพื่อเริ่มใช้งาน</p>
+      </header>
+
+      {error && (
+        <AppState tone="error" title={error} />
+      )}
+
+      <section className="family-member-grid" aria-label="สมาชิกครอบครัว">
+        {children.map((child) => (
+          <button
+            key={child.id}
+            className="family-member-card family-member-child"
+            type="button"
+            onClick={() => selectChild(child.id)}
+          >
+            <span className="family-member-avatar"><ChildAvatar child={child} size="lg" /></span>
+            <span className="family-member-name">{child.name}</span>
+            <span className="family-member-action">ทำแบบฝึกหัด <ArrowRight aria-hidden="true" /></span>
           </button>
         ))}
-        <Link to="/parent" className="profile-tile parent-profile-tile">
-          <span className="parent-avatar"><ShieldCheck aria-hidden="true" /></span>
-          <span className="profile-name">ผู้ปกครอง</span>
-          <span className="profile-action">ดูแลข้อมูล <ArrowRight aria-hidden="true" /></span>
+
+        <Link to="/parent" className="family-member-card family-member-parent">
+          <span className="family-parent-icon"><ShieldCheck aria-hidden="true" /></span>
+          <span className="family-member-name">ผู้ปกครอง</span>
+          <span className="family-member-action">ดูแลข้อมูล <ArrowRight aria-hidden="true" /></span>
         </Link>
-      </div>
-      {error && <div className="error-text" style={{ marginTop: 16, textAlign: 'center' }}>{error}</div>}
+      </section>
+
       {children.length === 0 && (
-        <div className="state-card empty-state">
-          <b>ยังไม่มีโปรไฟล์เด็ก</b>
-          <span>ให้ผู้ปกครองเพิ่มโปรไฟล์ที่หน้า <Link to="/parent/children">จัดการเด็ก</Link></span>
-        </div>
+        <AppState
+          tone="empty"
+          title="ยังไม่มีสมาชิกเด็ก"
+          description="เพิ่มโปรไฟล์เด็กเพื่อเริ่มมอบหมายแบบฝึกหัด"
+          action={<Link className="cfs-link-button cfs-button-secondary" to="/parent/children">จัดการสมาชิก</Link>}
+        />
       )}
-    </div>
+    </main>
   );
 }

@@ -1,0 +1,193 @@
+.app-shell { min-height: 100vh; }
+
+.app-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  min-height: 72px;
+  background: rgb(251 252 248 / 96%);
+  border-bottom: 1px solid var(--cfs-border);
+  backdrop-filter: blur(14px);
+}
+
+.app-shell-header-inner {
+  width: min(var(--cfs-container), 100%);
+  min-height: 72px;
+  margin-inline: auto;
+  padding-inline: var(--cfs-space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--cfs-space-4);
+}
+
+.app-shell-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cfs-space-2);
+  color: var(--cfs-ink);
+  font-size: 18px;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-shell-brand > span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--cfs-accent);
+  border-radius: var(--cfs-radius-sm);
+}
+
+.app-shell-desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--cfs-space-1);
+}
+
+.app-shell-desktop-nav a,
+.app-shell-logout {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  color: var(--cfs-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--cfs-radius-sm);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-shell-desktop-nav a:hover,
+.app-shell-desktop-nav a.is-active {
+  color: var(--cfs-accent-ink);
+  background: var(--cfs-accent-soft);
+}
+
+.app-shell-desktop-nav svg,
+.app-shell-logout svg {
+  width: 18px;
+  height: 18px;
+}
+
+.app-shell-logout { margin-left: auto; }
+
+.app-shell-main {
+  width: min(var(--cfs-container), 100%);
+  margin-inline: auto;
+  padding: var(--cfs-space-6) var(--cfs-space-5) 80px;
+}
+
+.app-shell-mobile-nav,
+.app-shell-more { display: none; }
+
+@media (max-width: 1080px) {
+  .app-shell-header-inner { gap: var(--cfs-space-2); }
+  .app-shell-desktop-nav a { padding-inline: 9px; }
+  .app-shell-logout span { display: none; }
+}
+
+@media (max-width: 720px) {
+  .app-shell-header,
+  .app-shell-header-inner { min-height: 60px; }
+
+  .app-shell-header-inner { padding-inline: var(--cfs-space-4); }
+  .app-shell-desktop-nav,
+  .app-shell-logout { display: none; }
+
+  .app-shell-main {
+    padding: var(--cfs-space-5) var(--cfs-space-4) calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .app-shell-mobile-nav {
+    position: fixed;
+    z-index: 50;
+    inset: auto 0 0;
+    min-height: 64px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: rgb(251 252 248 / 98%);
+    border-top: 1px solid var(--cfs-border);
+  }
+
+  .app-shell-mobile-nav a,
+  .app-shell-mobile-nav button {
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--cfs-muted);
+    background: transparent;
+    border: 0;
+    border-radius: var(--cfs-radius-sm);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .app-shell-mobile-nav .is-active {
+    color: var(--cfs-accent-ink);
+    background: var(--cfs-accent-soft);
+  }
+
+  .app-shell-mobile-nav svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .app-shell-more {
+    position: fixed;
+    z-index: 49;
+    right: 12px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    width: min(320px, calc(100vw - 24px));
+    padding: var(--cfs-space-3);
+    display: grid;
+    gap: var(--cfs-space-1);
+    color: var(--cfs-ink);
+    background: var(--cfs-surface);
+    border: 1px solid var(--cfs-border);
+    border-radius: var(--cfs-radius);
+    box-shadow: var(--cfs-shadow-md);
+  }
+
+  .app-shell-more a,
+  .app-shell-more button {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: var(--cfs-space-2);
+    padding: 8px 10px;
+    color: var(--cfs-ink);
+    background: transparent;
+    border: 0;
+    border-radius: var(--cfs-radius-sm);
+    font: inherit;
+    text-decoration: none;
+  }
+
+  .app-shell-more a:hover,
+  .app-shell-more a.is-active,
+  .app-shell-more button:hover { background: var(--cfs-accent-soft); }
+
+  .app-shell-more-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+  }
+
+  .app-shell-more-header button {
+    width: 40px;
+    justify-content: center;
+  }
+}
