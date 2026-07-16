@@ -113,6 +113,36 @@
 
 .child-secondary-action:hover { background: #edf2ed; }
 
+.child-learning button.child-primary-action:not(.rt-Button) {
+  min-height: 48px;
+  padding: 9px 15px;
+  color: #fff;
+  background: #3f6f8f;
+  border: 1px solid #3f6f8f;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.child-learning button.child-secondary-action:not(.rt-Button) {
+  min-height: 44px;
+  padding: 9px 15px;
+  color: var(--ink-strong);
+  background: #fbfcf8;
+  border: 1px solid #b8c6bb;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.child-learning button.child-primary-action:not(.rt-Button):hover:not(:disabled) {
+  background: #315e7b;
+}
+
+.child-learning button.child-secondary-action:not(.rt-Button):hover:not(:disabled) {
+  color: var(--ink-strong);
+  background: #edf2ed;
+  border-color: #9eafa3;
+}
+
 .child-primary-action svg,
 .child-secondary-action svg {
   width: 18px;
@@ -222,7 +252,11 @@
   font-size: 14px;
 }
 
-.child-assigned-work { display: grid; gap: 16px; }
+.child-assigned-work {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
 
 .child-section-heading {
   display: flex;
@@ -239,9 +273,14 @@
 }
 
 .child-subject-switcher {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   gap: 8px;
   padding-bottom: 2px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
 }
 
 .child-subject-tab {
@@ -259,6 +298,22 @@
   font-weight: 750;
 }
 
+.child-learning button.child-subject-tab:not(.rt-Button) {
+  min-height: 44px;
+  padding: 8px 13px;
+  color: #526359;
+  background: #fbfcf8;
+  border: 1px solid #cbd6c8;
+  border-radius: 8px;
+  font-weight: 750;
+}
+
+.child-learning button.child-subject-tab:not(.rt-Button):hover:not(:disabled) {
+  color: var(--ink-strong);
+  background: #f3f6f1;
+  border-color: var(--border-strong);
+}
+
 .child-subject-tab small {
   color: #5d6b60;
   font-size: 12px;
@@ -270,6 +325,15 @@
   border-color: var(--border-strong);
   box-shadow: inset 0 -3px 0 #4f7f95;
 }
+
+.child-learning .child-subject-switcher button.child-subject-tab:not(.rt-Button)[aria-selected='true'] {
+  color: var(--ink-strong);
+  background: var(--surface-selected);
+  border-color: var(--border-strong);
+  box-shadow: inset 0 -3px 0 #4f7f95;
+}
+
+.child-exercise-panel { min-width: 0; }
 
 .child-exercise-list,
 .child-progress-set-list {
@@ -440,12 +504,6 @@
 
 @media (max-width: 768px) {
   .child-learning-content { width: min(100% - 32px, 1120px); }
-
-  .child-subject-switcher {
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
-  }
 
   .child-overall-progress,
   .child-resume-panel,

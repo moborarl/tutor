@@ -8,28 +8,15 @@ import {
   ALL_SUBJECTS,
   filterExercisesBySubject,
   selectResumeExercise,
+  summarizeExercisesBySubject,
 } from './child-learning-state';
 import { ChildExerciseList } from './components/ChildExerciseList';
 import { ChildLearningShell } from './components/ChildLearningShell';
 import { ChildProgressMeter } from './components/ChildProgressMeter';
 import { ResumeExercisePanel } from './components/ResumeExercisePanel';
-import { SubjectSwitcher, type ChildSubjectSummary } from './components/SubjectSwitcher';
+import { getSubjectTabId, SubjectSwitcher } from './components/SubjectSwitcher';
 
-function summarizeSubjects(exercises: PlayExercise[]): ChildSubjectSummary[] {
-  const subjects = new Map<string, ChildSubjectSummary>();
-  for (const exercise of exercises) {
-    if (!exercise.subjectName) continue;
-    const summary = subjects.get(exercise.subjectName) ?? {
-      subjectName: exercise.subjectName,
-      completed: 0,
-      total: 0,
-    };
-    summary.total += 1;
-    if (exercise.completedCount > 0 || exercise.bestScore != null) summary.completed += 1;
-    subjects.set(exercise.subjectName, summary);
-  }
-  return [...subjects.values()];
-}
+const DASHBOARD_EXERCISE_PANEL_ID = 'child-dashboard-exercise-panel';
 
 export default function PlayExerciseList() {
   const navigate = useNavigate();
@@ -72,8 +59,12 @@ export default function PlayExerciseList() {
   const rows = exercises ?? [];
   const completedCount = rows.filter((exercise) => exercise.completedCount > 0 || exercise.bestScore != null).length;
   const resumeExercise = selectResumeExercise(rows);
-  const subjectSummaries = summarizeSubjects(rows);
+  const subjectSummaries = summarizeExercisesBySubject(rows);
   const filteredExercises = filterExercisesBySubject(rows, activeSubject);
+  const activeSubjectIndex = Math.max(
+    0,
+    [ALL_SUBJECTS, ...subjectSummaries.map((subject) => subject.subjectName)].indexOf(activeSubject),
+  );
 
   return (
     <ChildLearningShell
@@ -159,8 +150,17 @@ export default function PlayExerciseList() {
               subjects={subjectSummaries}
               activeSubject={activeSubject}
               onChange={setActiveSubject}
+              panelId={DASHBOARD_EXERCISE_PANEL_ID}
             />
-            <ChildExerciseList exercises={filteredExercises} />
+            <div
+              className="child-exercise-panel"
+              role="tabpanel"
+              id={DASHBOARD_EXERCISE_PANEL_ID}
+              aria-labelledby={getSubjectTabId(DASHBOARD_EXERCISE_PANEL_ID, activeSubjectIndex)}
+              tabIndex={0}
+            >
+              <ChildExerciseList exercises={filteredExercises} />
+            </div>
           </section>
         </>
       )}

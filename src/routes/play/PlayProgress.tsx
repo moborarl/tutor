@@ -7,9 +7,10 @@ import { api } from '../../lib/api-client';
 import { ALL_SUBJECTS } from './child-learning-state';
 import { ChildLearningShell } from './components/ChildLearningShell';
 import { ChildProgressMeter } from './components/ChildProgressMeter';
-import { SubjectSwitcher } from './components/SubjectSwitcher';
+import { getSubjectTabId, SubjectSwitcher } from './components/SubjectSwitcher';
 
 const FALLBACK_SUBJECT = 'ไม่ระบุวิชา';
+const PROGRESS_SETS_PANEL_ID = 'child-progress-sets-panel';
 
 function pct(value: number | null): string {
   return value == null ? 'No score yet' : `${Math.round(value * 100)}%`;
@@ -54,6 +55,10 @@ export default function PlayProgress() {
       ? data.sets
       : data.sets.filter((set) => (set.subjectName ?? FALLBACK_SUBJECT) === activeSubject)
     : [];
+  const activeSubjectIndex = Math.max(
+    0,
+    [ALL_SUBJECTS, ...(data?.subjects.map((subject) => subject.subjectName) ?? [])].indexOf(activeSubject),
+  );
 
   return (
     <ChildLearningShell
@@ -130,6 +135,7 @@ export default function PlayProgress() {
                 }))}
                 activeSubject={activeSubject}
                 onChange={setActiveSubject}
+                panelId={PROGRESS_SETS_PANEL_ID}
               />
 
               <section className="child-progress-section" aria-labelledby="subject-progress-heading">
@@ -159,7 +165,13 @@ export default function PlayProgress() {
                 </div>
               </section>
 
-              <section className="child-progress-section" aria-labelledby="progress-sets-heading">
+              <section
+                className="child-progress-section"
+                role="tabpanel"
+                id={PROGRESS_SETS_PANEL_ID}
+                aria-labelledby={getSubjectTabId(PROGRESS_SETS_PANEL_ID, activeSubjectIndex)}
+                tabIndex={0}
+              >
                 <div className="child-section-heading">
                   <div>
                     <p className="child-section-kicker">Exercise sets</p>

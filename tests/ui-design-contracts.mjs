@@ -214,3 +214,67 @@ test('child dashboard uses focused semantic components without reordering or nes
     assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
   }
 });
+
+test('child controls decisively override the legacy button cascade', () => {
+  const css = read('src/styles/child-learning.css');
+  const primary = css.match(/\.child-learning button\.child-primary-action:not\(\.rt-Button\)\s*\{[^}]*\}/s)?.[0] ?? '';
+  const secondary = css.match(/\.child-learning button\.child-secondary-action:not\(\.rt-Button\)\s*\{[^}]*\}/s)?.[0] ?? '';
+  const subjectTab = css.match(/\.child-learning button\.child-subject-tab:not\(\.rt-Button\)\s*\{[^}]*\}/s)?.[0] ?? '';
+  const selectedTab = css.match(/\.child-learning \.child-subject-switcher button\.child-subject-tab:not\(\.rt-Button\)\[aria-selected='true'\]\s*\{[^}]*\}/s)?.[0] ?? '';
+
+  assert.match(primary, /min-height\s*:\s*48px/);
+  assert.match(primary, /background\s*:\s*#3f6f8f/);
+  assert.match(secondary, /min-height\s*:\s*44px/);
+  assert.match(secondary, /color\s*:\s*var\(--ink-strong\)/);
+  assert.match(secondary, /background\s*:\s*#fbfcf8/);
+  assert.match(subjectTab, /min-height\s*:\s*44px/);
+  assert.match(subjectTab, /color\s*:\s*#526359/);
+  assert.match(subjectTab, /background\s*:\s*#fbfcf8/);
+  assert.match(selectedTab, /color\s*:\s*var\(--ink-strong\)/);
+  assert.match(selectedTab, /background\s*:\s*var\(--surface-selected\)/);
+  assert.match(css, /\.child-learning button\.child-primary-action:not\(\.rt-Button\):hover:not\(:disabled\)/);
+  assert.match(css, /\.child-learning button\.child-secondary-action:not\(\.rt-Button\):hover:not\(:disabled\)/);
+  assert.match(css, /\.child-learning button\.child-subject-tab:not\(\.rt-Button\):hover:not\(:disabled\)/);
+  assert.match(css, /\.child-learning :where\(a, button\):focus-visible/);
+});
+
+test('subject switcher contains overflow at every viewport width', () => {
+  const css = read('src/styles/child-learning.css');
+  const assignedWork = css.match(/\.child-assigned-work\s*\{[^}]*\}/s)?.[0] ?? '';
+  const switcher = css.match(/\.child-subject-switcher\s*\{[^}]*\}/s)?.[0] ?? '';
+
+  assert.match(assignedWork, /min-width\s*:\s*0/);
+  assert.match(switcher, /min-width\s*:\s*0/);
+  assert.match(switcher, /max-width\s*:\s*100%/);
+  assert.match(switcher, /overflow-x\s*:\s*auto/);
+  assert.match(switcher, /overscroll-behavior-inline\s*:\s*contain/);
+});
+
+test('subject tabs use roving focus and control the dashboard tabpanel', () => {
+  const switcher = read('src/routes/play/components/SubjectSwitcher.tsx');
+  const dashboard = read('src/routes/play/PlayExerciseList.tsx');
+
+  assert.match(switcher, /useRef/);
+  assert.match(switcher, /tabIndex=\{selected \? 0 : -1\}/);
+  assert.match(switcher, /onKeyDown=/);
+  for (const key of ['ArrowLeft', 'ArrowRight', 'Home', 'End']) {
+    assert.match(switcher, new RegExp(`case '${key}'`));
+  }
+  assert.match(switcher, /event\.preventDefault\(\)/);
+  assert.match(switcher, /tabRefs\.current\[nextIndex\]\?\.focus\(\)/);
+  assert.match(switcher, /aria-controls=\{panelId\}/);
+  assert.match(switcher, /id=\{getSubjectTabId\(panelId, index\)\}/);
+  assert.match(dashboard, /role="tabpanel"/);
+  assert.match(dashboard, /id=\{DASHBOARD_EXERCISE_PANEL_ID\}/);
+  assert.match(dashboard, /aria-labelledby=\{getSubjectTabId\(DASHBOARD_EXERCISE_PANEL_ID, activeSubjectIndex\)\}/);
+});
+
+test('dashboard normalizes uncategorized subjects for summaries and filtering', () => {
+  const state = read('src/routes/play/child-learning-state.ts');
+  const dashboard = read('src/routes/play/PlayExerciseList.tsx');
+
+  assert.match(state, /UNCATEGORIZED_SUBJECT\s*=\s*'ไม่ระบุวิชา'/);
+  assert.match(state, /subjectName\s*\?\?\s*UNCATEGORIZED_SUBJECT/);
+  assert.match(dashboard, /summarizeExercisesBySubject/);
+  assert.doesNotMatch(dashboard, /if \(!exercise\.subjectName\) continue/);
+});

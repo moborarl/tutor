@@ -1031,6 +1031,35 @@ test('subject filtering preserves API order', async () => {
   assert.deepEqual(filterExercisesBySubject(rows, 'คณิตศาสตร์').map((row) => row.id), [2]);
 });
 
+test('uncategorized subject filtering includes rows with a null subject name', async () => {
+  const { filterExercisesBySubject } = await importChildLearningState();
+  const rows = [
+    exercise({ id: 4, subjectName: 'วิทยาศาสตร์' }),
+    exercise({ id: 7, subjectName: null }),
+    exercise({ id: 2, subjectName: 'คณิตศาสตร์' }),
+  ];
+
+  assert.deepEqual(filterExercisesBySubject(rows, 'ไม่ระบุวิชา').map((row) => row.id), [7]);
+});
+
+test('subject summaries count uncategorized rows without changing source order', async () => {
+  const { summarizeExercisesBySubject } = await importChildLearningState();
+  assert.equal(typeof summarizeExercisesBySubject, 'function');
+  const rows = [
+    exercise({ id: 4, subjectName: 'วิทยาศาสตร์' }),
+    exercise({ id: 7, subjectName: null, completedCount: 1, bestScore: 0.75 }),
+    exercise({ id: 2, subjectName: 'คณิตศาสตร์' }),
+  ];
+
+  const summaries = summarizeExercisesBySubject(rows);
+  assert.deepEqual(summaries, [
+    { subjectName: 'วิทยาศาสตร์', completed: 0, total: 1 },
+    { subjectName: 'ไม่ระบุวิชา', completed: 1, total: 1 },
+    { subjectName: 'คณิตศาสตร์', completed: 0, total: 1 },
+  ]);
+  assert.equal(summaries.reduce((sum, subject) => sum + subject.total, 0), rows.length);
+});
+
 test('recommendation prioritizes resumable, related, incomplete, then retry work', () => {
   const current = exercise({ id: 1, completedCount: 1, assignedAt: '2026-01-01T00:00:00.000Z' });
   const sameSubject = exercise({ id: 2, assignedAt: '2026-01-03T00:00:00.000Z' });
