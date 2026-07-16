@@ -51,12 +51,18 @@ compile('worker/lib/credential-crypto.ts', 'worker/lib/credential-crypto.js');
 compile('worker/lib/custom-ai.ts', 'worker/lib/custom-ai.js');
 compile('worker/lib/reasoning-ai.ts', 'worker/lib/reasoning-ai.js');
 compile('worker/lib/attempt-mode.ts', 'worker/lib/attempt-mode.js');
+compile('worker/lib/ai-providers/types.ts', 'worker/lib/ai-providers/types.js');
+compile('worker/lib/ai-providers/google-gemini.ts', 'worker/lib/google-gemini.js');
+compile('worker/lib/ai-providers/claude.ts', 'worker/lib/claude.js');
+compile('worker/lib/ai-providers/index.ts', 'worker/lib/ai-providers.js');
+compile('worker/lib/exercise-sets.ts', 'worker/lib/exercise-sets.js');
 compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
 compile('worker/lib/progress.ts', 'worker/lib/progress.js');
 compile('worker/middleware/auth.ts', 'worker/middleware/auth.js');
 compile('worker/routes/children.ts', 'worker/routes/children.js');
 compile('worker/routes/play.ts', 'worker/routes/play.js');
 compile('worker/routes/questions.ts', 'worker/routes/questions.js');
+compile('worker/routes/exercises.ts', 'worker/routes/exercises.js');
 compile('worker/routes/subjects.ts', 'worker/routes/subjects.js');
 compile('worker/routes/super-admin.ts', 'worker/routes/super-admin.js');
 compile('worker/routes/admin.ts', 'worker/routes/admin.js');
@@ -77,6 +83,7 @@ const { canUseAnswerEndpoint, sanitizeAttemptAnswer } = await import(
 const { childrenRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/children.js')));
 const { playRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/play.js')));
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
+const { exerciseRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/exercises.js')));
 const { subjectRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/subjects.js')));
 const { superAdminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/super-admin.js')));
 const { adminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/admin.js')));
@@ -144,6 +151,44 @@ function makeQuestionsApp(questionOverrides = {}) {
   });
   app.route('/questions', questionRoutes);
   return { app, db };
+}
+
+function makeExercisesApp() {
+  const state = { set: { id: 20, parent_id: 1, learning_mode: 'guided' } };
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes('SELECT id FROM exercise_sets WHERE id = ? AND parent_id = ?')) {
+                return Number(args[0]) === state.set.id && Number(args[1]) === state.set.parent_id
+                  ? { id: state.set.id }
+                  : null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.startsWith('UPDATE exercise_sets SET') && sql.includes('learning_mode = ?')) {
+                state.set.learning_mode = String(args[0]);
+              }
+              return { meta: { changes: 1 } };
+            },
+            async all() {
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+  const app = new Hono();
+  app.use('*', async (c, next) => {
+    c.set('session', { parentId: 1 });
+    await next();
+  });
+  app.route('/exercise-sets', exerciseRoutes);
+  return { app, db, state };
 }
 
 function makeSuperAdminApp() {
@@ -473,6 +518,55 @@ test('answer endpoints are mode-specific', () => {
   assert.equal(canUseAnswerEndpoint('guided', 'exam-save'), false);
   assert.equal(canUseAnswerEndpoint('exam', 'guided-submit'), false);
   assert.equal(canUseAnswerEndpoint('exam', 'exam-save'), true);
+});
+
+test('exercise set patch persists exam learning mode', async () => {
+  const { app, db, state } = makeExercisesApp();
+  const response = await app.request(
+    '/exercise-sets/20',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ learningMode: 'exam' }),
+    },
+    { DB: db },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(state.set.learning_mode, 'exam');
+});
+
+test('exercise set patch persists guided learning mode', async () => {
+  const { app, db, state } = makeExercisesApp();
+  state.set.learning_mode = 'exam';
+  const response = await app.request(
+    '/exercise-sets/20',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ learningMode: 'guided' }),
+    },
+    { DB: db },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(state.set.learning_mode, 'guided');
+});
+
+test('exercise set patch rejects unsupported learning modes', async () => {
+  const { app, db } = makeExercisesApp();
+  const response = await app.request(
+    '/exercise-sets/20',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ learningMode: 'practice' }),
+    },
+    { DB: db },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: 'invalid_learning_mode' });
 });
 
 test('parent AI credentials encrypt without exposing plaintext and decrypt with the same secret', async () => {

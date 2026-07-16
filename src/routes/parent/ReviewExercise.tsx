@@ -7,11 +7,13 @@ import { DiagramView } from '../../lib/DiagramView';
 import { AnswerKey } from '../../lib/AnswerKey';
 import { RichText } from '../../lib/RichText';
 import { ChildAvatar } from '../../components/ChildAvatar';
+import { LearningModeBadge } from '../../components/LearningModeBadge';
 import { validateDiagram } from '@shared/diagram';
 import { ImageCropTool } from './ImageCropTool';
 import type {
   Child,
   ExerciseSetDetail,
+  LearningMode,
   QuestionWithAnswer,
   QuestionType,
 } from '@shared/types';
@@ -95,6 +97,8 @@ export default function ReviewExercise() {
   const [assignIds, setAssignIds] = useState<Set<number>>(new Set());
   const [msg, setMsg] = useState('');
   const [showImage, setShowImage] = useState(false);
+  const [learningModeSaving, setLearningModeSaving] = useState(false);
+  const [learningModeError, setLearningModeError] = useState('');
 
   const load = useCallback(() => {
     api.get<ExerciseSetDetail>(`/api/parent/exercise-sets/${id}`).then((data) => {
@@ -158,6 +162,20 @@ export default function ReviewExercise() {
     load();
   }
 
+  async function saveLearningMode(learningMode: LearningMode) {
+    if (learningModeSaving || set?.learningMode === learningMode) return;
+    setLearningModeSaving(true);
+    setLearningModeError('');
+    try {
+      await api.patch(`/api/parent/exercise-sets/${id}`, { learningMode });
+      setSet((current) => (current ? { ...current, learningMode } : current));
+    } catch {
+      setLearningModeError('บันทึกโหมดการเรียนรู้ไม่สำเร็จ');
+    } finally {
+      setLearningModeSaving(false);
+    }
+  }
+
   async function retry() {
     setMsg('');
     await api.post(`/api/parent/exercise-sets/${id}/retry-extraction`);
@@ -204,7 +222,41 @@ export default function ReviewExercise() {
               {set.extractionProvider && ` · ${PROVIDER_TH[set.extractionProvider]}`}
             </Text>
           </div>
-          <RadixBadge color={statusColor(set.status)} variant="soft">{STATUS_TH[set.status] ?? set.status}</RadixBadge>
+          <Flex gap="2" align="center" wrap="wrap">
+            <RadixBadge color={statusColor(set.status)} variant="soft">{STATUS_TH[set.status] ?? set.status}</RadixBadge>
+            <LearningModeBadge mode={set.learningMode} />
+          </Flex>
+        </div>
+        <div role="group" aria-label="โหมดการเรียนรู้">
+          <Text as="div" size="2" weight="bold">โหมดการเรียนรู้</Text>
+          <Text as="div" size="2" color="gray">
+            Guided learning แสดงผลตอบกลับระหว่างทำ ส่วน Exam จะเฉลยเมื่อทำครบแล้ว
+          </Text>
+          <Flex gap="1" mt="2" wrap="wrap">
+            <Button
+              variant={set.learningMode === 'guided' ? 'solid' : 'soft'}
+              color="gray"
+              aria-pressed={set.learningMode === 'guided'}
+              disabled={learningModeSaving}
+              onClick={() => saveLearningMode('guided')}
+            >
+              Guided learning
+            </Button>
+            <Button
+              variant={set.learningMode === 'exam' ? 'solid' : 'soft'}
+              color="gray"
+              aria-pressed={set.learningMode === 'exam'}
+              disabled={learningModeSaving}
+              onClick={() => saveLearningMode('exam')}
+            >
+              Exam
+            </Button>
+          </Flex>
+          {learningModeError && (
+            <Callout.Root color="red" role="alert" className="review-alert" mt="2">
+              <Callout.Text>{learningModeError}</Callout.Text>
+            </Callout.Root>
+          )}
         </div>
         <div className="toolbar-actions">
           <Button variant="soft" color="gray" onClick={() => setShowImage((v) => !v)}>

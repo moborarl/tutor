@@ -146,3 +146,17 @@ test('exercise title buttons override the legacy filled button treatment', () =>
   assert.match(rule, /border\s*:\s*0/);
   assert.match(css, /@media\s*\(max-width:\s*767px\)[\s\S]*button\.entity-title-button:not\(\.rt-Button\)\s*\{[^}]*min-height\s*:\s*44px/s);
 });
+
+test('parent review exposes a labelled learning mode control', () => {
+  const source = read('src/routes/parent/ReviewExercise.tsx');
+  assert.match(source, /โหมดการเรียนรู้/);
+  assert.match(source, /Guided learning/);
+  assert.match(source, /Exam/);
+  assert.match(source, /learningMode/);
+});
+
+test('learning mode badge is informational', () => {
+  const source = read('src/components/LearningModeBadge.tsx');
+  assert.match(source, /LearningModeBadge/);
+  assert.doesNotMatch(source, /<(button|select)/);
+});

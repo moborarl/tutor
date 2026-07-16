@@ -6,6 +6,7 @@ import { AppState } from '../../components/AppState';
 import { DataToolbar } from '../../components/DataToolbar';
 import { EntityList, EntityRow } from '../../components/EntityList';
 import { ExplorerLayout } from '../../components/ExplorerLayout';
+import { LearningModeBadge } from '../../components/LearningModeBadge';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
 import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
@@ -534,7 +535,10 @@ export default function ExerciseList() {
               ) : (
                 <div className="workspace-stack">
                   <div>
-                    <Badge color={statusColor(activeSet.status)} variant="soft">{STATUS_TH[activeSet.status] ?? activeSet.status}</Badge>
+                    <Flex gap="2" align="center" wrap="wrap">
+                      <Badge color={statusColor(activeSet.status)} variant="soft">{STATUS_TH[activeSet.status] ?? activeSet.status}</Badge>
+                      <LearningModeBadge mode={activeSet.learningMode} />
+                    </Flex>
                     <Heading as="h3" size="5" style={{ marginTop: 10 }}>{activeSet.title || `ชุดที่ ${activeSet.id}`}</Heading>
                     <Text color="gray" size="2">
                       {activeSet.subjectName ?? 'ไม่ระบุวิชา'} · {ageBandLabel(activeSet.ageBand)} · {activeSet.questionCount} ข้อ
@@ -595,7 +599,10 @@ function ExerciseRows({
               />}
             title={<button type="button" className="entity-title-button" onClick={() => onOpen(set.id)}>{set.title || `ชุดที่ ${set.id}`}</button>}
             metadata={`${set.subjectName ?? 'ไม่ระบุวิชา'} · ${ageBandLabel(set.ageBand)} · ${set.questionCount} ข้อ`}
-            status={<StatusBadge tone={statusTone(set.status)}>{STATUS_TH[set.status] ?? set.status}</StatusBadge>}
+            status={<Flex gap="1" align="center" wrap="wrap">
+              <StatusBadge tone={statusTone(set.status)}>{STATUS_TH[set.status] ?? set.status}</StatusBadge>
+              <LearningModeBadge mode={set.learningMode} />
+            </Flex>}
             actions={<Link className="entity-row-link" to={`/parent/exercises/${set.id}`}>ตรวจ/แก้ไข</Link>}
           />
         ))}
