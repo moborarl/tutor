@@ -93,3 +93,12 @@ test('parent overview consumes shared workspace components', () => {
   }
   assert.doesNotMatch(source, /r2-file-row[\s\S]{0,900}<ConfirmR2Delete/);
 });
+
+test('exercise management keeps exercises out of the tree', () => {
+  const source = read('src/routes/parent/ExerciseList.tsx');
+  for (const name of ['PageHeader', 'DataToolbar', 'EntityList', 'StatusBadge']) {
+    assert.match(source, new RegExp(name));
+  }
+  const treeBlock = source.match(/const treeItems[\s\S]*?;\n/)?.[0] ?? '';
+  assert.doesNotMatch(treeBlock, /exercise\.title|ex\.title/);
+});

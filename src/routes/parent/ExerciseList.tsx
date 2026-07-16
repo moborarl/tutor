@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertDialog, Badge, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api-client';
+import { AppState } from '../../components/AppState';
+import { DataToolbar } from '../../components/DataToolbar';
+import { EntityList, EntityRow } from '../../components/EntityList';
 import { ExplorerLayout } from '../../components/ExplorerLayout';
+import { PageHeader } from '../../components/PageHeader';
+import { StatusBadge } from '../../components/StatusBadge';
 import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
 import { useNotify } from '../../components/AppNotifications';
 import type { AgeBand, ExerciseSetSummary, Subject } from '@shared/types';
@@ -46,6 +51,14 @@ function statusColor(status: string) {
   if (status === 'processing' || status === 'extracting') return 'blue';
   if (status === 'extraction_failed') return 'red';
   return 'gray';
+}
+
+function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
+  if (status === 'published') return 'success';
+  if (status === 'pending_review') return 'warning';
+  if (status === 'processing' || status === 'extracting') return 'info';
+  if (status === 'extraction_failed') return 'danger';
+  return 'neutral';
 }
 
 function ArchiveSetButton({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
@@ -378,12 +391,10 @@ export default function ExerciseList() {
 
   return (
     <div className="parent-stack">
-      <div className="page-heading">
-        <div>
-          <Heading as="h2" size="6">แบบฝึกหัด</Heading>
-          <Text color="gray" size="2">จัดการเป็นโฟลเดอร์ วิชา &gt; เด็กเล็ก/เด็กโต &gt; แบบฝึกหัด</Text>
-        </div>
-        <div className="page-actions">
+      <PageHeader
+        title="แบบฝึกหัด"
+        description="จัดการเป็นโฟลเดอร์ วิชา > เด็กเล็ก/เด็กโต > แบบฝึกหัด"
+        actions={<>
           <SubjectCreateForm
             compact
             value={newSubjectName}
@@ -392,13 +403,11 @@ export default function ExerciseList() {
             onCreate={createSubject}
           />
           <Link to="/parent/upload"><Button>อัปโหลด / สร้างใหม่</Button></Link>
-        </div>
-      </div>
+        </>}
+      />
 
-      {listLoading && (
-        <Card className="parent-panel"><Flex align="center" gap="3"><div className="state-spinner" /><Text color="gray">กำลังโหลดแบบฝึกหัด...</Text></Flex></Card>
-      )}
-      {listError && <Card className="parent-panel"><Text color="red">{listError}</Text></Card>}
+      {listLoading && <AppState tone="loading" title="กำลังโหลดแบบฝึกหัด" />}
+      {listError && <AppState tone="error" title={listError} />}
 
       {!listLoading && sets.length === 0 && subjects.length === 0 && (
         <Card className="parent-panel empty-state-panel">
@@ -471,9 +480,9 @@ export default function ExerciseList() {
                   <Card className="stat-card"><div className="stat-value">{summary.review}</div><Text color="gray" size="2">รอตรวจ</Text></Card>
                 </div>
               </Card>
-              <Card className="parent-panel compact management-filter-panel">
-                <div className="management-filter-grid">
-                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาชื่อแบบฝึกหัดหรือวิชา" />
+              <DataToolbar
+                search={<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาชื่อแบบฝึกหัดหรือวิชา" aria-label="ค้นหาแบบฝึกหัด" />}
+                filters={<>
                   <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                     <option value="all">ทุกสถานะ</option>
                     <option value="published">เผยแพร่แล้ว</option>
@@ -487,13 +496,13 @@ export default function ExerciseList() {
                     <option value="title">เรียงตามชื่อ</option>
                     <option value="questions">จำนวนข้อเยอะก่อน</option>
                   </select>
-                  {(query || statusFilter !== 'all' || sortMode !== 'newest') && (
+                </>}
+                actions={(query || statusFilter !== 'all' || sortMode !== 'newest') ? (
                     <Button variant="soft" color="gray" onClick={() => { setQuery(''); setStatusFilter('all'); setSortMode('newest'); }}>
                       ล้าง filter
                     </Button>
-                  )}
-                </div>
-              </Card>
+                  ) : undefined}
+              />
               <ExerciseRows
                 sets={filteredVisibleSets}
                 selected={selected}
@@ -565,21 +574,32 @@ function ExerciseRows({
   onOpen: (id: number) => void;
 }) {
   return (
-    <Card className="parent-panel">
+    <section className="parent-panel workspace-section">
       <Heading as="h3" size="4">รายการแบบฝึกหัด</Heading>
-      <div className="admin-list selectable-list">
+      <EntityList
+        label="รายการแบบฝึกหัด"
+        isEmpty={sets.length === 0}
+        empty={<AppState tone="empty" title="ไม่มีแบบฝึกหัดในกลุ่มนี้" />}
+      >
         {sets.map((set) => (
-          <div key={set.id} className={`admin-row selectable-row ${selected.has(set.id) ? 'selected' : ''}`}>
-            <input className="compact-checkbox" type="checkbox" checked={selected.has(set.id)} onChange={() => onToggle(set.id)} disabled={loading} />
-            <button type="button" className="plain-row-button" onClick={() => onOpen(set.id)}>
-              <Text as="div" weight="bold">{set.title || `ชุดที่ ${set.id}`}</Text>
-              <Text as="div" color="gray" size="2">{set.subjectName ?? 'ไม่ระบุวิชา'} · {ageBandLabel(set.ageBand)} · {set.questionCount} ข้อ</Text>
-            </button>
-            <Badge color={statusColor(set.status)} variant="soft">{STATUS_TH[set.status] ?? set.status}</Badge>
-          </div>
+          <EntityRow
+            key={set.id}
+            selected={selected.has(set.id)}
+            selection={<input
+                className="compact-checkbox"
+                type="checkbox"
+                checked={selected.has(set.id)}
+                onChange={() => onToggle(set.id)}
+                disabled={loading}
+                aria-label={`เลือก ${set.title || `ชุดที่ ${set.id}`}`}
+              />}
+            title={<button type="button" className="entity-title-button" onClick={() => onOpen(set.id)}>{set.title || `ชุดที่ ${set.id}`}</button>}
+            metadata={`${set.subjectName ?? 'ไม่ระบุวิชา'} · ${ageBandLabel(set.ageBand)} · ${set.questionCount} ข้อ`}
+            status={<StatusBadge tone={statusTone(set.status)}>{STATUS_TH[set.status] ?? set.status}</StatusBadge>}
+            actions={<Link className="entity-row-link" to={`/parent/exercises/${set.id}`}>ตรวจ/แก้ไข</Link>}
+          />
         ))}
-        {sets.length === 0 && <Text color="gray">ไม่มีแบบฝึกหัดในกลุ่มนี้</Text>}
-      </div>
-    </Card>
+      </EntityList>
+    </section>
   );
 }
