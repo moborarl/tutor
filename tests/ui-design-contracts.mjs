@@ -76,3 +76,12 @@ test('explorer navigation closes after a mobile tree selection', () => {
   assert.match(tree, /data-tree-node=/);
   assert.match(tree, /closeTree\(\)/);
 });
+
+test('data workspace primitives expose semantic list and status structure', () => {
+  const list = read('src/components/EntityList.tsx');
+  const badge = read('src/components/StatusBadge.tsx');
+  assert.match(list, /role="list"/);
+  assert.match(list, /role="listitem"/);
+  assert.match(badge, /aria-hidden="true"/);
+  assert.match(badge, /\{children\}/);
+});
