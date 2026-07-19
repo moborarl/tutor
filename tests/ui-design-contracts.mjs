@@ -103,6 +103,13 @@ test('exercise management keeps exercises out of the tree', () => {
   assert.doesNotMatch(treeBlock, /exercise\.title|ex\.title/);
 });
 
+test('exercise management exposes a multi-delete action for selected sets', () => {
+  const source = read('src/routes/parent/ExerciseList.tsx');
+  assert.match(source, /deleteSelectedSets/);
+  assert.match(source, /ลบที่เลือก/);
+  assert.match(source, /selected\.size/);
+});
+
 test('child tree uses names while detail workspace owns the avatar', () => {
   const source = read('src/routes/parent/ChildrenList.tsx');
   assert.match(source, /PageHeader/);

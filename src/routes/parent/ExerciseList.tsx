@@ -82,6 +82,34 @@ function ArchiveSetButton({ disabled, onConfirm }: { disabled: boolean; onConfir
   );
 }
 
+function ArchiveSelectedSetsButton({
+  count,
+  disabled,
+  onConfirm,
+}: {
+  count: number;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger>
+        <Button variant="soft" color="red" disabled={disabled}>ลบที่เลือก</Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="440px">
+        <AlertDialog.Title>ลบแบบฝึกหัดที่เลือก {count} ชุด?</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          แบบฝึกหัดที่เลือกจะถูกเก็บเข้าคลังและหายจากหน้านี้ เด็กจะไม่เห็นชุดเหล่านี้อีก แต่ข้อมูลยังล้างถาวรได้จากหน้าดูแลข้อมูล
+        </AlertDialog.Description>
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action><Button color="red" onClick={onConfirm}>ลบที่เลือก</Button></AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 function DeleteSubjectButton({
   disabled,
   subjectName,
@@ -313,6 +341,23 @@ export default function ExerciseList() {
     }
   }
 
+  async function deleteSelectedSets() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    setLoading(true);
+    try {
+      await Promise.all(ids.map((id) => api.delete(`/api/parent/exercise-sets/${id}`)));
+      setSets((current) => current.filter((set) => !selected.has(set.id)));
+      setSelected(new Set());
+      if (activeSetId != null && ids.includes(activeSetId)) setActiveSetId(null);
+      notify(`ลบแบบฝึกหัดที่เลือก ${ids.length} ชุดแล้ว`, 'success');
+    } catch (err) {
+      notify('ลบแบบฝึกหัดที่เลือกไม่สำเร็จ: ' + String(err), 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function publishSet(id: number) {
     setLoading(true);
     try {
@@ -423,11 +468,16 @@ export default function ExerciseList() {
         <ExplorerLayout
           tree={<TreePanel label="คลังแบบฝึกหัด" items={treeItems} activeId={activeId} onSelect={(id) => { setActiveId(id); setActiveSetId(null); }} />}
         >
-          {selected.size >= 2 && (
+          {selected.size > 0 && (
             <Card className="selection-bar">
               <Flex align="center" gap="3" wrap="wrap">
                 <Text className="grow" weight="medium">เลือก {selected.size} ชุด</Text>
-                <Button onClick={openMerge} disabled={loading}>รวมชุด</Button>
+                {selected.size >= 2 && <Button onClick={openMerge} disabled={loading}>รวมชุด</Button>}
+                <ArchiveSelectedSetsButton
+                  count={selected.size}
+                  disabled={loading}
+                  onConfirm={deleteSelectedSets}
+                />
               </Flex>
             </Card>
           )}
