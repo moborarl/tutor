@@ -204,7 +204,7 @@ exerciseRoutes.post('/merge', async (c) => {
 exerciseRoutes.get('/', async (c) => {
   const { parentId } = c.get('session');
   const rows = await c.env.DB.prepare(
-    `SELECT es.id, es.title, es.subject_id, s.name AS subject_name, es.age_band, es.status,
+    `SELECT es.id, es.title, es.subject_id, s.name AS subject_name, es.age_band, es.status, es.learning_mode,
             es.extraction_provider, es.extraction_error, es.created_at,
             (SELECT COUNT(*) FROM questions q WHERE q.exercise_set_id = es.id) AS question_count
      FROM exercise_sets es LEFT JOIN subjects s ON s.id = es.subject_id
@@ -221,6 +221,7 @@ exerciseRoutes.get('/', async (c) => {
       subjectName: r.subject_name,
       ageBand: r.age_band,
       status: r.status,
+      learningMode: r.learning_mode,
       extractionProvider: r.extraction_provider,
       extractionError: r.extraction_error,
       questionCount: r.question_count,
@@ -233,7 +234,7 @@ exerciseRoutes.get('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
   const set = await c.env.DB.prepare(
-    `SELECT es.id, es.title, es.subject_id, s.name AS subject_name, es.age_band, es.status,
+    `SELECT es.id, es.title, es.subject_id, s.name AS subject_name, es.age_band, es.status, es.learning_mode,
             es.extraction_provider, es.extraction_error, es.created_at
      FROM exercise_sets es LEFT JOIN subjects s ON s.id = es.subject_id
      WHERE es.id = ? AND es.parent_id = ?`,
@@ -267,6 +268,7 @@ exerciseRoutes.get('/:id', async (c) => {
     subjectName: set.subject_name,
     ageBand: set.age_band,
     status: set.status,
+    learningMode: set.learning_mode,
     extractionProvider: set.extraction_provider,
     extractionError: set.extraction_error,
     createdAt: set.created_at,
@@ -388,9 +390,12 @@ exerciseRoutes.patch('/:id', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));
   const body = await c.req
-    .json<{ title?: string; subjectId?: number | null; ageBand?: string }>()
+    .json<{ title?: string; subjectId?: number | null; ageBand?: string; learningMode?: string }>()
     .catch(() => null);
   if (!body) return c.json({ error: 'invalid_body' }, 400);
+  if (body.learningMode !== undefined && body.learningMode !== 'guided' && body.learningMode !== 'exam') {
+    return c.json({ error: 'invalid_learning_mode' }, 400);
+  }
 
   const set = await c.env.DB.prepare(
     'SELECT id FROM exercise_sets WHERE id = ? AND parent_id = ?',
@@ -412,6 +417,10 @@ exerciseRoutes.patch('/:id', async (c) => {
   if (body.ageBand === 'young' || body.ageBand === 'older') {
     updates.push('age_band = ?');
     values.push(body.ageBand);
+  }
+  if (body.learningMode) {
+    updates.push('learning_mode = ?');
+    values.push(body.learningMode);
   }
   if (updates.length > 0) {
     updates.push(`updated_at = datetime('now')`);

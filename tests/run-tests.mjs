@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
@@ -50,12 +50,21 @@ compile('worker/lib/crypto.ts', 'worker/lib/crypto.js');
 compile('worker/lib/credential-crypto.ts', 'worker/lib/credential-crypto.js');
 compile('worker/lib/custom-ai.ts', 'worker/lib/custom-ai.js');
 compile('worker/lib/reasoning-ai.ts', 'worker/lib/reasoning-ai.js');
+compile('worker/lib/attempt-mode.ts', 'worker/lib/attempt-mode.js');
+compile('worker/lib/ai-providers/types.ts', 'worker/lib/ai-providers/types.js');
+compile('worker/lib/ai-providers/google-gemini.ts', 'worker/lib/google-gemini.js');
+compile('worker/lib/ai-providers/claude.ts', 'worker/lib/claude.js');
+compile('worker/lib/ai-providers/index.ts', 'worker/lib/ai-providers.js');
+compile('worker/lib/exercise-sets.ts', 'worker/lib/exercise-sets.js');
 compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
 compile('worker/lib/progress.ts', 'worker/lib/progress.js');
+compile('worker/lib/exercise-recommendation.ts', 'worker/lib/exercise-recommendation.js');
+compile('src/routes/play/child-learning-state.ts', 'src/routes/play/child-learning-state.js');
 compile('worker/middleware/auth.ts', 'worker/middleware/auth.js');
 compile('worker/routes/children.ts', 'worker/routes/children.js');
 compile('worker/routes/play.ts', 'worker/routes/play.js');
 compile('worker/routes/questions.ts', 'worker/routes/questions.js');
+compile('worker/routes/exercises.ts', 'worker/routes/exercises.js');
 compile('worker/routes/subjects.ts', 'worker/routes/subjects.js');
 compile('worker/routes/super-admin.ts', 'worker/routes/super-admin.js');
 compile('worker/routes/admin.ts', 'worker/routes/admin.js');
@@ -64,15 +73,27 @@ writeSharedPackage('diagram');
 writeSharedPackage('json-repair');
 
 const { gradeAnswer } = await import(pathToFileURL(join(outDir, 'worker/lib/grading.js')));
+const { recommendNextExercise } = await import(
+  pathToFileURL(join(outDir, 'worker/lib/exercise-recommendation.js')),
+);
+const {
+  initialExamSaveState,
+  examSaveReducer,
+  canSubmitExam,
+} = await import(pathToFileURL(join(outDir, 'src/routes/play/child-learning-state.js')));
 const { parseImportedJson, preflightImportedJson, validateQuestionPayload } = await import(
   pathToFileURL(join(outDir, 'worker/lib/json-import.js'))
 );
 const { Hono } = await import('hono');
 const { signValue } = await import(pathToFileURL(join(outDir, 'worker/lib/crypto.js')));
 const { encryptCredential, decryptCredential } = await import(pathToFileURL(join(outDir, 'worker/lib/credential-crypto.js')));
+const { canUseAnswerEndpoint, sanitizeAttemptAnswer } = await import(
+  pathToFileURL(join(outDir, 'worker/lib/attempt-mode.js')),
+);
 const { childrenRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/children.js')));
 const { playRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/play.js')));
 const { questionRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/questions.js')));
+const { exerciseRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/exercises.js')));
 const { subjectRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/subjects.js')));
 const { superAdminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/super-admin.js')));
 const { adminRoutes } = await import(pathToFileURL(join(outDir, 'worker/routes/admin.js')));
@@ -140,6 +161,44 @@ function makeQuestionsApp(questionOverrides = {}) {
   });
   app.route('/questions', questionRoutes);
   return { app, db };
+}
+
+function makeExercisesApp() {
+  const state = { set: { id: 20, parent_id: 1, learning_mode: 'guided' } };
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes('SELECT id FROM exercise_sets WHERE id = ? AND parent_id = ?')) {
+                return Number(args[0]) === state.set.id && Number(args[1]) === state.set.parent_id
+                  ? { id: state.set.id }
+                  : null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.startsWith('UPDATE exercise_sets SET') && sql.includes('learning_mode = ?')) {
+                state.set.learning_mode = String(args[0]);
+              }
+              return { meta: { changes: 1 } };
+            },
+            async all() {
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+  const app = new Hono();
+  app.use('*', async (c, next) => {
+    c.set('session', { parentId: 1 });
+    await next();
+  });
+  app.route('/exercise-sets', exerciseRoutes);
+  return { app, db, state };
 }
 
 function makeSuperAdminApp() {
@@ -388,7 +447,58 @@ async function makePlayApp() {
   const sessionId = 'session-1';
   const state = {
     activeChildId: null,
+    exerciseListSql: null,
     children: [{ id: 2, parent_id: 1, name: 'Dawin', avatar: 'panda', age_band: 'young' }],
+    exerciseRows: [
+      {
+        id: 10,
+        title: 'Completed maths',
+        subject_name: 'Maths',
+        question_count: 4,
+        best_score: 1,
+        completed_count: 1,
+        learning_mode: 'guided',
+        in_progress_attempt_id: null,
+        in_progress_answered_count: 0,
+        assigned_at: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 20,
+        title: 'Later maths',
+        subject_name: 'Maths',
+        question_count: 3,
+        best_score: null,
+        completed_count: 0,
+        learning_mode: 'exam',
+        in_progress_attempt_id: null,
+        in_progress_answered_count: 0,
+        assigned_at: '2026-01-03T00:00:00.000Z',
+      },
+      {
+        id: 30,
+        title: 'Resume science',
+        subject_name: 'Science',
+        question_count: 5,
+        best_score: null,
+        completed_count: 0,
+        learning_mode: 'guided',
+        in_progress_attempt_id: 300,
+        in_progress_answered_count: 2,
+        assigned_at: '2026-01-04T00:00:00.000Z',
+      },
+      {
+        id: 40,
+        title: 'Earlier history',
+        subject_name: 'History',
+        question_count: 2,
+        best_score: null,
+        completed_count: 0,
+        learning_mode: 'guided',
+        in_progress_attempt_id: null,
+        in_progress_answered_count: 0,
+        assigned_at: '2026-01-02T00:00:00.000Z',
+      },
+    ],
   };
   const db = {
     prepare(sql) {
@@ -412,6 +522,17 @@ async function makePlayApp() {
               return { meta: { changes: 1 } };
             },
             async all() {
+              if (sql.includes('FROM assignments asg')) {
+                state.exerciseListSql = sql;
+                return {
+                  results: [
+                    state.exerciseRows[2],
+                    state.exerciseRows[3],
+                    state.exerciseRows[1],
+                    state.exerciseRows[0],
+                  ],
+                };
+              }
               return { results: [] };
             },
           };
@@ -426,6 +547,321 @@ async function makePlayApp() {
   return { app, env: { DB: db, SESSION_SECRET: secret }, state, cookie };
 }
 
+async function makeAttemptApp({
+  exerciseMode = 'guided',
+  attemptMode = null,
+  attemptStatus = 'in_progress',
+  answers = [],
+} = {}) {
+  const sessionId = 'attempt-session';
+  const state = {
+    exerciseSet: {
+      id: 20,
+      title: 'Fractions check',
+      learning_mode: exerciseMode,
+      subject_id: 4,
+      subject_name: 'Maths',
+      assigned_at: '2026-01-01T00:00:00.000Z',
+    },
+    attempts: attemptMode == null ? [] : [{
+      id: 500,
+      child_id: 2,
+      exercise_set_id: 20,
+      learning_mode: attemptMode,
+      status: attemptStatus,
+      score: attemptStatus === 'completed'
+        ? answers.filter((answer) => answer.isCorrect).length / 2
+        : null,
+    }],
+    questions: [
+      {
+        id: 101,
+        exercise_set_id: 20,
+        question_type: 'multiple_choice',
+        prompt: 'Choose A',
+        content_json: JSON.stringify({ options: ['A', 'B'] }),
+        answer_json: JSON.stringify({ correctIndex: 0 }),
+        explanation: 'A is correct',
+        reasoning_prompt: null,
+        reasoning_rubric_json: null,
+      },
+      {
+        id: 102,
+        exercise_set_id: 20,
+        question_type: 'fill_blank',
+        prompt: 'Capital of Thailand',
+        content_json: JSON.stringify({}),
+        answer_json: JSON.stringify({ answers: ['Bangkok'] }),
+        explanation: 'Bangkok is the capital',
+        reasoning_prompt: null,
+        reasoning_rubric_json: null,
+      },
+    ],
+    answers: answers.map((answer, index) => ({
+      id: index + 1,
+      attempt_id: 500,
+      time_spent_ms: null,
+      reasoning_text: null,
+      ai_feedback_json: null,
+      ai_feedback_status: null,
+      ...answer,
+      given_answer_json: JSON.stringify(answer.givenAnswer),
+      is_correct: answer.isCorrect ? 1 : 0,
+    })),
+    nextAttemptId: 500,
+    nextAnswerId: answers.length + 1,
+    batchCalls: 0,
+    completionUpdateSql: null,
+    aiSetting: null,
+    aiUsage: { daily_count: 0, monthly_count: 0 },
+    usageRows: [],
+  };
+
+  function execute(sql, args, operation) {
+    if (sql.includes('FROM parent_sessions')) {
+      return { id: sessionId, parent_id: 1, active_child_id: 2, pin_fail_count: 0 };
+    }
+    if (sql.includes('FROM assignments asg') && operation === 'all' && args.length === 4) {
+      const completedCount = state.attempts.filter((row) => (
+        row.exercise_set_id === state.exerciseSet.id && row.status === 'completed'
+      )).length;
+      return [{
+        id: state.exerciseSet.id,
+        title: state.exerciseSet.title,
+        subject_name: state.exerciseSet.subject_name,
+        question_count: state.questions.length,
+        best_score: state.attempts.find((row) => row.status === 'completed')?.score ?? null,
+        completed_count: completedCount,
+        learning_mode: state.exerciseSet.learning_mode,
+        in_progress_attempt_id: state.attempts.find((row) => row.status === 'in_progress')?.id ?? null,
+        in_progress_answered_count: state.answers.length,
+        assigned_at: state.exerciseSet.assigned_at,
+      }];
+    }
+    if (sql.includes('FROM assignments asg') && sql.includes('es.status = \'published\'') && sql.includes('es.id = ?')) {
+      return Number(args[0]) === 2 && Number(args[1]) === state.exerciseSet.id
+        ? { id: state.exerciseSet.id, learning_mode: state.exerciseSet.learning_mode }
+        : null;
+    }
+    if (sql.includes('FROM attempts') && sql.includes("status = 'in_progress'") && operation === 'first') {
+      const attempt = state.attempts.find((row) => (
+        row.status === 'in_progress' && (
+          (sql.includes('exercise_set_id = ?') && row.child_id === Number(args[0]) && row.exercise_set_id === Number(args[1])) ||
+          (sql.includes('id = ?') && row.id === Number(args[0]) && row.child_id === Number(args[1]))
+        )
+      ));
+      return attempt ?? null;
+    }
+    if (sql.includes('FROM attempts a') && sql.includes('JOIN exercise_sets es')) {
+      const attempt = state.attempts.find((row) => (
+        row.id === Number(args[0]) && row.child_id === Number(args[1])
+      ));
+      return attempt ? {
+        ...attempt,
+        exercise_title: state.exerciseSet.title,
+        subject_id: state.exerciseSet.subject_id,
+        subject_name: state.exerciseSet.subject_name,
+      } : null;
+    }
+    if (sql.includes('FROM attempts') && sql.includes('WHERE id = ? AND child_id = ?')) {
+      return state.attempts.find((row) => (
+        row.id === Number(args[0]) && row.child_id === Number(args[1])
+      )) ?? null;
+    }
+    if (sql.includes('FROM attempt_answers aa') && sql.includes('aa.question_id = ?')) {
+      const answer = state.answers.find((row) => (
+        row.attempt_id === Number(args[0]) && row.question_id === Number(args[1])
+      ));
+      const question = answer
+        ? state.questions.find((item) => item.id === answer.question_id)
+        : null;
+      return answer && question
+        ? { ...answer, ...question, attempt_answer_id: answer.id, question_id: question.id }
+        : null;
+    }
+    if (sql.includes('FROM attempt_answers aa') && sql.includes('JOIN questions q')) {
+      return state.answers
+        .filter((row) => row.attempt_id === Number(args[0]))
+        .map((row) => {
+          const question = state.questions.find((item) => item.id === row.question_id);
+          return {
+            ...row,
+            prompt: question.prompt,
+            question_type: question.question_type,
+            content_json: question.content_json,
+            answer_json: question.answer_json,
+            explanation: question.explanation,
+            reasoning_prompt: question.reasoning_prompt,
+            reasoning_rubric_json: question.reasoning_rubric_json,
+          };
+        });
+    }
+    if (sql.includes('FROM questions WHERE id = ? AND exercise_set_id = ?')) {
+      return state.questions.find((question) => (
+        question.id === Number(args[0]) && question.exercise_set_id === Number(args[1])
+      )) ?? null;
+    }
+    if (sql.includes('FROM attempt_answers WHERE attempt_id = ? AND question_id = ?')) {
+      return state.answers.find((row) => (
+        row.attempt_id === Number(args[0]) && row.question_id === Number(args[1])
+      )) ?? null;
+    }
+    if (sql.includes('(SELECT COUNT(*) FROM questions WHERE exercise_set_id = ?) AS total')) {
+      const exerciseSetId = Number(args[0]);
+      const attemptId = Number(args[1]);
+      const currentAnswers = state.answers.filter((row) => row.attempt_id === attemptId);
+      return {
+        total: state.questions.filter((question) => question.exercise_set_id === exerciseSetId).length,
+        answered: currentAnswers.length,
+        correct: currentAnswers.filter((answer) => answer.is_correct === 1).length,
+      };
+    }
+    if (sql.includes('COUNT(*)') && sql.includes('FROM attempt_answers') && sql.includes('attempt_id = ?')) {
+      const count = state.answers.filter((row) => row.attempt_id === Number(args[0])).length;
+      return { answered_count: count, answeredCount: count, count };
+    }
+    if (sql.includes('AS subject_name') && sql.includes('assigned')) {
+      const completed = state.attempts.some((attempt) => (
+        attempt.exercise_set_id === state.exerciseSet.id && attempt.status === 'completed'
+      )) ? 1 : 0;
+      return { subject_name: state.exerciseSet.subject_name, completed, assigned: 1 };
+    }
+    if (sql.includes('FROM parent_ai_settings WHERE parent_id = ?')) {
+      return state.aiSetting;
+    }
+    if (sql.includes('FROM ai_feedback_usage WHERE parent_id = ?')) {
+      return state.aiUsage;
+    }
+    if (sql.startsWith('INSERT INTO attempts')) {
+      const id = state.nextAttemptId++;
+      state.attempts.push({
+        id,
+        child_id: Number(args[0]),
+        exercise_set_id: Number(args[1]),
+        learning_mode: args[2] ?? 'guided',
+        status: 'in_progress',
+        score: null,
+      });
+      return { meta: { last_row_id: id, changes: 1 } };
+    }
+    if (sql.startsWith('INSERT INTO attempt_answers')) {
+      let answer = state.answers.find((row) => (
+        row.attempt_id === Number(args[0]) && row.question_id === Number(args[1])
+      ));
+      if (!answer) {
+        answer = { id: state.nextAnswerId++, attempt_id: Number(args[0]), question_id: Number(args[1]) };
+        state.answers.push(answer);
+      }
+      Object.assign(answer, {
+        given_answer_json: String(args[2]),
+        is_correct: Number(args[3]),
+        time_spent_ms: args[4] ?? null,
+        reasoning_text: args[5] ?? null,
+        ai_feedback_json: null,
+        ai_feedback_status: null,
+      });
+      return { meta: { last_row_id: answer.id, changes: 1 } };
+    }
+    if (sql.startsWith('INSERT INTO ai_feedback_usage')) {
+      const row = {
+        id: state.usageRows.length + 1,
+        parent_id: Number(args[0]),
+        attempt_answer_id: Number(args[1]),
+        provider: args[2],
+        model: args[3],
+        status: 'started',
+      };
+      state.usageRows.push(row);
+      return { meta: { last_row_id: row.id, changes: 1 } };
+    }
+    if (sql.startsWith('UPDATE ai_feedback_usage SET status')) {
+      const row = state.usageRows.find((item) => item.id === Number(args[0]));
+      if (row) row.status = sql.includes("'completed'") ? 'completed' : 'failed';
+      return { meta: { changes: row ? 1 : 0 } };
+    }
+    if (sql.startsWith('UPDATE attempt_answers SET ai_feedback_json')) {
+      const answer = state.answers.find((row) => row.id === Number(args[2]));
+      if (answer) {
+        answer.ai_feedback_json = String(args[0]);
+        answer.ai_feedback_status = String(args[1]);
+      }
+      return { meta: { changes: answer ? 1 : 0 } };
+    }
+    if (sql.startsWith('UPDATE attempts SET status = \'completed\'')) {
+      state.completionUpdateSql = sql;
+      const attempt = state.attempts.find((row) => row.id === Number(args[1]));
+      if (!attempt || (sql.includes("status = 'in_progress'") && attempt.status !== 'in_progress')) {
+        return { meta: { changes: 0 } };
+      }
+      attempt.status = 'completed';
+      attempt.score = Number(args[0]);
+      return { meta: { changes: 1 } };
+    }
+    return operation === 'all' ? [] : operation === 'run' ? { meta: { changes: 0 } } : null;
+  }
+
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          const bound = {
+            sql,
+            args,
+            first: async () => {
+              const result = execute(sql, args, 'first');
+              return Array.isArray(result) ? result[0] ?? null : result;
+            },
+            all: async () => {
+              const result = execute(sql, args, 'all');
+              return { results: Array.isArray(result) ? result : result == null ? [] : [result] };
+            },
+            run: async () => execute(sql, args, 'run'),
+          };
+          return bound;
+        },
+      };
+    },
+    async batch(statements) {
+      state.batchCalls += 1;
+      return statements.map((statement) => {
+        const result = execute(statement.sql, statement.args, statement.sql.trimStart().startsWith('SELECT') ? 'all' : 'run');
+        return Array.isArray(result)
+          ? { results: result, success: true, meta: {} }
+          : result?.meta
+            ? { ...result, results: [], success: true }
+            : { results: result == null ? [] : [result], success: true, meta: {} };
+      });
+    },
+  };
+  const app = new Hono();
+  app.route('/play', playRoutes);
+  const secret = 'attempt-test-secret';
+  const cookie = `kt_session=${await signValue(sessionId, secret)}`;
+  const env = { DB: db, SESSION_SECRET: secret };
+
+  async function request(path, method, body) {
+    const response = await app.request(
+      `/play${path}`,
+      {
+        method,
+        headers: { cookie, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      },
+      env,
+    );
+    const responseText = await response.text();
+    let responseBody = responseText;
+    try {
+      responseBody = JSON.parse(responseText);
+    } catch {
+      // Unmatched Hono routes return plain text; retaining it makes RED assertions useful.
+    }
+    return { response, body: responseBody };
+  }
+
+  return { state, request, env };
+}
+
 test('gradeAnswer accepts equivalent reduced fractions', () => {
   assert.equal(
     gradeAnswer('fraction', JSON.stringify({ numerator: 1, denominator: 2 }), {
@@ -434,6 +870,113 @@ test('gradeAnswer accepts equivalent reduced fractions', () => {
     }),
     true,
   );
+});
+
+test('learning mode migration defaults both tables to guided', () => {
+  const sql = readFileSync('db/migrations/0014_learning_modes.sql', 'utf8');
+  assert.match(sql, /ALTER TABLE exercise_sets[\s\S]*learning_mode[\s\S]*DEFAULT 'guided'/);
+  assert.match(sql, /ALTER TABLE attempts[\s\S]*learning_mode[\s\S]*DEFAULT 'guided'/);
+  assert.match(sql, /CHECK \(learning_mode IN \('guided', 'exam'\)\)/);
+});
+
+test('exam save reducer preserves edits through failure and retry', () => {
+  const editing = examSaveReducer(initialExamSaveState, { type: 'answer-edited', questionId: 9 });
+  const saving = examSaveReducer(editing, { type: 'save-started', questionId: 9 });
+  const failed = examSaveReducer(saving, {
+    type: 'save-failed',
+    questionId: 9,
+    message: 'save failed',
+  });
+  const retrying = examSaveReducer(failed, { type: 'save-started', questionId: 9 });
+  const saved = examSaveReducer(retrying, { type: 'save-succeeded', questionId: 9 });
+
+  assert.equal(editing.questions[9].status, 'idle');
+  assert.equal(saving.questions[9].status, 'saving');
+  assert.equal(failed.questions[9].status, 'failed');
+  assert.equal(failed.questions[9].message, 'save failed');
+  assert.equal(retrying.questions[9].status, 'saving');
+  assert.equal(saved.questions[9].status, 'saved');
+  assert.equal(canSubmitExam(saving), false);
+  assert.equal(canSubmitExam(failed), false);
+  assert.equal(canSubmitExam(saved), true);
+  assert.equal(initialExamSaveState.questions[9], undefined);
+});
+
+test('exam in-progress answers hide grading fields', () => {
+  assert.deepEqual(
+    sanitizeAttemptAnswer('exam', false, {
+      questionId: 7,
+      givenAnswer: { selectedIndex: 1 },
+      timeSpentMs: 800,
+      reasoningText: 'เพราะตัวเลือกนี้ตรงกับโจทย์',
+      isCorrect: true,
+      correctAnswer: { correctIndex: 1 },
+      explanation: 'คำอธิบาย',
+      reasoningFeedback: { status: 'completed', message: 'เข้าใจแล้ว' },
+    }),
+    {
+      questionId: 7,
+      givenAnswer: { selectedIndex: 1 },
+      timeSpentMs: 800,
+      reasoningText: 'เพราะตัวเลือกนี้ตรงกับโจทย์',
+    },
+  );
+});
+
+test('answer endpoints are mode-specific', () => {
+  assert.equal(canUseAnswerEndpoint('guided', 'guided-submit'), true);
+  assert.equal(canUseAnswerEndpoint('guided', 'exam-save'), false);
+  assert.equal(canUseAnswerEndpoint('exam', 'guided-submit'), false);
+  assert.equal(canUseAnswerEndpoint('exam', 'exam-save'), true);
+});
+
+test('exercise set patch persists exam learning mode', async () => {
+  const { app, db, state } = makeExercisesApp();
+  const response = await app.request(
+    '/exercise-sets/20',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ learningMode: 'exam' }),
+    },
+    { DB: db },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(state.set.learning_mode, 'exam');
+});
+
+test('exercise set patch persists guided learning mode', async () => {
+  const { app, db, state } = makeExercisesApp();
+  state.set.learning_mode = 'exam';
+  const response = await app.request(
+    '/exercise-sets/20',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ learningMode: 'guided' }),
+    },
+    { DB: db },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(state.set.learning_mode, 'guided');
+});
+
+test('exercise set patch rejects unsupported learning modes', async () => {
+  const { app, db } = makeExercisesApp();
+  const response = await app.request(
+    '/exercise-sets/20',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ learningMode: 'practice' }),
+    },
+    { DB: db },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: 'invalid_learning_mode' });
 });
 
 test('parent AI credentials encrypt without exposing plaintext and decrypt with the same secret', async () => {
@@ -784,6 +1327,551 @@ test('play route selects a child without a PIN', async () => {
     child: { id: 2, name: 'Dawin', avatar: 'panda', ageBand: 'young' },
   });
   assert.equal(state.activeChildId, 2);
+});
+
+function exercise(overrides = {}) {
+  return {
+    id: 1,
+    title: 'Exercise',
+    subjectName: 'Maths',
+    questionCount: 3,
+    bestScore: null,
+    completedCount: 0,
+    learningMode: 'guided',
+    hasInProgress: false,
+    inProgressAnsweredCount: 0,
+    assignedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+async function importChildLearningState() {
+  const sourcePath = join(root, 'src/routes/play/child-learning-state.ts');
+  assert.equal(existsSync(sourcePath), true, 'child learning state helper should exist');
+  compile('src/routes/play/child-learning-state.ts', 'src/routes/play/child-learning-state.js');
+  return import(pathToFileURL(join(outDir, 'src/routes/play/child-learning-state.js')));
+}
+
+test('resume selection returns the first in-progress exercise', async () => {
+  const { selectResumeExercise } = await importChildLearningState();
+  const rows = [
+    exercise({ id: 4, hasInProgress: false }),
+    exercise({ id: 2, hasInProgress: true }),
+    exercise({ id: 8, hasInProgress: true }),
+  ];
+
+  assert.equal(selectResumeExercise(rows)?.id, 2);
+  assert.equal(selectResumeExercise(rows.map((row) => ({ ...row, hasInProgress: false }))), null);
+});
+
+test('subject filtering preserves API order', async () => {
+  const { filterExercisesBySubject } = await importChildLearningState();
+  const rows = [
+    exercise({ id: 4, subjectName: 'วิทยาศาสตร์' }),
+    exercise({ id: 2, subjectName: 'คณิตศาสตร์' }),
+  ];
+
+  assert.deepEqual(filterExercisesBySubject(rows, 'ทั้งหมด').map((row) => row.id), [4, 2]);
+  assert.deepEqual(filterExercisesBySubject(rows, 'คณิตศาสตร์').map((row) => row.id), [2]);
+});
+
+test('uncategorized subject filtering includes rows with a null subject name', async () => {
+  const { filterExercisesBySubject } = await importChildLearningState();
+  const rows = [
+    exercise({ id: 4, subjectName: 'วิทยาศาสตร์' }),
+    exercise({ id: 7, subjectName: null }),
+    exercise({ id: 2, subjectName: 'คณิตศาสตร์' }),
+  ];
+
+  assert.deepEqual(filterExercisesBySubject(rows, 'ไม่ระบุวิชา').map((row) => row.id), [7]);
+});
+
+test('subject summaries count uncategorized rows without changing source order', async () => {
+  const { summarizeExercisesBySubject } = await importChildLearningState();
+  assert.equal(typeof summarizeExercisesBySubject, 'function');
+  const rows = [
+    exercise({ id: 4, subjectName: 'วิทยาศาสตร์' }),
+    exercise({ id: 7, subjectName: null, completedCount: 1, bestScore: 0.75 }),
+    exercise({ id: 2, subjectName: 'คณิตศาสตร์' }),
+  ];
+
+  const summaries = summarizeExercisesBySubject(rows);
+  assert.deepEqual(summaries, [
+    { subjectName: 'วิทยาศาสตร์', completed: 0, total: 1 },
+    { subjectName: 'ไม่ระบุวิชา', completed: 1, total: 1 },
+    { subjectName: 'คณิตศาสตร์', completed: 0, total: 1 },
+  ]);
+  assert.equal(summaries.reduce((sum, subject) => sum + subject.total, 0), rows.length);
+});
+
+test('recommendation prioritizes resumable, related, incomplete, then retry work', () => {
+  const current = exercise({ id: 1, completedCount: 1, assignedAt: '2026-01-01T00:00:00.000Z' });
+  const sameSubject = exercise({ id: 2, assignedAt: '2026-01-03T00:00:00.000Z' });
+  const inProgress = exercise({
+    id: 3,
+    subjectName: 'Science',
+    hasInProgress: true,
+    assignedAt: '2026-01-04T00:00:00.000Z',
+  });
+  const anotherSubject = exercise({
+    id: 4,
+    subjectName: 'History',
+    assignedAt: '2026-01-02T00:00:00.000Z',
+  });
+  const exercises = [current, sameSubject, inProgress, anotherSubject];
+
+  assert.equal(recommendNextExercise(exercises, current.id)?.id, inProgress.id);
+  assert.equal(recommendNextExercise(exercises.filter((row) => row.id !== inProgress.id), current.id)?.id, sameSubject.id);
+  assert.equal(
+    recommendNextExercise(exercises.filter((row) => row.id !== inProgress.id && row.id !== sameSubject.id), current.id)?.id,
+    anotherSubject.id,
+  );
+  assert.equal(recommendNextExercise([current], current.id)?.id, current.id);
+});
+
+test('play exercise list returns resumable metadata before incomplete and completed work', async () => {
+  const { app, env, state, cookie } = await makePlayApp();
+  const selected = await app.request(
+    '/play/select-child',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ childId: 2 }),
+    },
+    env,
+  );
+  assert.equal(selected.status, 200);
+
+  const response = await app.request('/play/exercises', { headers: { cookie } }, env);
+  assert.equal(response.status, 200);
+  assert.match(
+    state.exerciseListSql,
+    /ORDER BY\s+CASE WHEN in_progress_attempt_id IS NOT NULL THEN 0\s+WHEN completed_count = 0 THEN 1 ELSE 2 END,\s+asg\.assigned_at ASC,\s+es\.id ASC/,
+  );
+  assert.deepEqual(await response.json(), [
+    {
+      id: 30,
+      title: 'Resume science',
+      subjectName: 'Science',
+      questionCount: 5,
+      bestScore: null,
+      completedCount: 0,
+      learningMode: 'guided',
+      hasInProgress: true,
+      inProgressAnsweredCount: 2,
+      assignedAt: '2026-01-04T00:00:00.000Z',
+    },
+    {
+      id: 40,
+      title: 'Earlier history',
+      subjectName: 'History',
+      questionCount: 2,
+      bestScore: null,
+      completedCount: 0,
+      learningMode: 'guided',
+      hasInProgress: false,
+      inProgressAnsweredCount: 0,
+      assignedAt: '2026-01-02T00:00:00.000Z',
+    },
+    {
+      id: 20,
+      title: 'Later maths',
+      subjectName: 'Maths',
+      questionCount: 3,
+      bestScore: null,
+      completedCount: 0,
+      learningMode: 'exam',
+      hasInProgress: false,
+      inProgressAnsweredCount: 0,
+      assignedAt: '2026-01-03T00:00:00.000Z',
+    },
+    {
+      id: 10,
+      title: 'Completed maths',
+      subjectName: 'Maths',
+      questionCount: 4,
+      bestScore: 1,
+      completedCount: 1,
+      learningMode: 'guided',
+      hasInProgress: false,
+      inProgressAnsweredCount: 0,
+      assignedAt: '2026-01-01T00:00:00.000Z',
+    },
+  ]);
+});
+
+test('attempt creation copies the exercise learning mode', async () => {
+  const { request, state } = await makeAttemptApp({ exerciseMode: 'exam' });
+
+  const created = await request('/attempts', 'POST', { exerciseSetId: 20 });
+
+  assert.equal(created.response.status, 201);
+  assert.deepEqual(created.body, { attemptId: 500, learningMode: 'exam', existingAnswers: [] });
+  assert.equal(state.attempts[0].learning_mode, 'exam');
+});
+
+test('attempt resume returns the given answer and preserves its snapshot mode after parent edits', async () => {
+  const { request, state } = await makeAttemptApp({
+    exerciseMode: 'exam',
+    attemptMode: 'exam',
+    answers: [{ question_id: 101, givenAnswer: { selectedIndex: 1 }, isCorrect: false, time_spent_ms: 450 }],
+  });
+  state.exerciseSet.learning_mode = 'guided';
+
+  const resumed = await request('/attempts', 'POST', { exerciseSetId: 20 });
+
+  assert.equal(resumed.response.status, 200);
+  assert.deepEqual(resumed.body, {
+    attemptId: 500,
+    learningMode: 'exam',
+    existingAnswers: [{
+      questionId: 101,
+      givenAnswer: { selectedIndex: 1 },
+      timeSpentMs: 450,
+      reasoningText: null,
+    }],
+  });
+});
+
+test('Guided POST locks the first answer and reveals feedback', async () => {
+  const { request, state } = await makeAttemptApp({ attemptMode: 'guided' });
+
+  const first = await request('/attempts/500/answers', 'POST', {
+    questionId: 101,
+    answer: { selectedIndex: 1 },
+    timeSpentMs: 300,
+  });
+  const second = await request('/attempts/500/answers', 'POST', {
+    questionId: 101,
+    answer: { selectedIndex: 0 },
+    timeSpentMs: 900,
+  });
+
+  assert.equal(first.response.status, 200);
+  assert.deepEqual(first.body, {
+    isCorrect: false,
+    correctAnswer: { correctIndex: 0 },
+    explanation: 'A is correct',
+    reasoningFeedback: null,
+  });
+  assert.deepEqual(second.body, first.body);
+  assert.equal(state.answers.length, 1);
+  assert.deepEqual(JSON.parse(state.answers[0].given_answer_json), { selectedIndex: 1 });
+  assert.equal(state.answers[0].time_spent_ms, 300);
+});
+
+test('Exam POST rejects Guided submission with the exact mode code', async () => {
+  const { request } = await makeAttemptApp({ attemptMode: 'exam' });
+
+  const result = await request('/attempts/500/answers', 'POST', {
+    questionId: 101,
+    answer: { selectedIndex: 0 },
+  });
+
+  assert.equal(result.response.status, 409);
+  assert.deepEqual(result.body, { error: 'mode_requires_exam_save' });
+});
+
+test('Exam PUT inserts then updates one answer without exposing grading fields', async () => {
+  const { request, state } = await makeAttemptApp({ attemptMode: 'exam' });
+
+  const inserted = await request('/attempts/500/answers', 'PUT', {
+    questionId: 101,
+    answer: { selectedIndex: 1 },
+    timeSpentMs: 200,
+  });
+  const updated = await request('/attempts/500/answers', 'PUT', {
+    questionId: 101,
+    answer: { selectedIndex: 0 },
+    timeSpentMs: 700,
+    reasoningText: 'Changed after review',
+  });
+
+  assert.equal(inserted.response.status, 200);
+  assert.deepEqual(Object.keys(inserted.body).sort(), ['answeredCount', 'saved']);
+  assert.deepEqual(inserted.body, { saved: true, answeredCount: 1 });
+  assert.deepEqual(Object.keys(updated.body).sort(), ['answeredCount', 'saved']);
+  assert.equal(state.answers.length, 1);
+  assert.deepEqual(JSON.parse(state.answers[0].given_answer_json), { selectedIndex: 0 });
+  assert.equal(state.answers[0].is_correct, 1);
+  assert.equal(state.answers[0].time_spent_ms, 700);
+  assert.equal(state.answers[0].reasoning_text, 'Changed after review');
+});
+
+test('Guided PUT rejects Exam save with the exact mode code', async () => {
+  const { request } = await makeAttemptApp({ attemptMode: 'guided' });
+
+  const result = await request('/attempts/500/answers', 'PUT', {
+    questionId: 101,
+    answer: { selectedIndex: 0 },
+  });
+
+  assert.equal(result.response.status, 409);
+  assert.deepEqual(result.body, { error: 'mode_requires_guided_submit' });
+});
+
+test('both answer routes reject completed attempts without mutation', async () => {
+  const { request, state } = await makeAttemptApp({ attemptMode: 'exam', attemptStatus: 'completed' });
+
+  for (const method of ['POST', 'PUT']) {
+    const result = await request('/attempts/500/answers', method, {
+      questionId: 101,
+      answer: { selectedIndex: 0 },
+    });
+    assert.equal(result.response.status, 404);
+    assert.deepEqual(result.body, { error: 'attempt_not_found' });
+  }
+  assert.equal(state.answers.length, 0);
+});
+
+test('Exam PUT preserves reasoning and question membership validation', async () => {
+  const { request, state } = await makeAttemptApp({ attemptMode: 'exam' });
+
+  const tooLong = await request('/attempts/500/answers', 'PUT', {
+    questionId: 101,
+    answer: { selectedIndex: 0 },
+    reasoningText: 'x'.repeat(501),
+  });
+  const foreignQuestion = await request('/attempts/500/answers', 'PUT', {
+    questionId: 999,
+    answer: { selectedIndex: 0 },
+  });
+
+  assert.equal(tooLong.response.status, 400);
+  assert.deepEqual(tooLong.body, { error: 'reasoning_too_long' });
+  assert.equal(foreignQuestion.response.status, 404);
+  assert.deepEqual(foreignQuestion.body, { error: 'question_not_found' });
+  assert.equal(state.answers.length, 0);
+});
+
+test('completion rejects an incomplete attempt and leaves it in progress', async () => {
+  const { request, state } = await makeAttemptApp({
+    attemptMode: 'guided',
+    answers: [{ question_id: 101, givenAnswer: { selectedIndex: 0 }, isCorrect: true }],
+  });
+
+  const result = await request('/attempts/500/complete', 'POST');
+
+  assert.equal(result.response.status, 409);
+  assert.deepEqual(result.body, { error: 'incomplete_attempt', answered: 1, total: 2 });
+  assert.equal(state.attempts[0].status, 'in_progress');
+  assert.equal(state.batchCalls, 0);
+});
+
+test('edited Exam answer controls score and completion uses a guarded atomic batch', async () => {
+  const { request, state } = await makeAttemptApp({
+    attemptMode: 'exam',
+    answers: [{ question_id: 102, givenAnswer: { text: 'Bangkok' }, isCorrect: true }],
+  });
+
+  await request('/attempts/500/answers', 'PUT', {
+    questionId: 101,
+    answer: { selectedIndex: 1 },
+  });
+  await request('/attempts/500/answers', 'PUT', {
+    questionId: 101,
+    answer: { selectedIndex: 0 },
+  });
+  const completed = await request('/attempts/500/complete', 'POST');
+
+  assert.equal(completed.response.status, 200);
+  assert.deepEqual(completed.body, {
+    score: 1,
+    correct: 2,
+    total: 2,
+    learningMode: 'exam',
+    subjectProgress: { subjectName: 'Maths', completed: 1, assigned: 1 },
+  });
+  assert.equal(state.batchCalls, 1);
+  assert.match(state.completionUpdateSql, /WHERE id = \? AND status = 'in_progress'/);
+  assert.equal(state.attempts[0].status, 'completed');
+  assert.equal(state.attempts[0].score, 1);
+});
+
+test('completed result is owner-only and unavailable before completion', async () => {
+  const inProgress = await makeAttemptApp({ attemptMode: 'exam' });
+  const beforeCompletion = await inProgress.request('/attempts/500/result', 'GET');
+  assert.equal(beforeCompletion.response.status, 409);
+  assert.deepEqual(beforeCompletion.body, { error: 'attempt_not_completed' });
+
+  const foreign = await makeAttemptApp({ attemptMode: 'exam', attemptStatus: 'completed' });
+  foreign.state.attempts[0].child_id = 99;
+  const notOwned = await foreign.request('/attempts/500/result', 'GET');
+  assert.equal(notOwned.response.status, 404);
+  assert.deepEqual(notOwned.body, { error: 'attempt_not_found' });
+});
+
+test('completed result reveals grading and recommends assigned work deterministically', async () => {
+  const { request } = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [
+      {
+        question_id: 101,
+        givenAnswer: { selectedIndex: 0 },
+        isCorrect: true,
+        reasoning_text: 'A matches the prompt',
+      },
+      {
+        question_id: 102,
+        givenAnswer: { text: 'Bangkok' },
+        isCorrect: true,
+      },
+    ],
+  });
+
+  const completed = await request('/attempts/500/result', 'GET');
+
+  assert.equal(completed.response.status, 200);
+  assert.equal(completed.body.learningMode, 'exam');
+  assert.equal(completed.body.score, 1);
+  assert.equal(completed.body.correct, 2);
+  assert.equal(completed.body.total, 2);
+  assert.equal(completed.body.subjectCompleted, 1);
+  assert.equal(completed.body.subjectAssigned, 1);
+  assert.equal(completed.body.questions[0].isCorrect, true);
+  assert.deepEqual(completed.body.questions[0].correctAnswer, { correctIndex: 0 });
+  assert.equal(completed.body.recommendation.id, 20);
+});
+
+test('Exam reasoning feedback is completed-only, mode-specific, and requires stored reasoning', async () => {
+  const guided = await makeAttemptApp({
+    attemptMode: 'guided',
+    attemptStatus: 'completed',
+    answers: [{ question_id: 101, givenAnswer: { selectedIndex: 0 }, isCorrect: true, reasoning_text: 'Because A' }],
+  });
+  guided.state.questions[0].reasoning_prompt = 'Why?';
+  const wrongMode = await guided.request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+  assert.equal(wrongMode.response.status, 409);
+  assert.deepEqual(wrongMode.body, { error: 'mode_requires_exam' });
+
+  const exam = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{ question_id: 101, givenAnswer: { selectedIndex: 0 }, isCorrect: true }],
+  });
+  exam.state.questions[0].reasoning_prompt = 'Why?';
+  const missing = await exam.request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+  assert.equal(missing.response.status, 409);
+  assert.deepEqual(missing.body, { error: 'reasoning_required' });
+});
+
+test('Exam reasoning feedback returns stored feedback idempotently', async () => {
+  const storedFeedback = { status: 'completed', assessment: 'understands', message: 'Clear reasoning' };
+  const { request, state } = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+      ai_feedback_json: JSON.stringify(storedFeedback),
+      ai_feedback_status: 'completed',
+    }],
+  });
+  state.questions[0].reasoning_prompt = 'Why?';
+
+  const result = await request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(result.body, storedFeedback);
+  assert.equal(state.usageRows.length, 0);
+});
+
+test('Exam reasoning feedback persists unavailable and limit states without changing score', async () => {
+  const unavailable = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+    }],
+  });
+  unavailable.state.attempts[0].score = 1;
+  unavailable.state.questions[0].reasoning_prompt = 'Why?';
+  const unavailableResult = await unavailable.request(
+    '/attempts/500/reasoning-feedback',
+    'POST',
+    { questionId: 101 },
+  );
+  assert.equal(unavailableResult.response.status, 200);
+  assert.equal(unavailableResult.body.status, 'unavailable');
+  assert.equal(JSON.parse(unavailable.state.answers[0].ai_feedback_json).status, 'unavailable');
+  assert.equal(unavailable.state.attempts[0].score, 1);
+
+  const limited = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+    }],
+  });
+  limited.state.questions[0].reasoning_prompt = 'Why?';
+  limited.state.aiSetting = {
+    provider: 'custom',
+    model: 'test-model',
+    encrypted_api_key: 'unused-at-limit',
+    base_url: 'https://example.invalid',
+    api_format: 'responses',
+    enabled: 1,
+    daily_limit: 1,
+    monthly_limit: 10,
+  };
+  limited.state.aiUsage = { daily_count: 1, monthly_count: 1 };
+  limited.env.AI_CREDENTIAL_ENCRYPTION_KEY = 'test-encryption-key';
+  const limitResult = await limited.request(
+    '/attempts/500/reasoning-feedback',
+    'POST',
+    { questionId: 101 },
+  );
+  assert.equal(limitResult.response.status, 200);
+  assert.equal(limitResult.body.status, 'limit_reached');
+});
+
+test('Exam reasoning provider failure is recorded without changing deterministic grading', async () => {
+  const encryptionKey = 'reasoning-test-encryption-key';
+  const encryptedApiKey = await encryptCredential('provider-key', encryptionKey);
+  const { request, state, env } = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+    }],
+  });
+  state.attempts[0].score = 1;
+  state.questions[0].reasoning_prompt = 'Why?';
+  state.aiSetting = {
+    provider: 'custom',
+    model: 'test-model',
+    encrypted_api_key: encryptedApiKey,
+    base_url: 'https://example.invalid',
+    api_format: 'responses',
+    enabled: 1,
+    daily_limit: 5,
+    monthly_limit: 20,
+  };
+  env.AI_CREDENTIAL_ENCRYPTION_KEY = encryptionKey;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response('provider failed', { status: 500 });
+  try {
+    const failed = await request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+    assert.equal(failed.response.status, 200);
+    assert.equal(failed.body.status, 'failed');
+    assert.equal(state.usageRows[0].status, 'failed');
+    assert.equal(state.answers[0].is_correct, 1);
+    assert.equal(state.attempts[0].score, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('admin R2 route deletes multiple parent-owned files without key retyping', async () => {

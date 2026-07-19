@@ -3,6 +3,8 @@ import type { DiagramSpec } from './diagram';
 
 export type AgeBand = 'young' | 'older';
 
+export type LearningMode = 'guided' | 'exam';
+
 export type ExerciseSetStatus =
   | 'processing'
   | 'extracting'
@@ -34,6 +36,7 @@ export interface ExerciseSetSummary {
   subjectName: string | null;
   ageBand: AgeBand;
   status: ExerciseSetStatus;
+  learningMode: LearningMode;
   extractionProvider: ExtractionProvider | null;
   extractionError: string | null;
   questionCount: number;
@@ -63,6 +66,59 @@ export interface ReasoningFeedback {
   status: 'completed' | 'unavailable' | 'limit_reached' | 'failed';
   assessment?: 'understands' | 'partial' | 'misconception';
   message: string;
+}
+
+export interface AttemptAnswerView {
+  questionId: number;
+  givenAnswer: unknown;
+  timeSpentMs: number | null;
+  reasoningText: string | null;
+  isCorrect?: boolean;
+  correctAnswer?: unknown;
+  explanation?: string | null;
+  reasoningFeedback?: ReasoningFeedback | null;
+}
+
+export interface AttemptStartResponse {
+  attemptId: number;
+  learningMode: LearningMode;
+  existingAnswers: AttemptAnswerView[];
+}
+
+export interface AttemptCompletionResponse {
+  score: number;
+  correct: number;
+  total: number;
+  learningMode: LearningMode;
+  subjectProgress: {
+    subjectName: string | null;
+    completed: number;
+    assigned: number;
+  };
+}
+
+export interface AttemptResultQuestion extends Required<Pick<AttemptAnswerView, 'questionId' | 'givenAnswer'>> {
+  prompt: string;
+  isCorrect: boolean;
+  correctAnswer: unknown;
+  explanation: string | null;
+  reasoningText: string | null;
+  reasoningFeedback: ReasoningFeedback | null;
+}
+
+export interface AttemptResult {
+  attemptId: number;
+  exerciseSetId: number;
+  exerciseTitle: string;
+  subjectName: string | null;
+  learningMode: LearningMode;
+  score: number;
+  correct: number;
+  total: number;
+  subjectCompleted: number;
+  subjectAssigned: number;
+  questions: AttemptResultQuestion[];
+  recommendation: PlayExercise | null;
 }
 
 // prompt contains ___ where the blank goes; answers accepts any listed string
@@ -142,6 +198,10 @@ export interface PlayExercise {
   // best completed score 0..1, null if never completed
   bestScore: number | null;
   completedCount: number;
+  learningMode: LearningMode;
+  hasInProgress: boolean;
+  inProgressAnsweredCount: number;
+  assignedAt: string;
 }
 
 export interface PlayQuestion {

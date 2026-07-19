@@ -68,6 +68,23 @@
 .app-state-error > svg { color: var(--cfs-danger); }
 .app-state-spinner { animation: cfs-spin .8s linear infinite; }
 
+.learning-mode-badge {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--cfs-space-2);
+  color: var(--cfs-ink);
+  background: var(--cfs-surface-muted);
+  border: 1px solid var(--cfs-border);
+  border-radius: var(--cfs-radius-sm);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.learning-mode-badge[data-mode='exam'] { border-color: var(--cfs-info); }
+
 @keyframes cfs-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 720px) {

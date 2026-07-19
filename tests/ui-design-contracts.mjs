@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -145,4 +145,203 @@ test('exercise title buttons override the legacy filled button treatment', () =>
   assert.match(rule, /background\s*:\s*transparent/);
   assert.match(rule, /border\s*:\s*0/);
   assert.match(css, /@media\s*\(max-width:\s*767px\)[\s\S]*button\.entity-title-button:not\(\.rt-Button\)\s*\{[^}]*min-height\s*:\s*44px/s);
+});
+
+test('parent review exposes a labelled learning mode control', () => {
+  const source = read('src/routes/parent/ReviewExercise.tsx');
+  assert.match(source, /โหมดการเรียนรู้/);
+  assert.match(source, /Guided learning/);
+  assert.match(source, /Exam/);
+  assert.match(source, /learningMode/);
+});
+
+test('learning mode badge is informational', () => {
+  const source = read('src/components/LearningModeBadge.tsx');
+  assert.match(source, /LearningModeBadge/);
+  assert.doesNotMatch(source, /<(button|select)/);
+});
+
+test('child learning foundation provides responsive targets, focus, and neutral progress', () => {
+  const cssPath = 'src/styles/child-learning.css';
+  assert.equal(existsSync(join(root, cssPath)), true, 'child-learning.css should exist');
+  const css = read(cssPath);
+
+  assert.match(css, /\.child-primary-action\s*\{[^}]*min-height\s*:\s*48px/s);
+  assert.match(css, /\.child-secondary-action\s*\{[^}]*min-height\s*:\s*44px/s);
+  assert.match(css, /\.child-progress-meter progress\s*\{[^}]*accent-color\s*:\s*#3f6f8f/s);
+  assert.match(css, /--child-progress-track\s*:\s*#(?:dfe7df|e2e8e2)/);
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*768px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*390px\)/);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  assert.doesNotMatch(css, /font-size\s*:\s*(?:clamp|min|max)\(/);
+
+  const selectedRule = css.match(/\.child-subject-switcher \[aria-selected='true'\]\s*\{[^}]*\}/s)?.[0] ?? '';
+  assert.match(selectedRule, /color\s*:\s*var\(--ink-strong\)/);
+  assert.match(selectedRule, /background\s*:\s*var\(--surface-selected\)/);
+  assert.doesNotMatch(selectedRule, /background\s*:\s*(?:var\(--cfs-accent\)|#[0-4][0-9a-f]{5})/i);
+});
+
+test('child dashboard uses focused semantic components without reordering or nested controls', () => {
+  const componentPaths = [
+    'src/routes/play/components/ChildLearningShell.tsx',
+    'src/routes/play/components/ChildProgressMeter.tsx',
+    'src/routes/play/components/ResumeExercisePanel.tsx',
+    'src/routes/play/components/SubjectSwitcher.tsx',
+    'src/routes/play/components/ChildExerciseList.tsx',
+  ];
+  for (const path of componentPaths) {
+    assert.equal(existsSync(join(root, path)), true, `${path} should exist`);
+  }
+
+  const components = componentPaths.map(read).join('\n');
+  const dashboard = read('src/routes/play/PlayExerciseList.tsx');
+  const progress = read('src/routes/play/PlayProgress.tsx');
+  const main = read('src/main.tsx');
+
+  assert.match(components, /<progress/);
+  assert.match(components, /role="tablist"/);
+  assert.match(components, /role="list"/);
+  assert.match(dashboard, /filterExercisesBySubject/);
+  assert.match(dashboard, /selectResumeExercise/);
+  assert.match(dashboard, /<ChildExerciseList/);
+  assert.doesNotMatch(dashboard, /\.sort\(/);
+  assert.match(progress, /<ChildProgressMeter/);
+  assert.match(main, /\.\/styles\/child-learning\.css/);
+  for (const source of [components, dashboard, progress]) {
+    assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
+    assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
+  }
+});
+
+test('child controls decisively override the legacy button cascade', () => {
+  const css = read('src/styles/child-learning.css');
+  const primary = css.match(/\.child-learning button\.child-primary-action:not\(\.rt-Button\)\s*\{[^}]*\}/s)?.[0] ?? '';
+  const secondary = css.match(/\.child-learning button\.child-secondary-action:not\(\.rt-Button\)\s*\{[^}]*\}/s)?.[0] ?? '';
+  const subjectTab = css.match(/\.child-learning button\.child-subject-tab:not\(\.rt-Button\)\s*\{[^}]*\}/s)?.[0] ?? '';
+  const selectedTab = css.match(/\.child-learning \.child-subject-switcher button\.child-subject-tab:not\(\.rt-Button\)\[aria-selected='true'\]\s*\{[^}]*\}/s)?.[0] ?? '';
+
+  assert.match(primary, /min-height\s*:\s*48px/);
+  assert.match(primary, /background\s*:\s*#3f6f8f/);
+  assert.match(secondary, /min-height\s*:\s*44px/);
+  assert.match(secondary, /color\s*:\s*var\(--ink-strong\)/);
+  assert.match(secondary, /background\s*:\s*#fbfcf8/);
+  assert.match(subjectTab, /min-height\s*:\s*44px/);
+  assert.match(subjectTab, /color\s*:\s*#526359/);
+  assert.match(subjectTab, /background\s*:\s*#fbfcf8/);
+  assert.match(selectedTab, /color\s*:\s*var\(--ink-strong\)/);
+  assert.match(selectedTab, /background\s*:\s*var\(--surface-selected\)/);
+  assert.match(css, /\.child-learning button\.child-primary-action:not\(\.rt-Button\):hover:not\(:disabled\)/);
+  assert.match(css, /\.child-learning button\.child-secondary-action:not\(\.rt-Button\):hover:not\(:disabled\)/);
+  assert.match(css, /\.child-learning button\.child-subject-tab:not\(\.rt-Button\):hover:not\(:disabled\)/);
+  assert.match(css, /\.child-learning :where\(a, button\):focus-visible/);
+});
+
+test('subject switcher contains overflow at every viewport width', () => {
+  const css = read('src/styles/child-learning.css');
+  const assignedWork = css.match(/\.child-assigned-work\s*\{[^}]*\}/s)?.[0] ?? '';
+  const switcher = css.match(/\.child-subject-switcher\s*\{[^}]*\}/s)?.[0] ?? '';
+
+  assert.match(assignedWork, /min-width\s*:\s*0/);
+  assert.match(switcher, /min-width\s*:\s*0/);
+  assert.match(switcher, /max-width\s*:\s*100%/);
+  assert.match(switcher, /overflow-x\s*:\s*auto/);
+  assert.match(switcher, /overscroll-behavior-inline\s*:\s*contain/);
+});
+
+test('subject tabs use roving focus and control the dashboard tabpanel', () => {
+  const switcher = read('src/routes/play/components/SubjectSwitcher.tsx');
+  const dashboard = read('src/routes/play/PlayExerciseList.tsx');
+
+  assert.match(switcher, /useRef/);
+  assert.match(switcher, /tabIndex=\{selected \? 0 : -1\}/);
+  assert.match(switcher, /onKeyDown=/);
+  for (const key of ['ArrowLeft', 'ArrowRight', 'Home', 'End']) {
+    assert.match(switcher, new RegExp(`case '${key}'`));
+  }
+  assert.match(switcher, /event\.preventDefault\(\)/);
+  assert.match(switcher, /tabRefs\.current\[nextIndex\]\?\.focus\(\)/);
+  assert.match(switcher, /aria-controls=\{panelId\}/);
+  assert.match(switcher, /id=\{getSubjectTabId\(panelId, index\)\}/);
+  assert.match(dashboard, /role="tabpanel"/);
+  assert.match(dashboard, /id=\{DASHBOARD_EXERCISE_PANEL_ID\}/);
+  assert.match(dashboard, /aria-labelledby=\{getSubjectTabId\(DASHBOARD_EXERCISE_PANEL_ID, activeSubjectIndex\)\}/);
+});
+
+test('dashboard normalizes uncategorized subjects for summaries and filtering', () => {
+  const state = read('src/routes/play/child-learning-state.ts');
+  const dashboard = read('src/routes/play/PlayExerciseList.tsx');
+
+  assert.match(state, /UNCATEGORIZED_SUBJECT\s*=\s*'ไม่ระบุวิชา'/);
+  assert.match(state, /subjectName\s*\?\?\s*UNCATEGORIZED_SUBJECT/);
+  assert.match(dashboard, /summarizeExercisesBySubject/);
+  assert.doesNotMatch(dashboard, /if \(!exercise\.subjectName\) continue/);
+});
+
+test('shared player shell exposes visible feedback gating and accessible save state', () => {
+  const componentPaths = [
+    'src/routes/play/components/PlayerHeader.tsx',
+    'src/routes/play/components/QuestionNavigator.tsx',
+    'src/routes/play/components/AnswerFeedback.tsx',
+    'src/routes/play/components/ExamSaveStatus.tsx',
+  ];
+  for (const path of componentPaths) {
+    assert.equal(existsSync(join(root, path)), true, `${path} should exist`);
+  }
+
+  const header = read(componentPaths[0]);
+  const navigator = read(componentPaths[1]);
+  const feedback = read(componentPaths[2]);
+  const saveStatus = read(componentPaths[3]);
+
+  assert.match(header, /<progress/);
+  assert.match(header, /<Link[^>]*to="\/play\/exercises"/);
+  assert.match(navigator, /answeredLabel/);
+  assert.match(navigator, /unansweredLabel/);
+  assert.match(navigator, /currentLabel/);
+  assert.match(feedback, /visible:\s*boolean/);
+  assert.match(feedback, /if \(!visible\) return null/);
+  assert.match(feedback, /aria-live="polite"/);
+  assert.match(saveStatus, /role="alert"/);
+  assert.match(saveStatus, /onRetry/);
+});
+
+test('player keeps Guided locking and Exam secrecy in separate API flows', () => {
+  const source = read('src/routes/play/Player.tsx');
+
+  assert.match(source, /learningMode === 'guided'/);
+  assert.match(source, /api\.post<AnswerResult>/);
+  assert.match(source, /api\.put/);
+  assert.match(source, /<ExamSaveStatus/);
+  assert.match(source, /<dialog/);
+  assert.match(source, /AnswerFeedback visible=\{learningMode === 'guided'/);
+  assert.match(source, /phase === 'result'/);
+  assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
+  assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
+});
+
+test('completed result owns review actions and lazy Exam reasoning feedback', () => {
+  const source = read('src/routes/play/components/ExerciseResult.tsx');
+
+  assert.match(source, /subjectCompleted/);
+  assert.match(source, /recommendation/);
+  assert.match(source, /<AnswerFeedback visible=\{true\}/);
+  assert.match(source, /onToggle/);
+  assert.match(source, /reasoning-feedback/);
+  assert.match(source, /api\.post<ReasoningFeedback>/);
+  assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
+  assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
+});
+
+test('player geometry remains stable and mobile navigation cannot overflow', () => {
+  const css = read('src/styles/child-learning.css');
+
+  assert.match(css, /\.child-answer-stage\s*\{[^}]*min-height/s);
+  assert.match(css, /\.child-question-navigator button\s*\{[^}]*min-height\s*:\s*44px/s);
+  assert.match(css, /\.child-player-actions [^{]*\{[^}]*min-height\s*:\s*48px/s);
+  assert.match(css, /\.child-question-navigator \.current\s*\{[^}]*background\s*:\s*#fbfcf8[^}]*border-color\s*:\s*var\(--ink-strong\)/s);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*\.child-question-navigator/s);
+  assert.match(css, /\.child-question-navigator\s*\{[^}]*min-width\s*:\s*0[^}]*max-width\s*:\s*100%/s);
+  assert.doesNotMatch(css, /font-size\s*:\s*(?:clamp|min|max)\(/);
 });
