@@ -11,7 +11,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
 import { TreePanel, type TreeNodeItem } from '../../components/TreePanel';
 import { useNotify } from '../../components/AppNotifications';
-import type { AgeBand, ExerciseSetSummary, Subject } from '@shared/types';
+import type { AgeBand, Child, ExerciseSetSummary, Subject } from '@shared/types';
 
 const STATUS_TH: Record<string, string> = {
   processing: 'รอคิว Pi',
@@ -110,6 +110,56 @@ function ArchiveSelectedSetsButton({
   );
 }
 
+function AssignSelectedSetsDialog({
+  children,
+  selectedChildIds,
+  count,
+  disabled,
+  onToggleChild,
+  onConfirm,
+}: {
+  children: Child[];
+  selectedChildIds: Set<number>;
+  count: number;
+  disabled: boolean;
+  onToggleChild: (id: number) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger>
+        <Button variant="soft" disabled={disabled}>มอบหมายที่เลือก</Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="460px">
+        <AlertDialog.Title>มอบหมายแบบฝึกหัด {count} ชุด</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          เลือกเด็กที่จะเห็นแบบฝึกหัดที่เลือกทั้งหมด
+        </AlertDialog.Description>
+        <div className="bulk-child-list">
+          {children.length === 0 && <Text color="gray" size="2">ยังไม่มีโปรไฟล์เด็ก</Text>}
+          {children.map((child) => (
+            <label key={child.id} className="bulk-child-option">
+              <input
+                type="checkbox"
+                checked={selectedChildIds.has(child.id)}
+                onChange={() => onToggleChild(child.id)}
+              />
+              <span>{child.name}</span>
+              <Text color="gray" size="1">{ageBandLabel(child.ageBand)}</Text>
+            </label>
+          ))}
+        </div>
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action>
+            <Button disabled={disabled || children.length === 0} onClick={onConfirm}>บันทึกการมอบหมาย</Button>
+          </AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 function DeleteSubjectButton({
   disabled,
   subjectName,
@@ -186,6 +236,7 @@ export default function ExerciseList() {
   const nav = useNavigate();
   const [sets, setSets] = useState<ExerciseSetSummary[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [activeId, setActiveId] = useState('subject:ทั้งหมด');
   const [activeSetId, setActiveSetId] = useState<number | null>(null);
   const [listLoading, setListLoading] = useState(true);
@@ -196,6 +247,7 @@ export default function ExerciseList() {
   const [editAgeBand, setEditAgeBand] = useState<AgeBand>('young');
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkAssignChildIds, setBulkAssignChildIds] = useState<Set<number>>(new Set());
   const [merging, setMerging] = useState(false);
   const [mergeTitle, setMergeTitle] = useState('');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -218,6 +270,7 @@ export default function ExerciseList() {
   useEffect(() => {
     loadSets();
     api.get<Subject[]>('/api/parent/subjects').then(setSubjects);
+    api.get<Child[]>('/api/parent/children').then(setChildren);
     const t = setInterval(() => {
       api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets').then((data) => {
         setSets(data);
@@ -294,6 +347,15 @@ export default function ExerciseList() {
     });
   };
 
+  const toggleBulkAssignChild = (id: number) => {
+    setBulkAssignChildIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const openMerge = () => {
     const firstTitle = sets.find((s) => s.id === Math.min(...selected))?.title ?? '';
     setMergeTitle(firstTitle ? `${firstTitle} (รวม)` : '');
@@ -353,6 +415,23 @@ export default function ExerciseList() {
       notify(`ลบแบบฝึกหัดที่เลือก ${ids.length} ชุดแล้ว`, 'success');
     } catch (err) {
       notify('ลบแบบฝึกหัดที่เลือกไม่สำเร็จ: ' + String(err), 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function assignSelectedSets() {
+    const setIds = [...selected];
+    const childIds = [...bulkAssignChildIds];
+    if (setIds.length === 0) return;
+    setLoading(true);
+    try {
+      await Promise.all(setIds.map((setId) => (
+        api.post(`/api/parent/exercise-sets/${setId}/assign`, { childIds })
+      )));
+      notify(`มอบหมายแบบฝึกหัด ${setIds.length} ชุดแล้ว`, 'success');
+    } catch (err) {
+      notify('มอบหมายแบบฝึกหัดที่เลือกไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -473,6 +552,14 @@ export default function ExerciseList() {
               <Flex align="center" gap="3" wrap="wrap">
                 <Text className="grow" weight="medium">เลือก {selected.size} ชุด</Text>
                 {selected.size >= 2 && <Button onClick={openMerge} disabled={loading}>รวมชุด</Button>}
+                <AssignSelectedSetsDialog
+                  children={children}
+                  selectedChildIds={bulkAssignChildIds}
+                  count={selected.size}
+                  disabled={loading}
+                  onToggleChild={toggleBulkAssignChild}
+                  onConfirm={assignSelectedSets}
+                />
                 <ArchiveSelectedSetsButton
                   count={selected.size}
                   disabled={loading}

@@ -110,6 +110,14 @@ test('exercise management exposes a multi-delete action for selected sets', () =
   assert.match(source, /selected\.size/);
 });
 
+test('exercise management exposes bulk assignment for selected sets', () => {
+  const source = read('src/routes/parent/ExerciseList.tsx');
+  assert.match(source, /assignSelectedSets/);
+  assert.match(source, /มอบหมายที่เลือก/);
+  assert.match(source, /bulkAssignChildIds/);
+  assert.match(source, /\/assign/);
+});
+
 test('child tree uses names while detail workspace owns the avatar', () => {
   const source = read('src/routes/parent/ChildrenList.tsx');
   assert.match(source, /PageHeader/);

@@ -2777,6 +2777,26 @@ input:not(.rt-TextFieldInput):hover, select:hover, textarea:not(.rt-TextAreaInpu
   backdrop-filter: blur(12px);
 }
 
+.bulk-child-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bulk-child-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--cfs-border);
+  border-radius: 8px;
+  background: var(--cfs-surface);
+  color: var(--cfs-ink);
+  font-weight: 700;
+}
+
 .progress-track, .progress-bar-track { background: #dde4da; }
 .progress-fill, .progress-bar-fill { background: #3f7653; }
 .subject-progress-card { background: #f8faf6; }
