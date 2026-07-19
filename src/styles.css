@@ -960,6 +960,29 @@ table.data th { color: var(--muted); font-weight: 600; }
   gap: 12px;
 }
 
+.attempt-answer-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.attempt-answer-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.attempt-answer-card.correct {
+  border-color: rgba(63, 111, 79, 0.38);
+}
+
+.attempt-answer-card.wrong {
+  border-color: rgba(160, 68, 56, 0.32);
+}
+
 .management-filters {
   display: grid;
   grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(140px, 1fr)) auto;

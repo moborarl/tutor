@@ -1095,3 +1095,25 @@ Verification:
 npm test
 npm run build
 ```
+
+## Product completion slice: child navigator and parent answer review
+
+Completed in the current slice:
+
+- Kid exercise navigator is restored as a compact question tree.
+  - Shows total questions, answered count, and per-question state.
+  - Guided mode shows correct/wrong counts and marks after answers are checked.
+  - Exam mode keeps correctness hidden until completion by not passing correct/wrong ids into the navigator.
+- Parent progress can now drill into a completed attempt and review every answered question.
+  - Route: `/parent/children/:id/attempts/:attemptId`
+  - Parent progress table shows `ดูคำตอบรายข้อ` for completed attempts.
+  - Backend endpoint: `GET /api/parent/children/:id/attempts/:attemptId/result`
+  - Endpoint is parent-scoped and only returns completed attempts.
+  - Review includes prompt, child answer, correct answer, explanation, and reasoning feedback when stored.
+
+Verification:
+
+```powershell
+npm test
+npm run build
+```

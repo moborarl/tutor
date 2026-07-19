@@ -9,3 +9,4 @@ dist/
 .DS_Store
 Avatar/
 pi-extraction/.env
+.claude/settings.local.json

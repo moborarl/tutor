@@ -4,7 +4,8 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { ChildAvatar } from '../../components/ChildAvatar';
 import { useNotify } from '../../components/AppNotifications';
-import type { ChildProgress as ChildProgressData } from '@shared/types';
+import { formatAnswer } from '../../lib/format-answer';
+import type { AttemptResult, ChildProgress as ChildProgressData } from '@shared/types';
 
 function pct(v: number | null): string {
   return v == null ? '—' : `${Math.round(v * 100)}%`;
@@ -14,17 +15,61 @@ function completion(done: number, total: number): number {
   return total <= 0 ? 0 : Math.round((done / total) * 100);
 }
 
+function AttemptAnswerReview({ result, childId }: { result: AttemptResult; childId: string }) {
+  return (
+    <div className="parent-stack">
+      <div className="page-heading">
+        <div>
+          <Heading as="h2" size="6">{result.exerciseTitle}</Heading>
+          <Text color="gray" size="2">
+            {result.subjectName ?? 'ไม่ระบุวิชา'} · ได้ {result.correct}/{result.total} ข้อ · {pct(result.score)}
+          </Text>
+        </div>
+        <Link to={`/parent/children/${childId}/progress`}>
+          <Button variant="soft" color="gray">กลับความคืบหน้า</Button>
+        </Link>
+      </div>
+
+      <Card className="parent-panel">
+        <Heading as="h3" size="4">คำตอบรายข้อ</Heading>
+        <div className="attempt-answer-list">
+          {result.questions.map((question, index) => (
+            <article key={question.questionId} className={`attempt-answer-card ${question.isCorrect ? 'correct' : 'wrong'}`}>
+              <Flex justify="between" gap="3" wrap="wrap">
+                <Text weight="bold">ข้อ {index + 1}</Text>
+                <Badge color={question.isCorrect ? 'green' : 'red'} variant="soft">{question.isCorrect ? 'ถูก' : 'ผิด'}</Badge>
+              </Flex>
+              <Text as="p" weight="bold">{question.prompt}</Text>
+              <Text as="div" size="2"><b>เด็กตอบ:</b> {formatAnswer(question.givenAnswer)}</Text>
+              <Text as="div" size="2"><b>เฉลย:</b> {formatAnswer(question.correctAnswer)}</Text>
+              {question.reasoningText && <Text as="div" size="2"><b>คำอธิบายของเด็ก:</b> {question.reasoningText}</Text>}
+              {question.explanation && <Text as="p" color="gray" size="2">{question.explanation}</Text>}
+            </article>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export default function ChildProgress() {
   const notify = useNotify();
-  const { id } = useParams();
+  const { id, attemptId } = useParams();
   const [data, setData] = useState<ChildProgressData | null>(null);
+  const [attemptReview, setAttemptReview] = useState<AttemptResult | null>(null);
   const [resettingId, setResettingId] = useState<number | null>(null);
 
   const load = useCallback(() => {
+    if (!id || attemptId) return;
     api.get<ChildProgressData>(`/api/parent/children/${id}/progress`).then(setData);
-  }, [id]);
+  }, [id, attemptId]);
 
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (!id || !attemptId) return;
+    api.get<AttemptResult>(`/api/parent/children/${id}/attempts/${attemptId}/result`).then(setAttemptReview);
+  }, [id, attemptId]);
 
   async function resetInProgress(exerciseSetId: number) {
     setResettingId(exerciseSetId);
@@ -36,6 +81,20 @@ export default function ChildProgress() {
     } finally {
       setResettingId(null);
     }
+  }
+
+  if (attemptId) {
+    if (!attemptReview) {
+      return (
+        <Card className="parent-panel">
+          <Flex align="center" gap="3">
+            <div className="state-spinner" />
+            <Text color="gray">กำลังโหลดคำตอบรายข้อ...</Text>
+          </Flex>
+        </Card>
+      );
+    }
+    return <AttemptAnswerReview result={attemptReview} childId={id ?? ''} />;
   }
 
   if (!data) {
@@ -84,7 +143,9 @@ export default function ChildProgress() {
               <div className="progress-bar-track" style={{ marginTop: 8 }}>
                 <div className="progress-bar-fill" style={{ width: `${completion(s.completedSetCount, s.assignedCount)}%` }} />
               </div>
-              <Text as="div" size="2" weight="bold" style={{ color: 'var(--green)', marginTop: 6 }}>คะแนนดีที่สุด {pct(s.bestScore)} · ทำทั้งหมด {s.completedAttempts} ครั้ง</Text>
+              <Text as="div" size="2" weight="bold" style={{ color: 'var(--green)', marginTop: 6 }}>
+                คะแนนดีที่สุด {pct(s.bestScore)} · ทำทั้งหมด {s.completedAttempts} ครั้ง
+              </Text>
             </div>
           ))}
         </div>
@@ -94,47 +155,42 @@ export default function ChildProgress() {
         <Heading as="h3" size="4">รายชุดแบบฝึกหัด</Heading>
         {data.sets.length === 0 && <Text color="gray">ยังไม่มีแบบฝึกหัดที่มอบหมาย</Text>}
         <div className="progress-set-list">
-        {data.sets.map((s) => (
-          <div key={s.exerciseSetId} className="progress-set-row">
-            <div className="row">
-              <div className="grow">
-                <Text as="div" weight="bold">{s.title || `ชุดที่ ${s.exerciseSetId}`}</Text>
-                <Text as="div" color="gray" size="2">{s.subjectName ?? 'ไม่ระบุวิชา'} · ทำ {s.attemptCount} ครั้ง</Text>
+          {data.sets.map((s) => (
+            <div key={s.exerciseSetId} className="progress-set-row">
+              <div className="row">
+                <div className="grow">
+                  <Text as="div" weight="bold">{s.title || `ชุดที่ ${s.exerciseSetId}`}</Text>
+                  <Text as="div" color="gray" size="2">{s.subjectName ?? 'ไม่ระบุวิชา'} · ทำ {s.attemptCount} ครั้ง</Text>
+                </div>
+                <Text weight="bold" style={{ color: 'var(--green)' }}>{pct(s.bestScore)}</Text>
               </div>
-              <Text weight="bold" style={{ color: 'var(--green)' }}>{pct(s.bestScore)}</Text>
-            </div>
-            {s.hasInProgress && (
-              <div className="row" style={{ marginTop: 8 }}>
-                <Badge color="amber" variant="soft">ทำค้างอยู่</Badge>
-                <AlertDialog.Root>
-                  <AlertDialog.Trigger>
-                    <Button
-                      variant="soft"
-                      color="gray"
-                      disabled={resettingId === s.exerciseSetId}
-                      size="1"
-                    >
-                      {resettingId === s.exerciseSetId ? 'กำลังรีเซ็ต...' : 'รีเซ็ตให้ทำใหม่'}
-                    </Button>
-                  </AlertDialog.Trigger>
-                  <AlertDialog.Content maxWidth="440px">
-                    <AlertDialog.Title>ให้เริ่มชุดนี้ใหม่?</AlertDialog.Title>
-                    <AlertDialog.Description size="2">
-                      จะล้างค่าที่ทำค้างไว้เท่านั้น คะแนนที่เคยทำเสร็จแล้วจะไม่หาย
-                    </AlertDialog.Description>
-                    <Flex gap="3" justify="end" mt="4">
-                      <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
-                      <AlertDialog.Action><Button onClick={() => resetInProgress(s.exerciseSetId)}>รีเซ็ต</Button></AlertDialog.Action>
-                    </Flex>
-                  </AlertDialog.Content>
-                </AlertDialog.Root>
+              {s.hasInProgress && (
+                <div className="row" style={{ marginTop: 8 }}>
+                  <Badge color="amber" variant="soft">ทำค้างอยู่</Badge>
+                  <AlertDialog.Root>
+                    <AlertDialog.Trigger>
+                      <Button variant="soft" color="gray" disabled={resettingId === s.exerciseSetId} size="1">
+                        {resettingId === s.exerciseSetId ? 'กำลังรีเซ็ต...' : 'รีเซ็ตให้ทำใหม่'}
+                      </Button>
+                    </AlertDialog.Trigger>
+                    <AlertDialog.Content maxWidth="440px">
+                      <AlertDialog.Title>ให้เริ่มชุดนี้ใหม่?</AlertDialog.Title>
+                      <AlertDialog.Description size="2">
+                        จะล้างค่าที่ทำค้างไว้เท่านั้น คะแนนที่เคยทำเสร็จแล้วจะไม่หาย
+                      </AlertDialog.Description>
+                      <Flex gap="3" justify="end" mt="4">
+                        <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+                        <AlertDialog.Action><Button onClick={() => resetInProgress(s.exerciseSetId)}>รีเซ็ต</Button></AlertDialog.Action>
+                      </Flex>
+                    </AlertDialog.Content>
+                  </AlertDialog.Root>
+                </div>
+              )}
+              <div className="progress-bar-track" style={{ marginTop: 8 }}>
+                <div className="progress-bar-fill" style={{ width: `${(s.bestScore ?? 0) * 100}%` }} />
               </div>
-            )}
-            <div className="progress-bar-track" style={{ marginTop: 8 }}>
-              <div className="progress-bar-fill" style={{ width: `${(s.bestScore ?? 0) * 100}%` }} />
             </div>
-          </div>
-        ))}
+          ))}
         </div>
       </Card>
 
@@ -144,7 +200,7 @@ export default function ChildProgress() {
         {data.recentAttempts.length > 0 && (
           <table className="data">
             <thead>
-              <tr><th>ชุด</th><th>คะแนน</th><th>สถานะ</th><th>เมื่อ</th></tr>
+              <tr><th>ชุด</th><th>คะแนน</th><th>สถานะ</th><th>เมื่อ</th><th>คำตอบ</th></tr>
             </thead>
             <tbody>
               {data.recentAttempts.map((a) => (
@@ -153,6 +209,13 @@ export default function ChildProgress() {
                   <td>{pct(a.score)}</td>
                   <td>{a.status === 'completed' ? 'เสร็จ' : 'ค้างอยู่'}</td>
                   <td className="muted">{new Date(a.startedAt + 'Z').toLocaleString('th-TH')}</td>
+                  <td>
+                    {a.status === 'completed' && (
+                      <Link to={`/parent/children/${data.child.id}/attempts/${a.attemptId}`}>
+                        <Button variant="soft" color="gray" size="1">ดูคำตอบรายข้อ</Button>
+                      </Link>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

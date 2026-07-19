@@ -347,6 +347,11 @@ test('shared player shell exposes visible feedback gating and accessible save st
   assert.match(navigator, /answeredLabel/);
   assert.match(navigator, /unansweredLabel/);
   assert.match(navigator, /currentLabel/);
+  assert.match(navigator, /correctLabel/);
+  assert.match(navigator, /wrongLabel/);
+  assert.match(navigator, /questionNavigatorSummary/);
+  assert.match(navigator, /correctIds/);
+  assert.match(navigator, /wrongIds/);
   assert.match(feedback, /visible:\s*boolean/);
   assert.match(feedback, /if \(!visible\) return null/);
   assert.match(feedback, /aria-live="polite"/);
@@ -379,6 +384,15 @@ test('completed result owns review actions and lazy Exam reasoning feedback', ()
   assert.match(source, /api\.post<ReasoningFeedback>/);
   assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
   assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
+});
+
+test('parent progress can drill into per-question attempt answers', () => {
+  const app = read('src/App.tsx');
+  const progress = read('src/routes/parent/ChildProgress.tsx');
+  assert.match(app, /children\/:id\/attempts\/:attemptId/);
+  assert.match(progress, /ดูคำตอบรายข้อ/);
+  assert.match(progress, /AttemptAnswerReview/);
+  assert.match(progress, /api\.get<AttemptResult>/);
 });
 
 test('child learning workspace keeps visible navigation in Thai', () => {

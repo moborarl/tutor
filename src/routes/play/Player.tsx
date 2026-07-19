@@ -310,6 +310,8 @@ export default function Player() {
   const question = exercise.questions[index];
   const guidedResult = guidedResults[question.id] ?? null;
   const answeredIds = new Set(Object.keys(localAnswers).map(Number));
+  const correctIds = new Set(Object.entries(guidedResults).filter(([, value]) => value.isCorrect).map(([id]) => Number(id)));
+  const wrongIds = new Set(Object.entries(guidedResults).filter(([, value]) => !value.isCorrect).map(([id]) => Number(id)));
   const allAnswered = answeredIds.size === total;
   const currentSaveState = saveState.questions[question.id];
   const canFinishExam = allAnswered && canSubmitExam(saveState);
@@ -502,6 +504,8 @@ export default function Player() {
           questionIds={exercise.questions.map((item) => item.id)}
           currentIndex={index}
           answeredIds={answeredIds}
+          correctIds={learningMode === 'guided' ? correctIds : undefined}
+          wrongIds={learningMode === 'guided' ? wrongIds : undefined}
           disabled={submittingQuestionId != null}
           onNavigate={(nextIndex) => void navigateTo(nextIndex)}
         />

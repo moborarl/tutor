@@ -44,6 +44,7 @@ export default function App() {
           <Route index element={<Admin />} />
           <Route path="children" element={<ChildrenList />} />
           <Route path="children/:id/progress" element={<ChildProgress />} />
+          <Route path="children/:id/attempts/:attemptId" element={<ChildProgress />} />
           <Route path="admin" element={<Navigate to="/parent" replace />} />
           <Route path="exercises" element={<ExerciseList />} />
           <Route path="upload" element={<Upload />} />
