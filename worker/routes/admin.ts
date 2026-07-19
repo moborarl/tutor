@@ -128,6 +128,47 @@ adminRoutes.get('/summary', async (c) => {
     .bind(parentId)
     .all();
 
+  const subjectProgress = await c.env.DB.prepare(
+    `SELECT COALESCE(s.name, 'ไม่ระบุวิชา') AS subject_name,
+            COUNT(DISTINCT es.id) AS set_count,
+            COUNT(DISTINCT asg.child_id) AS assigned_children,
+            COUNT(DISTINCT CASE WHEN a.status = 'completed' THEN a.id END) AS completed_attempts,
+            MAX(a.started_at) AS last_activity
+     FROM exercise_sets es
+     LEFT JOIN subjects s ON s.id = es.subject_id
+     LEFT JOIN assignments asg ON asg.exercise_set_id = es.id
+     LEFT JOIN children ch ON ch.id = asg.child_id AND ch.parent_id = ?
+     LEFT JOIN attempts a ON a.exercise_set_id = es.id AND a.child_id = ch.id
+     WHERE es.parent_id = ? AND es.status = 'published'
+     GROUP BY COALESCE(s.name, 'ไม่ระบุวิชา')
+     ORDER BY subject_name`,
+  )
+    .bind(parentId, parentId)
+    .all();
+
+  const incompleteSets = await c.env.DB.prepare(
+    `SELECT es.id, es.title, COALESCE(s.name, 'ไม่ระบุวิชา') AS subject_name,
+            es.age_band, ch.id AS child_id, ch.name AS child_name
+     FROM assignments asg
+     JOIN children ch ON ch.id = asg.child_id AND ch.parent_id = ?
+     JOIN exercise_sets es ON es.id = asg.exercise_set_id AND es.parent_id = ? AND es.status = 'published'
+     LEFT JOIN attempts a ON a.child_id = ch.id AND a.exercise_set_id = es.id AND a.status = 'completed'
+     WHERE a.id IS NULL
+     ORDER BY es.updated_at DESC LIMIT 20`,
+  )
+    .bind(parentId, parentId)
+    .all();
+
+  const recentChildren = await c.env.DB.prepare(
+    `SELECT ch.id, ch.name, ch.avatar, ch.age_band,
+            MAX(a.started_at) AS last_activity, COUNT(a.id) AS attempt_count
+     FROM children ch LEFT JOIN attempts a ON a.child_id = ch.id
+     WHERE ch.parent_id = ?
+     GROUP BY ch.id ORDER BY last_activity IS NULL, last_activity DESC LIMIT 8`,
+  )
+    .bind(parentId)
+    .all();
+
   const r2 = await listParentR2(c.env, parentId);
   return c.json({
     counts: {
@@ -160,6 +201,23 @@ adminRoutes.get('/summary', async (c) => {
       attemptCount: Number(ch.attempt_count ?? 0),
       averageScore: ch.avg_score == null ? null : Number(ch.avg_score),
     })),
+    insights: {
+      subjectProgress: subjectProgress.results.map((row) => ({
+        subjectName: String(row.subject_name ?? ''),
+        setCount: Number(row.set_count ?? 0),
+        assignedChildren: Number(row.assigned_children ?? 0),
+        completedAttempts: Number(row.completed_attempts ?? 0),
+        lastActivity: row.last_activity == null ? null : String(row.last_activity),
+      })),
+      incompleteSets: incompleteSets.results.map((row) => ({
+        id: Number(row.id), title: String(row.title ?? ''), subjectName: String(row.subject_name ?? ''),
+        ageBand: String(row.age_band ?? ''), childId: Number(row.child_id), childName: String(row.child_name ?? ''),
+      })),
+      recentChildren: recentChildren.results.map((row) => ({
+        id: Number(row.id), name: String(row.name ?? ''), avatar: String(row.avatar ?? ''), ageBand: String(row.age_band ?? ''),
+        lastActivity: row.last_activity == null ? null : String(row.last_activity), attemptCount: Number(row.attempt_count ?? 0),
+      })),
+    },
   });
 });
 

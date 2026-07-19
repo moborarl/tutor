@@ -3,7 +3,7 @@ import { AlertDialog, Button, Card, Flex, Heading, Text } from '@radix-ui/themes
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api-client';
 import { preflightImportedJson, type ImportPreflightReport } from '@shared/import-preflight';
-import { PROMPT_TEMPLATE } from '@shared/contract';
+import { buildPromptTemplate, PROMPT_TEMPLATE_OPTIONS, type PromptTemplateKind } from '../../lib/prompt-templates';
 import type { Subject, AgeBand, QuestionType } from '@shared/types';
 import { useNotify } from '../../components/AppNotifications';
 
@@ -82,6 +82,7 @@ export default function Upload() {
   const [ingestToken, setIngestToken] = useState<string | null>(null);
   const [tokenBusy, setTokenBusy] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
+  const [promptTemplate, setPromptTemplate] = useState<PromptTemplateKind>('multiple_choice');
 
   useEffect(() => {
     api.get<Subject[]>('/api/parent/subjects').then(setSubjects);
@@ -97,6 +98,14 @@ export default function Upload() {
     ? `${window.location.origin}/api/ingest/${ingestToken}?ageBand=${ageBand}` +
       (subjectName ? `&subject=${encodeURIComponent(subjectName)}` : '')
     : '';
+
+  const promptTemplateText = buildPromptTemplate({
+    kind: promptTemplate,
+    subject: subjectName,
+    ageBand: ageBand === 'young' ? 'เด็กเล็ก' : 'เด็กโต',
+    contractUrl: `${window.location.origin}/contract`,
+    ingestUrl,
+  });
 
   // Single source for the AI prompt (shown in the textarea and copied by the
   // button). Both URLs are derived from the current origin so the template
@@ -171,7 +180,7 @@ ${ingestUrl}
   }
 
   async function copyPrompt() {
-    await navigator.clipboard.writeText(PROMPT_TEMPLATE);
+    await navigator.clipboard.writeText(promptTemplateText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -236,7 +245,10 @@ ${ingestUrl}
           <a href="https://gemini.google.com" target="_blank" rel="noreferrer">Gemini</a> (แบบฟรี ไม่เสียเงิน)
           แล้ว copy คำสั่งด้านล่าง
         </Text>
-        <textarea readOnly rows={6} value={PROMPT_TEMPLATE} style={{ fontFamily: 'monospace', fontSize: '.85rem' }} />
+        <select aria-label="รูปแบบ prompt" data-template-kinds="multiple_choice short_answer ordering matching exam" value={promptTemplate} onChange={(e) => setPromptTemplate(e.target.value as PromptTemplateKind)}>
+          {PROMPT_TEMPLATE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <textarea readOnly rows={8} value={promptTemplateText} style={{ fontFamily: 'monospace', fontSize: '.85rem' }} />
         <Button type="button" variant="soft" color="gray" style={{ marginTop: 8 }} onClick={copyPrompt}>
           {copied ? 'คัดลอกแล้ว' : 'คัดลอกคำสั่งนี้'}
         </Button>

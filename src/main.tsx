@@ -12,7 +12,6 @@ import './styles/shell.css';
 import './styles/auth-family.css';
 import './styles/explorer.css';
 import './styles/data-workspace.css';
-import './styles/child-learning.css';
 import { AppNotifications } from './components/AppNotifications';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -203,15 +203,16 @@ exerciseRoutes.post('/merge', async (c) => {
 
 exerciseRoutes.get('/', async (c) => {
   const { parentId } = c.get('session');
+  const includeArchived = c.req.query('includeArchived') === '1';
   const rows = await c.env.DB.prepare(
     `SELECT es.id, es.title, es.subject_id, s.name AS subject_name, es.age_band, es.status, es.learning_mode,
             es.extraction_provider, es.extraction_error, es.created_at,
             (SELECT COUNT(*) FROM questions q WHERE q.exercise_set_id = es.id) AS question_count
      FROM exercise_sets es LEFT JOIN subjects s ON s.id = es.subject_id
-     WHERE es.parent_id = ? AND es.status != 'archived'
+     WHERE es.parent_id = ? AND (? = 1 OR es.status != 'archived')
      ORDER BY es.created_at DESC`,
   )
-    .bind(parentId)
+    .bind(parentId, includeArchived ? 1 : 0)
     .all();
   return c.json(
     rows.results.map((r) => ({
@@ -458,6 +459,19 @@ exerciseRoutes.post('/:id/publish', async (c) => {
     .bind(id)
     .run();
   return c.json({ ok: true });
+});
+
+exerciseRoutes.post('/:id/restore', async (c) => {
+  const { parentId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  const result = await c.env.DB.prepare(
+    `UPDATE exercise_sets SET status = 'pending_review', updated_at = datetime('now')
+     WHERE id = ? AND parent_id = ? AND status = 'archived'`,
+  )
+    .bind(id, parentId)
+    .run();
+  if (!result.meta.changes) return c.json({ error: 'not_found' }, 404);
+  return c.json({ id, status: 'pending_review' });
 });
 
 exerciseRoutes.post('/:id/unpublish', async (c) => {

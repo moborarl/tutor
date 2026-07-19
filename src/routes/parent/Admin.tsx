@@ -47,6 +47,11 @@ interface AdminSummary {
     assignedCount: number;
     attemptCount: number;
   }>;
+  insights: {
+    subjectProgress: Array<{ subjectName: string; setCount: number; assignedChildren: number; completedAttempts: number; lastActivity: string | null }>;
+    incompleteSets: Array<{ id: number; title: string; subjectName: string; ageBand: string; childId: number; childName: string }>;
+    recentChildren: Array<{ id: number; name: string; avatar: string; ageBand: string; lastActivity: string | null; attemptCount: number }>;
+  };
 }
 
 interface R2FileRow {
@@ -422,6 +427,36 @@ export default function Admin() {
                   ))}
                 </EntityList>
               </section>
+              <section className="parent-panel workspace-section">
+                <Heading as="h3" size="4">ความคืบหน้าตามวิชา</Heading>
+                <EntityList label="ความคืบหน้าตามวิชา" isEmpty={summary.insights.subjectProgress.length === 0} empty={<AppState tone="empty" title="ยังไม่มีข้อมูลความคืบหน้า" />}>
+                  {summary.insights.subjectProgress.map((item) => (
+                    <EntityRow
+                      key={item.subjectName}
+                      title={item.subjectName}
+                      metadata={`${item.setCount} ชุด · มอบหมาย ${item.assignedChildren} คน · ทำเสร็จ ${item.completedAttempts} ครั้ง`}
+                    />
+                  ))}
+                </EntityList>
+              </section>
+              <div className="summary-grid">
+                <section className="parent-panel workspace-section">
+                  <Heading as="h3" size="4">งานที่ยังไม่เสร็จ</Heading>
+                  <EntityList label="งานที่ยังไม่เสร็จ" isEmpty={summary.insights.incompleteSets.length === 0} empty={<AppState tone="empty" title="ไม่มีงานค้าง" />}>
+                    {summary.insights.incompleteSets.slice(0, 8).map((item) => (
+                      <EntityRow key={`${item.id}-${item.childId}`} title={item.title} metadata={`${item.subjectName} · ${item.childName}`} />
+                    ))}
+                  </EntityList>
+                </section>
+                <section className="parent-panel workspace-section">
+                  <Heading as="h3" size="4">เด็กที่ใช้งานล่าสุด</Heading>
+                  <EntityList label="เด็กที่ใช้งานล่าสุด" isEmpty={summary.insights.recentChildren.length === 0} empty={<AppState tone="empty" title="ยังไม่มีประวัติการใช้งาน" />}>
+                    {summary.insights.recentChildren.map((child) => (
+                      <EntityRow key={child.id} selection={<ChildAvatar child={child} />} title={child.name} metadata={`ทำแบบฝึกหัด ${child.attemptCount} ครั้ง`} />
+                    ))}
+                  </EntityList>
+                </section>
+              </div>
             </div>
           )}
 

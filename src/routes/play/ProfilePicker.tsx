@@ -5,6 +5,7 @@ import type { Child } from '@shared/types';
 import { AppState } from '../../components/AppState';
 import { ChildAvatar } from '../../components/ChildAvatar';
 import { api } from '../../lib/api-client';
+import '../../styles/child-learning.css';
 
 export default function ProfilePicker() {
   const nav = useNavigate();

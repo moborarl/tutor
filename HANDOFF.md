@@ -1072,6 +1072,29 @@ npm test
 npm run build
 ```
 
+## Product completion slice: insights, archive, prompt templates, and CSS loading
+
+Completed in the current slice:
+
+- Parent overview now includes learning insights:
+  - progress grouped by subject
+  - incomplete assigned work
+  - recently active children
+- Exercise management can load archived sets from the `เก็บเข้าคลัง` status filter and restore them to `รอตรวจ`.
+  - Normal exercise lists continue to hide archived sets.
+  - Restore is parent-scoped through `POST /api/parent/exercise-sets/:id/restore`.
+- AI import now has focused prompt templates for multiple choice, short answer, ordering, matching, and exam mode.
+  - The selected template is shown in the upload page and copied with the prompt button.
+- Child-learning CSS is route-loaded for play pages instead of being part of the global entry stylesheet.
+  - The production build now emits a separate `child-learning-*.css` chunk.
+
+Verification:
+
+```powershell
+npm test
+npm run build
+```
+
 ## Product completion slice: polish items 6-10
 
 Completed polish pass:

@@ -255,7 +255,7 @@ test('child dashboard uses focused semantic components without reordering or nes
   assert.match(dashboard, /<ChildExerciseList/);
   assert.doesNotMatch(dashboard, /\.sort\(/);
   assert.match(progress, /<ChildProgressMeter/);
-  assert.match(main, /\.\/styles\/child-learning\.css/);
+  assert.match(dashboard, /styles\/child-learning\.css/);
   for (const source of [components, dashboard, progress]) {
     assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
     assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
@@ -408,6 +408,33 @@ test('children progress panel links to per-question answer review', () => {
   assert.match(children, /data\.recentAttempts/);
   assert.match(children, /children\/\$\{data\.child\.id\}\/progress/);
   assert.match(children, /ดูคำตอบรายข้อ/);
+});
+
+test('parent overview exposes learning insights and archive controls', () => {
+  const admin = read('src/routes/parent/Admin.tsx');
+  const exercises = read('src/routes/parent/ExerciseList.tsx');
+  assert.match(admin, /subjectProgress/);
+  assert.match(admin, /incompleteSets/);
+  assert.match(admin, /recentChildren/);
+  assert.match(exercises, /archived/);
+  assert.match(exercises, /restore/);
+});
+
+test('upload exposes focused AI prompt templates', () => {
+  const upload = read('src/routes/parent/Upload.tsx');
+  const templates = read('src/lib/prompt-templates.ts');
+  assert.match(upload, /promptTemplate/);
+  assert.match(upload, /multiple_choice/);
+  assert.match(upload, /data-template-kinds="multiple_choice short_answer ordering matching exam"/);
+  assert.match(templates, /ordering/);
+  assert.match(templates, /matching/);
+});
+
+test('child learning CSS is route-loaded instead of global-loaded', () => {
+  const main = read('src/main.tsx');
+  const player = read('src/routes/play/Player.tsx');
+  assert.doesNotMatch(main, /styles\/child-learning\.css/);
+  assert.match(player, /styles\/child-learning\.css/);
 });
 
 test('child learning workspace keeps visible navigation in Thai', () => {

@@ -22,6 +22,7 @@ import { QuestionFraction } from './components/QuestionFraction';
 import { QuestionOrdering } from './components/QuestionOrdering';
 import { PlayerHeader } from './components/PlayerHeader';
 import { QuestionNavigator } from './components/QuestionNavigator';
+import '../../styles/child-learning.css';
 import { AnswerFeedback } from './components/AnswerFeedback';
 import { ExamSaveStatus } from './components/ExamSaveStatus';
 import { ExerciseResult } from './components/ExerciseResult';

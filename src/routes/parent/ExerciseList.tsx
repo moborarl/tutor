@@ -19,6 +19,7 @@ const STATUS_TH: Record<string, string> = {
   pending_review: 'รอตรวจ',
   extraction_failed: 'แกะโจทย์ไม่สำเร็จ',
   published: 'เผยแพร่แล้ว',
+  archived: 'เก็บเข้าคลัง',
 };
 
 const PROVIDER_TH: Record<string, string> = {
@@ -51,6 +52,7 @@ function statusColor(status: string) {
   if (status === 'pending_review') return 'amber';
   if (status === 'processing' || status === 'extracting') return 'blue';
   if (status === 'extraction_failed') return 'red';
+  if (status === 'archived') return 'gray';
   return 'gray';
 }
 
@@ -59,6 +61,7 @@ function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger
   if (status === 'pending_review') return 'warning';
   if (status === 'processing' || status === 'extracting') return 'info';
   if (status === 'extraction_failed') return 'danger';
+  if (status === 'archived') return 'neutral';
   return 'neutral';
 }
 
@@ -314,7 +317,7 @@ export default function ExerciseList() {
   const [sortMode, setSortMode] = useState('newest');
 
   function loadSets() {
-    return api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets')
+    return api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets?includeArchived=1')
       .then((data) => {
         setSets(data);
         setSelected((current) => new Set([...current].filter((id) => data.some((set) => set.id === id))));
@@ -328,7 +331,7 @@ export default function ExerciseList() {
     api.get<Subject[]>('/api/parent/subjects').then(setSubjects);
     api.get<Child[]>('/api/parent/children').then(setChildren);
     const t = setInterval(() => {
-      api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets').then((data) => {
+      api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets?includeArchived=1').then((data) => {
         setSets(data);
         if (!data.some((s) => s.status === 'processing' || s.status === 'extracting')) clearInterval(t);
       });
@@ -338,7 +341,7 @@ export default function ExerciseList() {
 
   const subjectGroups = useMemo(() => {
     const map = new Map<string, { subjectName: string; young: ExerciseSetSummary[]; older: ExerciseSetSummary[] }>();
-    for (const set of sets) {
+    for (const set of sets.filter((item) => item.status !== 'archived')) {
       const subjectName = set.subjectName ?? 'ไม่ระบุวิชา';
       const group = map.get(subjectName) ?? { subjectName, young: [], older: [] };
       group[set.ageBand].push(set);
@@ -350,7 +353,8 @@ export default function ExerciseList() {
   }, [sets, subjects]);
 
   const treeItems = useMemo<TreeNodeItem[]>(() => {
-    const items: TreeNodeItem[] = [{ id: 'subject:ทั้งหมด', label: 'ทั้งหมด', icon: '▣', count: sets.length }];
+    const activeSets = sets.filter((set) => set.status !== 'archived');
+    const items: TreeNodeItem[] = [{ id: 'subject:ทั้งหมด', label: 'ทั้งหมด', icon: '▣', count: activeSets.length }];
     for (const group of subjectGroups) {
       items.push({ id: nodeId({ kind: 'subject', subjectName: group.subjectName }), label: group.subjectName, icon: '▸', count: group.young.length + group.older.length });
       items.push({ id: nodeId({ kind: 'age', subjectName: group.subjectName, ageBand: 'young' }), label: 'เด็กเล็ก', icon: '•', count: group.young.length, depth: 1 });
@@ -365,12 +369,13 @@ export default function ExerciseList() {
     ? subjects.find((subject) => subject.name === activeNode.subjectName) ?? null
     : null;
   const visibleSets = useMemo(() => {
+    const source = sets.filter((set) => statusFilter === 'archived' ? set.status === 'archived' : set.status !== 'archived');
     if (activeNode.kind === 'subject') {
-      if (activeNode.subjectName === 'ทั้งหมด') return sets;
-      return sets.filter((set) => (set.subjectName ?? 'ไม่ระบุวิชา') === activeNode.subjectName);
+      if (activeNode.subjectName === 'ทั้งหมด') return source;
+      return source.filter((set) => (set.subjectName ?? 'ไม่ระบุวิชา') === activeNode.subjectName);
     }
-    return sets.filter((set) => (set.subjectName ?? 'ไม่ระบุวิชา') === activeNode.subjectName && set.ageBand === activeNode.ageBand);
-  }, [activeNode, sets]);
+    return source.filter((set) => (set.subjectName ?? 'ไม่ระบุวิชา') === activeNode.subjectName && set.ageBand === activeNode.ageBand);
+  }, [activeNode, sets, statusFilter]);
 
   const filteredVisibleSets = useMemo(() => {
     let result = visibleSets;
@@ -464,6 +469,20 @@ export default function ExerciseList() {
       setActiveSetId(null);
     } catch (err) {
       notify('เก็บเข้าคลังไม่สำเร็จ: ' + String(err), 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function restoreSet(id: number) {
+    setLoading(true);
+    try {
+      await api.post(`/api/parent/exercise-sets/${id}/restore`);
+      await loadSets();
+      setActiveSetId(null);
+      notify('กู้คืนแบบฝึกหัดแล้ว', 'success');
+    } catch (err) {
+      notify('กู้คืนแบบฝึกหัดไม่สำเร็จ: ' + String(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -740,6 +759,7 @@ export default function ExerciseList() {
                     <option value="processing">รอคิว</option>
                     <option value="extracting">กำลังแกะโจทย์</option>
                     <option value="extraction_failed">แกะโจทย์ไม่สำเร็จ</option>
+                    <option value="archived">เก็บเข้าคลัง</option>
                   </select>
                   <select value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
                     <option value="newest">ล่าสุดก่อน</option>
@@ -801,7 +821,9 @@ export default function ExerciseList() {
                     <Button variant="soft" color="gray" onClick={() => handleShare(activeSet.id)} disabled={loading}>แชร์</Button>
                     <Link to={`/parent/exercises/${activeSet.id}/teacher`}><Button variant="soft" color="gray">ฉบับเฉลย</Button></Link>
                     <Link to={`/parent/exercises/${activeSet.id}/student`}><Button variant="soft" color="gray">ฉบับเด็ก</Button></Link>
-                    <ArchiveSetButton disabled={loading} onConfirm={() => handleDelete(activeSet.id)} />
+                    {activeSet.status === 'archived' ? (
+                      <Button variant="soft" color="green" onClick={() => restoreSet(activeSet.id)} disabled={loading}>กู้คืน</Button>
+                    ) : <ArchiveSetButton disabled={loading} onConfirm={() => handleDelete(activeSet.id)} />}
                   </Flex>
                 </div>
               )}

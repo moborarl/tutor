@@ -15,6 +15,7 @@ import { ChildLearningShell } from './components/ChildLearningShell';
 import { ChildProgressMeter } from './components/ChildProgressMeter';
 import { ResumeExercisePanel } from './components/ResumeExercisePanel';
 import { getSubjectTabId, SubjectSwitcher } from './components/SubjectSwitcher';
+import '../../styles/child-learning.css';
 
 const DASHBOARD_EXERCISE_PANEL_ID = 'child-dashboard-exercise-panel';
 

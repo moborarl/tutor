@@ -8,6 +8,7 @@ import { ALL_SUBJECTS } from './child-learning-state';
 import { ChildLearningShell } from './components/ChildLearningShell';
 import { ChildProgressMeter } from './components/ChildProgressMeter';
 import { getSubjectTabId, SubjectSwitcher } from './components/SubjectSwitcher';
+import '../../styles/child-learning.css';
 
 const FALLBACK_SUBJECT = 'ไม่ระบุวิชา';
 const PROGRESS_SETS_PANEL_ID = 'child-progress-sets-panel';
