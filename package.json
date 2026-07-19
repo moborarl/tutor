@@ -13,6 +13,7 @@
     "test:ui": "node --test tests/ui-design-contracts.mjs",
     "smoke:prod": "node scripts/smoke-prod.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
+    "smoke:child": "node scripts/smoke-child.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
