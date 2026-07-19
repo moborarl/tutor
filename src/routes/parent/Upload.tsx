@@ -97,6 +97,27 @@ export default function Upload() {
     ? `${window.location.origin}/api/ingest/${ingestToken}?ageBand=${ageBand}` +
       (subjectName ? `&subject=${encodeURIComponent(subjectName)}` : '')
     : '';
+
+  // Single source for the AI prompt (shown in the textarea and copied by the
+  // button). Both URLs are derived from the current origin so the template
+  // stays correct if the app moves to another domain.
+  const ingestPrompt = `คุณคือครูสอน${subjectName || '[วิชา]'} ชั้น${ageBand === 'young' ? 'ประถมต้น' : 'ประถมปลาย'} ที่มีความเชียวชาญด้านการออกแบบแบบฝึกหัด
+
+ตอนนี้กำลังออกแบบแบบฝึกหัดทบทวนสำหรับนักเรียน จากเนื้อหาด้านล่าง
+
+═══ อ่านกติกา ═══
+${window.location.origin}/contract
+
+═══ ลิงก์ส่ง JSON ═══
+${ingestUrl}
+
+═══ เนื้อหาที่ต้องการสอน ═══
+[วางเนื้อหา/รูป/ข้อความ/HTML ที่นี่]
+
+═══ หลังจาก ═══
+- อ่านกติกา
+- สร้าง JSON
+- POST ไปที่ลิงก์ด้านบน`;
   const preflight = useMemo(() => {
     if (!questionsJson.trim()) return null;
     return preflightImportedJson(questionsJson, { uploadedImageCount: files.length });
@@ -344,47 +365,14 @@ export default function Upload() {
                 <textarea
                   readOnly
                   rows={14}
-                  value={`คุณคือครูสอน${subjectName ? subjectName : '[วิชา]'} ชั้น${ageBand === 'young' ? 'ประถมต้น' : 'ประถมปลาย'} ที่มีความเชียวชาญด้านการออกแบบแบบฝึกหัด
-
-ตอนนี้กำลังออกแบบแบบฝึกหัดทบทวนสำหรับนักเรียน จากเนื้อหาด้านล่าง
-
-═══ อ่านกติกา ═══
-https://kids-tutor.nupark.workers.dev/contract
-
-═══ ลิงก์ส่ง JSON ═══
-${ingestUrl}
-
-═══ เนื้อหาที่ต้องการสอน ═══
-[วางเนื้อหา/รูป/ข้อความ/HTML ที่นี่]
-
-═══ หลังจาก ═══
-- อ่านกติกา
-- สร้าง JSON
-- POST ไปที่ลิงก์ด้านบน`}
+                  value={ingestPrompt}
                   style={{ fontFamily: 'monospace', fontSize: '.75rem', padding: 10 }}
                 />
                 <Button
                   type="button"
                   style={{ marginTop: 8, width: '100%' }}
                   onClick={async () => {
-                    const prompt = `คุณคือครูสอน${subjectName ? subjectName : '[วิชา]'} ชั้น${ageBand === 'young' ? 'ประถมต้น' : 'ประถมปลาย'} ที่มีความเชียวชาญด้านการออกแบบแบบฝึกหัด
-
-ตอนนี้กำลังออกแบบแบบฝึกหัดทบทวนสำหรับนักเรียน จากเนื้อหาด้านล่าง
-
-═══ อ่านกติกา ═══
-https://kids-tutor.nupark.workers.dev/contract
-
-═══ ลิงก์ส่ง JSON ═══
-${ingestUrl}
-
-═══ เนื้อหาที่ต้องการสอน ═══
-[วางเนื้อหา/รูป/ข้อความ/HTML ที่นี่]
-
-═══ หลังจาก ═══
-- อ่านกติกา
-- สร้าง JSON
-- POST ไปที่ลิงก์ด้านบน`;
-                    await navigator.clipboard.writeText(prompt);
+                    await navigator.clipboard.writeText(ingestPrompt);
                     notify('คัดลอก prompt template แล้ว', 'success');
                   }}
                 >
