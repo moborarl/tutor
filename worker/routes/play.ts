@@ -2,8 +2,9 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { requireParentSession, requireChildSession } from '../middleware/auth';
 import { gradeAnswer } from '../lib/grading';
+import { canUseAnswerEndpoint, sanitizeAttemptAnswer } from '../lib/attempt-mode';
 import { loadChildProgress } from '../lib/progress';
-import type { QuestionType } from '@shared/types';
+import type { AttemptAnswerView, LearningMode, QuestionType } from '@shared/types';
 import type { AiProvider, CustomAiFormat, ReasoningFeedback, ReasoningRubric } from '@shared/types';
 import { decryptCredential } from '../lib/credential-crypto';
 import { runReasoningFeedback } from '../lib/reasoning-ai';
@@ -192,49 +193,71 @@ playRoutes.post('/attempts', requireChildSession, async (c) => {
   if (!body?.exerciseSetId) return c.json({ error: 'invalid_body' }, 400);
 
   const assigned = await c.env.DB.prepare(
-    `SELECT es.id FROM assignments asg
+    `SELECT es.id, es.learning_mode FROM assignments asg
      JOIN exercise_sets es ON es.id = asg.exercise_set_id
      WHERE asg.child_id = ? AND es.id = ? AND es.status = 'published'`,
   )
     .bind(activeChildId, body.exerciseSetId)
-    .first();
+    .first<{ id: number; learning_mode: LearningMode }>();
   if (!assigned) return c.json({ error: 'not_found' }, 404);
 
   // Resume an unfinished attempt instead of always starting a new one — otherwise
   // exiting mid-way and coming back would spawn a fresh attempt with no locked
   // answers, letting the kid redo questions they already answered.
   const existing = await c.env.DB.prepare(
-    `SELECT id FROM attempts WHERE child_id = ? AND exercise_set_id = ? AND status = 'in_progress'`,
+    `SELECT id, learning_mode FROM attempts
+     WHERE child_id = ? AND exercise_set_id = ? AND status = 'in_progress'`,
   )
     .bind(activeChildId, body.exerciseSetId)
-    .first<{ id: number }>();
+    .first<{ id: number; learning_mode: LearningMode }>();
 
   if (existing) {
     const existingAnswers = await c.env.DB.prepare(
-      `SELECT aa.question_id, aa.is_correct, aa.ai_feedback_json, q.answer_json, q.explanation
+      `SELECT aa.question_id, aa.given_answer_json, aa.time_spent_ms, aa.reasoning_text,
+              aa.is_correct, aa.ai_feedback_json, q.answer_json, q.explanation
        FROM attempt_answers aa JOIN questions q ON q.id = aa.question_id
        WHERE aa.attempt_id = ?`,
     )
       .bind(existing.id)
-      .all<{ question_id: number; is_correct: number; ai_feedback_json: string | null; answer_json: string; explanation: string | null }>();
+      .all<{
+        question_id: number;
+        given_answer_json: string;
+        time_spent_ms: number | null;
+        reasoning_text: string | null;
+        is_correct: number;
+        ai_feedback_json: string | null;
+        answer_json: string;
+        explanation: string | null;
+      }>();
     return c.json({
       attemptId: existing.id,
-      existingAnswers: existingAnswers.results.map((r) => ({
-        questionId: r.question_id,
-        isCorrect: r.is_correct === 1,
-        correctAnswer: JSON.parse(r.answer_json),
-        explanation: r.explanation,
-        reasoningFeedback: r.ai_feedback_json ? JSON.parse(r.ai_feedback_json) : null,
-      })),
+      learningMode: existing.learning_mode,
+      existingAnswers: existingAnswers.results.map((r) => {
+        const answer: AttemptAnswerView = {
+          questionId: r.question_id,
+          givenAnswer: JSON.parse(r.given_answer_json),
+          timeSpentMs: r.time_spent_ms,
+          reasoningText: r.reasoning_text,
+          isCorrect: r.is_correct === 1,
+          correctAnswer: JSON.parse(r.answer_json),
+          explanation: r.explanation,
+          reasoningFeedback: r.ai_feedback_json ? JSON.parse(r.ai_feedback_json) : null,
+        };
+        return sanitizeAttemptAnswer(existing.learning_mode, false, answer);
+      }),
     });
   }
 
   const result = await c.env.DB.prepare(
-    'INSERT INTO attempts (child_id, exercise_set_id) VALUES (?, ?)',
+    'INSERT INTO attempts (child_id, exercise_set_id, learning_mode) VALUES (?, ?, ?)',
   )
-    .bind(activeChildId, body.exerciseSetId)
+    .bind(activeChildId, body.exerciseSetId, assigned.learning_mode)
     .run();
-  return c.json({ attemptId: result.meta.last_row_id }, 201);
+  return c.json({
+    attemptId: result.meta.last_row_id,
+    learningMode: assigned.learning_mode,
+    existingAnswers: [],
+  }, 201);
 });
 
 // Submit one answer; graded server-side with immediate feedback.
@@ -250,11 +273,15 @@ playRoutes.post('/attempts/:id/answers', requireChildSession, async (c) => {
   }
 
   const attempt = await c.env.DB.prepare(
-    `SELECT id, exercise_set_id FROM attempts WHERE id = ? AND child_id = ? AND status = 'in_progress'`,
+    `SELECT id, exercise_set_id, learning_mode FROM attempts
+     WHERE id = ? AND child_id = ? AND status = 'in_progress'`,
   )
     .bind(attemptId, activeChildId)
-    .first<{ id: number; exercise_set_id: number }>();
+    .first<{ id: number; exercise_set_id: number; learning_mode: LearningMode }>();
   if (!attempt) return c.json({ error: 'attempt_not_found' }, 404);
+  if (!canUseAnswerEndpoint(attempt.learning_mode, 'guided-submit')) {
+    return c.json({ error: 'mode_requires_exam_save' }, 409);
+  }
 
   const question = await c.env.DB.prepare(
     `SELECT id, question_type, prompt, content_json, answer_json, explanation, reasoning_prompt, reasoning_rubric_json
@@ -362,30 +389,137 @@ playRoutes.post('/attempts/:id/answers', requireChildSession, async (c) => {
   return c.json({ isCorrect, correctAnswer: JSON.parse(question.answer_json), explanation: question.explanation, reasoningFeedback });
 });
 
+playRoutes.put('/attempts/:id/answers', requireChildSession, async (c) => {
+  const { activeChildId } = c.get('session');
+  const attemptId = Number(c.req.param('id'));
+  const body = await c.req
+    .json<{ questionId?: number; answer?: unknown; timeSpentMs?: number; reasoningText?: string }>()
+    .catch(() => null);
+  if (!body?.questionId) return c.json({ error: 'invalid_body' }, 400);
+  if (typeof body.reasoningText === 'string' && body.reasoningText.length > 500) {
+    return c.json({ error: 'reasoning_too_long' }, 400);
+  }
+
+  const attempt = await c.env.DB.prepare(
+    `SELECT id, exercise_set_id, learning_mode FROM attempts
+     WHERE id = ? AND child_id = ? AND status = 'in_progress'`,
+  )
+    .bind(attemptId, activeChildId)
+    .first<{ id: number; exercise_set_id: number; learning_mode: LearningMode }>();
+  if (!attempt) return c.json({ error: 'attempt_not_found' }, 404);
+  if (!canUseAnswerEndpoint(attempt.learning_mode, 'exam-save')) {
+    return c.json({ error: 'mode_requires_guided_submit' }, 409);
+  }
+
+  const question = await c.env.DB.prepare(
+    `SELECT id, question_type, answer_json
+     FROM questions WHERE id = ? AND exercise_set_id = ?`,
+  )
+    .bind(body.questionId, attempt.exercise_set_id)
+    .first<{ id: number; question_type: QuestionType; answer_json: string }>();
+  if (!question) return c.json({ error: 'question_not_found' }, 404);
+
+  const isCorrect = gradeAnswer(question.question_type, question.answer_json, body.answer);
+  const reasoningText = typeof body.reasoningText === 'string' ? body.reasoningText.trim() : '';
+  await c.env.DB.prepare(
+    `INSERT INTO attempt_answers
+       (attempt_id, question_id, given_answer_json, is_correct, time_spent_ms, reasoning_text)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(attempt_id, question_id) DO UPDATE SET
+       given_answer_json = excluded.given_answer_json,
+       is_correct = excluded.is_correct,
+       time_spent_ms = excluded.time_spent_ms,
+       reasoning_text = excluded.reasoning_text,
+       ai_feedback_json = NULL,
+       ai_feedback_status = NULL`,
+  )
+    .bind(
+      attemptId,
+      question.id,
+      JSON.stringify(body.answer ?? {}),
+      isCorrect ? 1 : 0,
+      body.timeSpentMs ?? null,
+      reasoningText || null,
+    )
+    .run();
+
+  const answered = await c.env.DB.prepare(
+    'SELECT COUNT(*) AS answered_count FROM attempt_answers WHERE attempt_id = ?',
+  )
+    .bind(attemptId)
+    .first<{ answered_count: number }>();
+  return c.json({ saved: true, answeredCount: answered?.answered_count ?? 0 });
+});
+
 playRoutes.post('/attempts/:id/complete', requireChildSession, async (c) => {
   const { activeChildId } = c.get('session');
   const attemptId = Number(c.req.param('id'));
 
   const attempt = await c.env.DB.prepare(
-    `SELECT id, exercise_set_id FROM attempts WHERE id = ? AND child_id = ? AND status = 'in_progress'`,
+    `SELECT id, exercise_set_id, learning_mode FROM attempts
+     WHERE id = ? AND child_id = ? AND status = 'in_progress'`,
   )
     .bind(attemptId, activeChildId)
-    .first<{ id: number; exercise_set_id: number }>();
+    .first<{ id: number; exercise_set_id: number; learning_mode: LearningMode }>();
   if (!attempt) return c.json({ error: 'attempt_not_found' }, 404);
 
   const stats = await c.env.DB.prepare(
     `SELECT
        (SELECT COUNT(*) FROM questions WHERE exercise_set_id = ?) AS total,
+       (SELECT COUNT(*) FROM attempt_answers WHERE attempt_id = ?) AS answered,
        (SELECT COUNT(*) FROM attempt_answers WHERE attempt_id = ? AND is_correct = 1) AS correct`,
   )
-    .bind(attempt.exercise_set_id, attemptId)
-    .first<{ total: number; correct: number }>();
+    .bind(attempt.exercise_set_id, attemptId, attemptId)
+    .first<{ total: number; answered: number; correct: number }>();
 
-  const score = stats && stats.total > 0 ? stats.correct / stats.total : 0;
-  await c.env.DB.prepare(
-    `UPDATE attempts SET status = 'completed', completed_at = datetime('now'), score = ? WHERE id = ?`,
-  )
-    .bind(score, attemptId)
-    .run();
-  return c.json({ score, correct: stats?.correct ?? 0, total: stats?.total ?? 0 });
+  const total = stats?.total ?? 0;
+  const answered = stats?.answered ?? 0;
+  if (answered !== total) {
+    return c.json({ error: 'incomplete_attempt', answered, total }, 409);
+  }
+
+  const correct = stats?.correct ?? 0;
+  const score = total > 0 ? correct / total : 0;
+  const [updated, progressResult] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE attempts SET status = 'completed', completed_at = datetime('now'), score = ?
+       WHERE id = ? AND status = 'in_progress'`,
+    ).bind(score, attemptId),
+    c.env.DB.prepare(
+      `SELECT s.name AS subject_name,
+              COUNT(DISTINCT CASE WHEN completed.id IS NOT NULL THEN assigned_es.id END) AS completed,
+              COUNT(DISTINCT assigned_es.id) AS assigned
+       FROM exercise_sets current_es
+       LEFT JOIN subjects s ON s.id = current_es.subject_id
+       JOIN exercise_sets assigned_es
+         ON assigned_es.subject_id IS current_es.subject_id AND assigned_es.status = 'published'
+       JOIN assignments asg ON asg.exercise_set_id = assigned_es.id AND asg.child_id = ?
+       LEFT JOIN attempts completed
+         ON completed.exercise_set_id = assigned_es.id
+        AND completed.child_id = ?
+        AND completed.status = 'completed'
+       WHERE current_es.id = ?
+       GROUP BY current_es.id, s.name`,
+    ).bind(activeChildId, activeChildId, attempt.exercise_set_id),
+  ]);
+  if ((updated.meta.changes ?? 0) !== 1) {
+    return c.json({ error: 'attempt_not_found' }, 404);
+  }
+
+  const progress = progressResult.results[0] as {
+    subject_name: string | null;
+    completed: number;
+    assigned: number;
+  } | undefined;
+  return c.json({
+    score,
+    correct,
+    total,
+    learningMode: attempt.learning_mode,
+    subjectProgress: {
+      subjectName: progress?.subject_name ?? null,
+      completed: Number(progress?.completed ?? 0),
+      assigned: Number(progress?.assigned ?? 0),
+    },
+  });
 });
