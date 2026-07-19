@@ -59,6 +59,7 @@ compile('worker/lib/exercise-sets.ts', 'worker/lib/exercise-sets.js');
 compile('worker/lib/sessions.ts', 'worker/lib/sessions.js');
 compile('worker/lib/progress.ts', 'worker/lib/progress.js');
 compile('worker/lib/exercise-recommendation.ts', 'worker/lib/exercise-recommendation.js');
+compile('src/routes/play/child-learning-state.ts', 'src/routes/play/child-learning-state.js');
 compile('worker/middleware/auth.ts', 'worker/middleware/auth.js');
 compile('worker/routes/children.ts', 'worker/routes/children.js');
 compile('worker/routes/play.ts', 'worker/routes/play.js');
@@ -75,6 +76,11 @@ const { gradeAnswer } = await import(pathToFileURL(join(outDir, 'worker/lib/grad
 const { recommendNextExercise } = await import(
   pathToFileURL(join(outDir, 'worker/lib/exercise-recommendation.js')),
 );
+const {
+  initialExamSaveState,
+  examSaveReducer,
+  canSubmitExam,
+} = await import(pathToFileURL(join(outDir, 'src/routes/play/child-learning-state.js')));
 const { parseImportedJson, preflightImportedJson, validateQuestionPayload } = await import(
   pathToFileURL(join(outDir, 'worker/lib/json-import.js'))
 );
@@ -549,14 +555,23 @@ async function makeAttemptApp({
 } = {}) {
   const sessionId = 'attempt-session';
   const state = {
-    exerciseSet: { id: 20, learning_mode: exerciseMode, subject_name: 'Maths' },
+    exerciseSet: {
+      id: 20,
+      title: 'Fractions check',
+      learning_mode: exerciseMode,
+      subject_id: 4,
+      subject_name: 'Maths',
+      assigned_at: '2026-01-01T00:00:00.000Z',
+    },
     attempts: attemptMode == null ? [] : [{
       id: 500,
       child_id: 2,
       exercise_set_id: 20,
       learning_mode: attemptMode,
       status: attemptStatus,
-      score: null,
+      score: attemptStatus === 'completed'
+        ? answers.filter((answer) => answer.isCorrect).length / 2
+        : null,
     }],
     questions: [
       {
@@ -597,11 +612,31 @@ async function makeAttemptApp({
     nextAnswerId: answers.length + 1,
     batchCalls: 0,
     completionUpdateSql: null,
+    aiSetting: null,
+    aiUsage: { daily_count: 0, monthly_count: 0 },
+    usageRows: [],
   };
 
   function execute(sql, args, operation) {
     if (sql.includes('FROM parent_sessions')) {
       return { id: sessionId, parent_id: 1, active_child_id: 2, pin_fail_count: 0 };
+    }
+    if (sql.includes('FROM assignments asg') && operation === 'all' && args.length === 4) {
+      const completedCount = state.attempts.filter((row) => (
+        row.exercise_set_id === state.exerciseSet.id && row.status === 'completed'
+      )).length;
+      return [{
+        id: state.exerciseSet.id,
+        title: state.exerciseSet.title,
+        subject_name: state.exerciseSet.subject_name,
+        question_count: state.questions.length,
+        best_score: state.attempts.find((row) => row.status === 'completed')?.score ?? null,
+        completed_count: completedCount,
+        learning_mode: state.exerciseSet.learning_mode,
+        in_progress_attempt_id: state.attempts.find((row) => row.status === 'in_progress')?.id ?? null,
+        in_progress_answered_count: state.answers.length,
+        assigned_at: state.exerciseSet.assigned_at,
+      }];
     }
     if (sql.includes('FROM assignments asg') && sql.includes('es.status = \'published\'') && sql.includes('es.id = ?')) {
       return Number(args[0]) === 2 && Number(args[1]) === state.exerciseSet.id
@@ -617,12 +652,48 @@ async function makeAttemptApp({
       ));
       return attempt ?? null;
     }
+    if (sql.includes('FROM attempts a') && sql.includes('JOIN exercise_sets es')) {
+      const attempt = state.attempts.find((row) => (
+        row.id === Number(args[0]) && row.child_id === Number(args[1])
+      ));
+      return attempt ? {
+        ...attempt,
+        exercise_title: state.exerciseSet.title,
+        subject_id: state.exerciseSet.subject_id,
+        subject_name: state.exerciseSet.subject_name,
+      } : null;
+    }
+    if (sql.includes('FROM attempts') && sql.includes('WHERE id = ? AND child_id = ?')) {
+      return state.attempts.find((row) => (
+        row.id === Number(args[0]) && row.child_id === Number(args[1])
+      )) ?? null;
+    }
+    if (sql.includes('FROM attempt_answers aa') && sql.includes('aa.question_id = ?')) {
+      const answer = state.answers.find((row) => (
+        row.attempt_id === Number(args[0]) && row.question_id === Number(args[1])
+      ));
+      const question = answer
+        ? state.questions.find((item) => item.id === answer.question_id)
+        : null;
+      return answer && question
+        ? { ...answer, ...question, attempt_answer_id: answer.id, question_id: question.id }
+        : null;
+    }
     if (sql.includes('FROM attempt_answers aa') && sql.includes('JOIN questions q')) {
       return state.answers
         .filter((row) => row.attempt_id === Number(args[0]))
         .map((row) => {
           const question = state.questions.find((item) => item.id === row.question_id);
-          return { ...row, answer_json: question.answer_json, explanation: question.explanation };
+          return {
+            ...row,
+            prompt: question.prompt,
+            question_type: question.question_type,
+            content_json: question.content_json,
+            answer_json: question.answer_json,
+            explanation: question.explanation,
+            reasoning_prompt: question.reasoning_prompt,
+            reasoning_rubric_json: question.reasoning_rubric_json,
+          };
         });
     }
     if (sql.includes('FROM questions WHERE id = ? AND exercise_set_id = ?')) {
@@ -655,6 +726,12 @@ async function makeAttemptApp({
       )) ? 1 : 0;
       return { subject_name: state.exerciseSet.subject_name, completed, assigned: 1 };
     }
+    if (sql.includes('FROM parent_ai_settings WHERE parent_id = ?')) {
+      return state.aiSetting;
+    }
+    if (sql.includes('FROM ai_feedback_usage WHERE parent_id = ?')) {
+      return state.aiUsage;
+    }
     if (sql.startsWith('INSERT INTO attempts')) {
       const id = state.nextAttemptId++;
       state.attempts.push({
@@ -684,6 +761,31 @@ async function makeAttemptApp({
         ai_feedback_status: null,
       });
       return { meta: { last_row_id: answer.id, changes: 1 } };
+    }
+    if (sql.startsWith('INSERT INTO ai_feedback_usage')) {
+      const row = {
+        id: state.usageRows.length + 1,
+        parent_id: Number(args[0]),
+        attempt_answer_id: Number(args[1]),
+        provider: args[2],
+        model: args[3],
+        status: 'started',
+      };
+      state.usageRows.push(row);
+      return { meta: { last_row_id: row.id, changes: 1 } };
+    }
+    if (sql.startsWith('UPDATE ai_feedback_usage SET status')) {
+      const row = state.usageRows.find((item) => item.id === Number(args[0]));
+      if (row) row.status = sql.includes("'completed'") ? 'completed' : 'failed';
+      return { meta: { changes: row ? 1 : 0 } };
+    }
+    if (sql.startsWith('UPDATE attempt_answers SET ai_feedback_json')) {
+      const answer = state.answers.find((row) => row.id === Number(args[2]));
+      if (answer) {
+        answer.ai_feedback_json = String(args[0]);
+        answer.ai_feedback_status = String(args[1]);
+      }
+      return { meta: { changes: answer ? 1 : 0 } };
     }
     if (sql.startsWith('UPDATE attempts SET status = \'completed\'')) {
       state.completionUpdateSql = sql;
@@ -757,7 +859,7 @@ async function makeAttemptApp({
     return { response, body: responseBody };
   }
 
-  return { state, request };
+  return { state, request, env };
 }
 
 test('gradeAnswer accepts equivalent reduced fractions', () => {
@@ -775,6 +877,29 @@ test('learning mode migration defaults both tables to guided', () => {
   assert.match(sql, /ALTER TABLE exercise_sets[\s\S]*learning_mode[\s\S]*DEFAULT 'guided'/);
   assert.match(sql, /ALTER TABLE attempts[\s\S]*learning_mode[\s\S]*DEFAULT 'guided'/);
   assert.match(sql, /CHECK \(learning_mode IN \('guided', 'exam'\)\)/);
+});
+
+test('exam save reducer preserves edits through failure and retry', () => {
+  const editing = examSaveReducer(initialExamSaveState, { type: 'answer-edited', questionId: 9 });
+  const saving = examSaveReducer(editing, { type: 'save-started', questionId: 9 });
+  const failed = examSaveReducer(saving, {
+    type: 'save-failed',
+    questionId: 9,
+    message: 'save failed',
+  });
+  const retrying = examSaveReducer(failed, { type: 'save-started', questionId: 9 });
+  const saved = examSaveReducer(retrying, { type: 'save-succeeded', questionId: 9 });
+
+  assert.equal(editing.questions[9].status, 'idle');
+  assert.equal(saving.questions[9].status, 'saving');
+  assert.equal(failed.questions[9].status, 'failed');
+  assert.equal(failed.questions[9].message, 'save failed');
+  assert.equal(retrying.questions[9].status, 'saving');
+  assert.equal(saved.questions[9].status, 'saved');
+  assert.equal(canSubmitExam(saving), false);
+  assert.equal(canSubmitExam(failed), false);
+  assert.equal(canSubmitExam(saved), true);
+  assert.equal(initialExamSaveState.questions[9], undefined);
 });
 
 test('exam in-progress answers hide grading fields', () => {
@@ -1561,6 +1686,192 @@ test('edited Exam answer controls score and completion uses a guarded atomic bat
   assert.match(state.completionUpdateSql, /WHERE id = \? AND status = 'in_progress'/);
   assert.equal(state.attempts[0].status, 'completed');
   assert.equal(state.attempts[0].score, 1);
+});
+
+test('completed result is owner-only and unavailable before completion', async () => {
+  const inProgress = await makeAttemptApp({ attemptMode: 'exam' });
+  const beforeCompletion = await inProgress.request('/attempts/500/result', 'GET');
+  assert.equal(beforeCompletion.response.status, 409);
+  assert.deepEqual(beforeCompletion.body, { error: 'attempt_not_completed' });
+
+  const foreign = await makeAttemptApp({ attemptMode: 'exam', attemptStatus: 'completed' });
+  foreign.state.attempts[0].child_id = 99;
+  const notOwned = await foreign.request('/attempts/500/result', 'GET');
+  assert.equal(notOwned.response.status, 404);
+  assert.deepEqual(notOwned.body, { error: 'attempt_not_found' });
+});
+
+test('completed result reveals grading and recommends assigned work deterministically', async () => {
+  const { request } = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [
+      {
+        question_id: 101,
+        givenAnswer: { selectedIndex: 0 },
+        isCorrect: true,
+        reasoning_text: 'A matches the prompt',
+      },
+      {
+        question_id: 102,
+        givenAnswer: { text: 'Bangkok' },
+        isCorrect: true,
+      },
+    ],
+  });
+
+  const completed = await request('/attempts/500/result', 'GET');
+
+  assert.equal(completed.response.status, 200);
+  assert.equal(completed.body.learningMode, 'exam');
+  assert.equal(completed.body.score, 1);
+  assert.equal(completed.body.correct, 2);
+  assert.equal(completed.body.total, 2);
+  assert.equal(completed.body.subjectCompleted, 1);
+  assert.equal(completed.body.subjectAssigned, 1);
+  assert.equal(completed.body.questions[0].isCorrect, true);
+  assert.deepEqual(completed.body.questions[0].correctAnswer, { correctIndex: 0 });
+  assert.equal(completed.body.recommendation.id, 20);
+});
+
+test('Exam reasoning feedback is completed-only, mode-specific, and requires stored reasoning', async () => {
+  const guided = await makeAttemptApp({
+    attemptMode: 'guided',
+    attemptStatus: 'completed',
+    answers: [{ question_id: 101, givenAnswer: { selectedIndex: 0 }, isCorrect: true, reasoning_text: 'Because A' }],
+  });
+  guided.state.questions[0].reasoning_prompt = 'Why?';
+  const wrongMode = await guided.request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+  assert.equal(wrongMode.response.status, 409);
+  assert.deepEqual(wrongMode.body, { error: 'mode_requires_exam' });
+
+  const exam = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{ question_id: 101, givenAnswer: { selectedIndex: 0 }, isCorrect: true }],
+  });
+  exam.state.questions[0].reasoning_prompt = 'Why?';
+  const missing = await exam.request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+  assert.equal(missing.response.status, 409);
+  assert.deepEqual(missing.body, { error: 'reasoning_required' });
+});
+
+test('Exam reasoning feedback returns stored feedback idempotently', async () => {
+  const storedFeedback = { status: 'completed', assessment: 'understands', message: 'Clear reasoning' };
+  const { request, state } = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+      ai_feedback_json: JSON.stringify(storedFeedback),
+      ai_feedback_status: 'completed',
+    }],
+  });
+  state.questions[0].reasoning_prompt = 'Why?';
+
+  const result = await request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(result.body, storedFeedback);
+  assert.equal(state.usageRows.length, 0);
+});
+
+test('Exam reasoning feedback persists unavailable and limit states without changing score', async () => {
+  const unavailable = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+    }],
+  });
+  unavailable.state.attempts[0].score = 1;
+  unavailable.state.questions[0].reasoning_prompt = 'Why?';
+  const unavailableResult = await unavailable.request(
+    '/attempts/500/reasoning-feedback',
+    'POST',
+    { questionId: 101 },
+  );
+  assert.equal(unavailableResult.response.status, 200);
+  assert.equal(unavailableResult.body.status, 'unavailable');
+  assert.equal(JSON.parse(unavailable.state.answers[0].ai_feedback_json).status, 'unavailable');
+  assert.equal(unavailable.state.attempts[0].score, 1);
+
+  const limited = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+    }],
+  });
+  limited.state.questions[0].reasoning_prompt = 'Why?';
+  limited.state.aiSetting = {
+    provider: 'custom',
+    model: 'test-model',
+    encrypted_api_key: 'unused-at-limit',
+    base_url: 'https://example.invalid',
+    api_format: 'responses',
+    enabled: 1,
+    daily_limit: 1,
+    monthly_limit: 10,
+  };
+  limited.state.aiUsage = { daily_count: 1, monthly_count: 1 };
+  limited.env.AI_CREDENTIAL_ENCRYPTION_KEY = 'test-encryption-key';
+  const limitResult = await limited.request(
+    '/attempts/500/reasoning-feedback',
+    'POST',
+    { questionId: 101 },
+  );
+  assert.equal(limitResult.response.status, 200);
+  assert.equal(limitResult.body.status, 'limit_reached');
+});
+
+test('Exam reasoning provider failure is recorded without changing deterministic grading', async () => {
+  const encryptionKey = 'reasoning-test-encryption-key';
+  const encryptedApiKey = await encryptCredential('provider-key', encryptionKey);
+  const { request, state, env } = await makeAttemptApp({
+    attemptMode: 'exam',
+    attemptStatus: 'completed',
+    answers: [{
+      question_id: 101,
+      givenAnswer: { selectedIndex: 0 },
+      isCorrect: true,
+      reasoning_text: 'Because A',
+    }],
+  });
+  state.attempts[0].score = 1;
+  state.questions[0].reasoning_prompt = 'Why?';
+  state.aiSetting = {
+    provider: 'custom',
+    model: 'test-model',
+    encrypted_api_key: encryptedApiKey,
+    base_url: 'https://example.invalid',
+    api_format: 'responses',
+    enabled: 1,
+    daily_limit: 5,
+    monthly_limit: 20,
+  };
+  env.AI_CREDENTIAL_ENCRYPTION_KEY = encryptionKey;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response('provider failed', { status: 500 });
+  try {
+    const failed = await request('/attempts/500/reasoning-feedback', 'POST', { questionId: 101 });
+    assert.equal(failed.response.status, 200);
+    assert.equal(failed.body.status, 'failed');
+    assert.equal(state.usageRows[0].status, 'failed');
+    assert.equal(state.answers[0].is_correct, 1);
+    assert.equal(state.attempts[0].score, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('admin R2 route deletes multiple parent-owned files without key retyping', async () => {

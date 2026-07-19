@@ -9,6 +9,48 @@ export interface ChildSubjectSummary {
   total: number;
 }
 
+export type ExamQuestionSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
+
+export interface ExamQuestionSaveState {
+  status: ExamQuestionSaveStatus;
+  message: string | null;
+}
+
+export interface ExamSaveState {
+  questions: Record<number, ExamQuestionSaveState>;
+}
+
+export type ExamSaveAction =
+  | { type: 'answer-edited'; questionId: number }
+  | { type: 'save-started'; questionId: number }
+  | { type: 'save-succeeded'; questionId: number }
+  | { type: 'save-failed'; questionId: number; message: string };
+
+export const initialExamSaveState: ExamSaveState = { questions: {} };
+
+export function examSaveReducer(state: ExamSaveState, action: ExamSaveAction): ExamSaveState {
+  const next: ExamQuestionSaveState = action.type === 'save-failed'
+    ? { status: 'failed', message: action.message }
+    : action.type === 'save-succeeded'
+      ? { status: 'saved', message: null }
+      : action.type === 'save-started'
+        ? { status: 'saving', message: null }
+        : { status: 'idle', message: null };
+  return {
+    ...state,
+    questions: {
+      ...state.questions,
+      [action.questionId]: next,
+    },
+  };
+}
+
+export function canSubmitExam(state: ExamSaveState): boolean {
+  return Object.values(state.questions).every(
+    (row) => row.status !== 'saving' && row.status !== 'failed' && row.status !== 'idle',
+  );
+}
+
 export function normalizeSubjectName(subjectName: string | null): string {
   return subjectName ?? UNCATEGORIZED_SUBJECT;
 }

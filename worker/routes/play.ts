@@ -1,15 +1,109 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import type { AppEnv } from '../env';
 import { requireParentSession, requireChildSession } from '../middleware/auth';
 import { gradeAnswer } from '../lib/grading';
 import { canUseAnswerEndpoint, sanitizeAttemptAnswer } from '../lib/attempt-mode';
 import { loadChildProgress } from '../lib/progress';
-import type { AttemptAnswerView, LearningMode, QuestionType } from '@shared/types';
+import type {
+  AttemptAnswerView,
+  AttemptResult,
+  LearningMode,
+  PlayExercise,
+  QuestionType,
+} from '@shared/types';
 import type { AiProvider, CustomAiFormat, ReasoningFeedback, ReasoningRubric } from '@shared/types';
 import { decryptCredential } from '../lib/credential-crypto';
 import { runReasoningFeedback } from '../lib/reasoning-ai';
+import { recommendNextExercise } from '../lib/exercise-recommendation';
 
 export const playRoutes = new Hono<AppEnv>();
+
+interface ReasoningQuestion {
+  prompt: string;
+  content_json: string;
+  answer_json: string;
+  reasoning_prompt: string | null;
+  reasoning_rubric_json: string | null;
+}
+
+async function createReasoningFeedback(
+  c: Context<AppEnv>,
+  attemptAnswerId: number,
+  question: ReasoningQuestion,
+  answer: unknown,
+  reasoningText: string,
+): Promise<ReasoningFeedback> {
+  if (!question.reasoning_prompt) {
+    return { status: 'unavailable', message: 'โจทย์นี้ยังไม่มีคำแนะนำการอธิบาย' };
+  }
+  const { parentId } = c.get('session');
+  const setting = await c.env.DB.prepare(
+    `SELECT provider, model, encrypted_api_key, base_url, api_format, enabled, daily_limit, monthly_limit
+     FROM parent_ai_settings WHERE parent_id = ?`,
+  ).bind(parentId).first<{
+    provider: AiProvider;
+    model: string;
+    encrypted_api_key: string;
+    base_url: string | null;
+    api_format: CustomAiFormat;
+    enabled: number;
+    daily_limit: number;
+    monthly_limit: number;
+  }>();
+  if (!setting || setting.enabled !== 1 || !c.env.AI_CREDENTIAL_ENCRYPTION_KEY) {
+    return { status: 'unavailable', message: 'ผู้ปกครองยังไม่ได้เปิดใช้ผู้ช่วยอ่านคำอธิบาย' };
+  }
+
+  const usage = await c.env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN created_at >= date('now') THEN 1 ELSE 0 END) AS daily_count,
+       SUM(CASE WHEN created_at >= date('now','start of month') THEN 1 ELSE 0 END) AS monthly_count
+     FROM ai_feedback_usage WHERE parent_id = ?`,
+  ).bind(parentId).first<{ daily_count: number | null; monthly_count: number | null }>();
+  if ((usage?.daily_count ?? 0) >= setting.daily_limit || (usage?.monthly_count ?? 0) >= setting.monthly_limit) {
+    return { status: 'limit_reached', message: 'ถึงขีดจำกัดการใช้ AI ที่ผู้ปกครองตั้งไว้แล้ว' };
+  }
+
+  const usageRow = await c.env.DB.prepare(
+    `INSERT INTO ai_feedback_usage (parent_id, attempt_answer_id, provider, model, status)
+     VALUES (?, ?, ?, ?, 'started')`,
+  ).bind(parentId, attemptAnswerId, setting.provider, setting.model).run();
+  const usageId = Number(usageRow.meta.last_row_id);
+  try {
+    const apiKey = await decryptCredential(setting.encrypted_api_key, c.env.AI_CREDENTIAL_ENCRYPTION_KEY);
+    const content = JSON.parse(question.content_json) as { options?: string[] };
+    const correct = JSON.parse(question.answer_json) as { correctIndex?: number };
+    const selected = answer as { selectedIndex?: number } | null;
+    const feedback = await runReasoningFeedback({
+      provider: setting.provider,
+      model: setting.model,
+      apiKey,
+      baseUrl: setting.base_url,
+      apiFormat: setting.api_format,
+      question: question.prompt,
+      options: content.options ?? [],
+      correctIndex: correct.correctIndex ?? -1,
+      selectedIndex: selected?.selectedIndex ?? -1,
+      reasoningText,
+      reasoningPrompt: question.reasoning_prompt,
+      rubric: question.reasoning_rubric_json
+        ? JSON.parse(question.reasoning_rubric_json) as ReasoningRubric
+        : null,
+    });
+    await c.env.DB.prepare("UPDATE ai_feedback_usage SET status = 'completed' WHERE id = ?")
+      .bind(usageId)
+      .run();
+    return feedback;
+  } catch {
+    await c.env.DB.prepare("UPDATE ai_feedback_usage SET status = 'failed' WHERE id = ?")
+      .bind(usageId)
+      .run();
+    return {
+      status: 'failed',
+      message: 'ยังอ่านคำอธิบายไม่ได้ แต่คำตอบถูกบันทึกเรียบร้อยแล้ว',
+    };
+  }
+}
 
 // --- Profile selection (requires parent session, not child) ---
 
@@ -329,58 +423,13 @@ playRoutes.post('/attempts/:id/answers', requireChildSession, async (c) => {
 
   let reasoningFeedback: ReasoningFeedback | null = null;
   if (reasoningText && question.question_type === 'multiple_choice' && question.reasoning_prompt) {
-    const setting = await c.env.DB.prepare(
-      `SELECT provider, model, encrypted_api_key, base_url, api_format, enabled, daily_limit, monthly_limit
-       FROM parent_ai_settings WHERE parent_id = ?`,
-    ).bind(c.get('session').parentId).first<{
-      provider: AiProvider; model: string; encrypted_api_key: string; base_url: string | null; api_format: CustomAiFormat;
-      enabled: number;
-      daily_limit: number; monthly_limit: number;
-    }>();
-    if (!setting || setting.enabled !== 1 || !c.env.AI_CREDENTIAL_ENCRYPTION_KEY) {
-      reasoningFeedback = { status: 'unavailable', message: 'ผู้ปกครองยังไม่ได้เปิดใช้ผู้ช่วยอ่านคำอธิบาย' };
-    } else {
-      const usage = await c.env.DB.prepare(
-        `SELECT
-           SUM(CASE WHEN created_at >= date('now') THEN 1 ELSE 0 END) AS daily_count,
-           SUM(CASE WHEN created_at >= date('now','start of month') THEN 1 ELSE 0 END) AS monthly_count
-         FROM ai_feedback_usage WHERE parent_id = ?`,
-      ).bind(c.get('session').parentId).first<{ daily_count: number | null; monthly_count: number | null }>();
-      if ((usage?.daily_count ?? 0) >= setting.daily_limit || (usage?.monthly_count ?? 0) >= setting.monthly_limit) {
-        reasoningFeedback = { status: 'limit_reached', message: 'ถึงขีดจำกัดการใช้ AI ที่ผู้ปกครองตั้งไว้แล้ว' };
-      } else {
-        const attemptAnswerId = Number(inserted.meta.last_row_id);
-        const usageRow = await c.env.DB.prepare(
-          `INSERT INTO ai_feedback_usage (parent_id, attempt_answer_id, provider, model, status)
-           VALUES (?, ?, ?, ?, 'started')`,
-        ).bind(c.get('session').parentId, attemptAnswerId, setting.provider, setting.model).run();
-        const usageId = Number(usageRow.meta.last_row_id);
-        try {
-          const apiKey = await decryptCredential(setting.encrypted_api_key, c.env.AI_CREDENTIAL_ENCRYPTION_KEY);
-          const content = JSON.parse(question.content_json) as { options?: string[] };
-          const correct = JSON.parse(question.answer_json) as { correctIndex?: number };
-          const selected = body.answer as { selectedIndex?: number } | null;
-          reasoningFeedback = await runReasoningFeedback({
-            provider: setting.provider,
-            model: setting.model,
-            apiKey,
-            baseUrl: setting.base_url,
-            apiFormat: setting.api_format,
-            question: question.prompt,
-            options: content.options ?? [],
-            correctIndex: correct.correctIndex ?? -1,
-            selectedIndex: selected?.selectedIndex ?? -1,
-            reasoningText,
-            reasoningPrompt: question.reasoning_prompt,
-            rubric: question.reasoning_rubric_json ? JSON.parse(question.reasoning_rubric_json) as ReasoningRubric : null,
-          });
-          await c.env.DB.prepare("UPDATE ai_feedback_usage SET status = 'completed' WHERE id = ?").bind(usageId).run();
-        } catch {
-          reasoningFeedback = { status: 'failed', message: 'ยังอ่านคำอธิบายไม่ได้ แต่คำตอบถูกบันทึกเรียบร้อยแล้ว' };
-          await c.env.DB.prepare("UPDATE ai_feedback_usage SET status = 'failed' WHERE id = ?").bind(usageId).run();
-        }
-      }
-    }
+    reasoningFeedback = await createReasoningFeedback(
+      c,
+      Number(inserted.meta.last_row_id),
+      question,
+      body.answer,
+      reasoningText,
+    );
     await c.env.DB.prepare(
       'UPDATE attempt_answers SET ai_feedback_json = ?, ai_feedback_status = ? WHERE id = ?',
     ).bind(JSON.stringify(reasoningFeedback), reasoningFeedback.status, Number(inserted.meta.last_row_id)).run();
@@ -522,4 +571,179 @@ playRoutes.post('/attempts/:id/complete', requireChildSession, async (c) => {
       assigned: Number(progress?.assigned ?? 0),
     },
   });
+});
+
+playRoutes.get('/attempts/:id/result', requireChildSession, async (c) => {
+  const { activeChildId } = c.get('session');
+  const attemptId = Number(c.req.param('id'));
+  const attempt = await c.env.DB.prepare(
+    `SELECT a.id, a.exercise_set_id, a.learning_mode, a.status, a.score,
+            es.title AS exercise_title, es.subject_id, s.name AS subject_name
+     FROM attempts a
+     JOIN exercise_sets es ON es.id = a.exercise_set_id
+     LEFT JOIN subjects s ON s.id = es.subject_id
+     WHERE a.id = ? AND a.child_id = ?`,
+  )
+    .bind(attemptId, activeChildId)
+    .first<{
+      id: number;
+      exercise_set_id: number;
+      learning_mode: LearningMode;
+      status: string;
+      score: number | null;
+      exercise_title: string;
+      subject_id: number | null;
+      subject_name: string | null;
+    }>();
+  if (!attempt) return c.json({ error: 'attempt_not_found' }, 404);
+  if (attempt.status !== 'completed') return c.json({ error: 'attempt_not_completed' }, 409);
+
+  const questionRows = await c.env.DB.prepare(
+    `SELECT q.id AS question_id, q.prompt, q.answer_json, q.explanation,
+            aa.given_answer_json, aa.is_correct, aa.reasoning_text, aa.ai_feedback_json
+     FROM attempt_answers aa
+     JOIN questions q ON q.id = aa.question_id
+     WHERE aa.attempt_id = ? AND q.exercise_set_id = ?
+     ORDER BY q.order_index, q.id`,
+  )
+    .bind(attemptId, attempt.exercise_set_id)
+    .all<{
+      question_id: number;
+      prompt: string;
+      answer_json: string;
+      explanation: string | null;
+      given_answer_json: string;
+      is_correct: number;
+      reasoning_text: string | null;
+      ai_feedback_json: string | null;
+    }>();
+
+  const assignedRows = await c.env.DB.prepare(
+    `SELECT es.id, es.title, s.name AS subject_name,
+            (SELECT COUNT(*) FROM questions q WHERE q.exercise_set_id = es.id) AS question_count,
+            (SELECT MAX(a.score) FROM attempts a WHERE a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'completed') AS best_score,
+            (SELECT COUNT(*) FROM attempts a WHERE a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'completed') AS completed_count,
+            es.learning_mode,
+            in_progress_attempt.id AS in_progress_attempt_id,
+            (SELECT COUNT(*) FROM attempt_answers aa WHERE aa.attempt_id = in_progress_attempt.id) AS in_progress_answered_count,
+            asg.assigned_at
+     FROM assignments asg
+     JOIN exercise_sets es ON es.id = asg.exercise_set_id
+     LEFT JOIN subjects s ON s.id = es.subject_id
+     LEFT JOIN attempts in_progress_attempt ON in_progress_attempt.id = (
+       SELECT a.id FROM attempts a
+       WHERE a.exercise_set_id = es.id AND a.child_id = ? AND a.status = 'in_progress'
+       ORDER BY a.started_at DESC, a.id DESC LIMIT 1
+     )
+     WHERE asg.child_id = ? AND es.status = 'published'
+     ORDER BY asg.assigned_at, es.id`,
+  )
+    .bind(activeChildId, activeChildId, activeChildId, activeChildId)
+    .all<Record<string, unknown>>();
+  const assignedExercises: PlayExercise[] = assignedRows.results.map((row) => ({
+    id: Number(row.id),
+    title: String(row.title),
+    subjectName: row.subject_name == null ? null : String(row.subject_name),
+    questionCount: Number(row.question_count),
+    bestScore: row.best_score == null ? null : Number(row.best_score),
+    completedCount: Number(row.completed_count),
+    learningMode: row.learning_mode as LearningMode,
+    hasInProgress: row.in_progress_attempt_id != null,
+    inProgressAnsweredCount: Number(row.in_progress_answered_count ?? 0),
+    assignedAt: String(row.assigned_at),
+  }));
+  const subjectExercises = assignedExercises.filter((row) => row.subjectName === attempt.subject_name);
+  const questions = questionRows.results.map((row) => ({
+    questionId: row.question_id,
+    prompt: row.prompt,
+    givenAnswer: JSON.parse(row.given_answer_json),
+    isCorrect: row.is_correct === 1,
+    correctAnswer: JSON.parse(row.answer_json),
+    explanation: row.explanation,
+    reasoningText: row.reasoning_text,
+    reasoningFeedback: row.ai_feedback_json ? JSON.parse(row.ai_feedback_json) as ReasoningFeedback : null,
+  }));
+  const result: AttemptResult = {
+    attemptId: attempt.id,
+    exerciseSetId: attempt.exercise_set_id,
+    exerciseTitle: attempt.exercise_title,
+    subjectName: attempt.subject_name,
+    learningMode: attempt.learning_mode,
+    score: Number(attempt.score ?? 0),
+    correct: questions.filter((question) => question.isCorrect).length,
+    total: questions.length,
+    subjectCompleted: subjectExercises.filter((row) => row.completedCount > 0).length,
+    subjectAssigned: subjectExercises.length,
+    questions,
+    recommendation: recommendNextExercise(assignedExercises, attempt.exercise_set_id),
+  };
+  return c.json(result);
+});
+
+playRoutes.post('/attempts/:id/reasoning-feedback', requireChildSession, async (c) => {
+  const { activeChildId } = c.get('session');
+  const attemptId = Number(c.req.param('id'));
+  const body = await c.req.json<{ questionId?: number }>().catch(() => null);
+  if (!body?.questionId) return c.json({ error: 'invalid_body' }, 400);
+
+  const attempt = await c.env.DB.prepare(
+    'SELECT id, exercise_set_id, learning_mode, status FROM attempts WHERE id = ? AND child_id = ?',
+  )
+    .bind(attemptId, activeChildId)
+    .first<{ id: number; exercise_set_id: number; learning_mode: LearningMode; status: string }>();
+  if (!attempt) return c.json({ error: 'attempt_not_found' }, 404);
+  if (attempt.status !== 'completed') return c.json({ error: 'attempt_not_completed' }, 409);
+  if (attempt.learning_mode !== 'exam') return c.json({ error: 'mode_requires_exam' }, 409);
+
+  const answer = await c.env.DB.prepare(
+    `SELECT aa.id AS attempt_answer_id, aa.given_answer_json, aa.reasoning_text, aa.ai_feedback_json,
+            q.id AS question_id, q.question_type, q.prompt, q.content_json, q.answer_json,
+            q.reasoning_prompt, q.reasoning_rubric_json
+     FROM attempt_answers aa
+     JOIN questions q ON q.id = aa.question_id
+     WHERE aa.attempt_id = ? AND aa.question_id = ? AND q.exercise_set_id = ?`,
+  )
+    .bind(attemptId, body.questionId, attempt.exercise_set_id)
+    .first<{
+      attempt_answer_id: number;
+      given_answer_json: string;
+      reasoning_text: string | null;
+      ai_feedback_json: string | null;
+      question_id: number;
+      question_type: QuestionType;
+      prompt: string;
+      content_json: string;
+      answer_json: string;
+      reasoning_prompt: string | null;
+      reasoning_rubric_json: string | null;
+    }>();
+  if (!answer) return c.json({ error: 'answer_not_found' }, 404);
+  if (answer.question_type !== 'multiple_choice' || !answer.reasoning_prompt) {
+    return c.json({ error: 'reasoning_not_available' }, 409);
+  }
+  const reasoningText = answer.reasoning_text?.trim() ?? '';
+  if (!reasoningText) return c.json({ error: 'reasoning_required' }, 409);
+  if (answer.ai_feedback_json) {
+    return c.json(JSON.parse(answer.ai_feedback_json) as ReasoningFeedback);
+  }
+
+  const feedback = await createReasoningFeedback(
+    c,
+    answer.attempt_answer_id,
+    {
+      prompt: answer.prompt,
+      content_json: answer.content_json,
+      answer_json: answer.answer_json,
+      reasoning_prompt: answer.reasoning_prompt,
+      reasoning_rubric_json: answer.reasoning_rubric_json,
+    },
+    JSON.parse(answer.given_answer_json),
+    reasoningText,
+  );
+  await c.env.DB.prepare(
+    'UPDATE attempt_answers SET ai_feedback_json = ?, ai_feedback_status = ? WHERE id = ?',
+  )
+    .bind(JSON.stringify(feedback), feedback.status, answer.attempt_answer_id)
+    .run();
+  return c.json(feedback);
 });

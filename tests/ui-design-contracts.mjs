@@ -278,3 +278,70 @@ test('dashboard normalizes uncategorized subjects for summaries and filtering', 
   assert.match(dashboard, /summarizeExercisesBySubject/);
   assert.doesNotMatch(dashboard, /if \(!exercise\.subjectName\) continue/);
 });
+
+test('shared player shell exposes visible feedback gating and accessible save state', () => {
+  const componentPaths = [
+    'src/routes/play/components/PlayerHeader.tsx',
+    'src/routes/play/components/QuestionNavigator.tsx',
+    'src/routes/play/components/AnswerFeedback.tsx',
+    'src/routes/play/components/ExamSaveStatus.tsx',
+  ];
+  for (const path of componentPaths) {
+    assert.equal(existsSync(join(root, path)), true, `${path} should exist`);
+  }
+
+  const header = read(componentPaths[0]);
+  const navigator = read(componentPaths[1]);
+  const feedback = read(componentPaths[2]);
+  const saveStatus = read(componentPaths[3]);
+
+  assert.match(header, /<progress/);
+  assert.match(header, /<Link[^>]*to="\/play\/exercises"/);
+  assert.match(navigator, /answeredLabel/);
+  assert.match(navigator, /unansweredLabel/);
+  assert.match(navigator, /currentLabel/);
+  assert.match(feedback, /visible:\s*boolean/);
+  assert.match(feedback, /if \(!visible\) return null/);
+  assert.match(feedback, /aria-live="polite"/);
+  assert.match(saveStatus, /role="alert"/);
+  assert.match(saveStatus, /onRetry/);
+});
+
+test('player keeps Guided locking and Exam secrecy in separate API flows', () => {
+  const source = read('src/routes/play/Player.tsx');
+
+  assert.match(source, /learningMode === 'guided'/);
+  assert.match(source, /api\.post<AnswerResult>/);
+  assert.match(source, /api\.put/);
+  assert.match(source, /<ExamSaveStatus/);
+  assert.match(source, /<dialog/);
+  assert.match(source, /AnswerFeedback visible=\{learningMode === 'guided'/);
+  assert.match(source, /phase === 'result'/);
+  assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
+  assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
+});
+
+test('completed result owns review actions and lazy Exam reasoning feedback', () => {
+  const source = read('src/routes/play/components/ExerciseResult.tsx');
+
+  assert.match(source, /subjectCompleted/);
+  assert.match(source, /recommendation/);
+  assert.match(source, /<AnswerFeedback visible=\{true\}/);
+  assert.match(source, /onToggle/);
+  assert.match(source, /reasoning-feedback/);
+  assert.match(source, /api\.post<ReasoningFeedback>/);
+  assert.doesNotMatch(source, /<Link[^>]*>\s*<button/);
+  assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
+});
+
+test('player geometry remains stable and mobile navigation cannot overflow', () => {
+  const css = read('src/styles/child-learning.css');
+
+  assert.match(css, /\.child-answer-stage\s*\{[^}]*min-height/s);
+  assert.match(css, /\.child-question-navigator button\s*\{[^}]*min-height\s*:\s*44px/s);
+  assert.match(css, /\.child-player-actions [^{]*\{[^}]*min-height\s*:\s*48px/s);
+  assert.match(css, /\.child-question-navigator \.current\s*\{[^}]*background\s*:\s*#fbfcf8[^}]*border-color\s*:\s*var\(--ink-strong\)/s);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)[\s\S]*\.child-question-navigator/s);
+  assert.match(css, /\.child-question-navigator\s*\{[^}]*min-width\s*:\s*0[^}]*max-width\s*:\s*100%/s);
+  assert.doesNotMatch(css, /font-size\s*:\s*(?:clamp|min|max)\(/);
+});
