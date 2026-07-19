@@ -98,13 +98,18 @@ function ConfirmDanger({
   description,
   onConfirm,
   disabled,
+  confirmValue = 'ลบ',
 }: {
   label: string;
   title: string;
   description: string;
   onConfirm: () => Promise<void>;
   disabled?: boolean;
+  confirmValue?: string;
 }) {
+  const [confirmationInput, setConfirmationInput] = useState('');
+  const canConfirm = !disabled && confirmationInput === confirmValue;
+
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger>
@@ -113,9 +118,17 @@ function ConfirmDanger({
       <AlertDialog.Content maxWidth="460px">
         <AlertDialog.Title>{title}</AlertDialog.Title>
         <AlertDialog.Description size="2">{description}</AlertDialog.Description>
+        <label className="danger-confirm-field">
+          <Text as="div" size="2" weight="bold">พิมพ์ "{confirmValue}" เพื่อยืนยัน</Text>
+          <input
+            value={confirmationInput}
+            onChange={(e) => setConfirmationInput(e.target.value)}
+            placeholder={confirmValue}
+          />
+        </label>
         <Flex gap="3" justify="end" mt="4">
           <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
-          <AlertDialog.Action><Button color="red" onClick={onConfirm}>ยืนยันลบ</Button></AlertDialog.Action>
+          <AlertDialog.Action><Button color="red" disabled={!canConfirm} onClick={onConfirm}>ยืนยันลบ</Button></AlertDialog.Action>
         </Flex>
       </AlertDialog.Content>
     </AlertDialog.Root>
@@ -314,6 +327,9 @@ export default function Admin() {
   const selectedCount = selectedSetIds.length;
   const allVisibleSelected = filteredSets.length > 0 && filteredSets.every((set) => selectedSetIds.includes(set.id));
   const selectedR2Count = selectedR2Keys.length;
+  const selectedR2Bytes = r2Files
+    .filter((file) => selectedR2Keys.includes(file.key))
+    .reduce((sum, file) => sum + file.size, 0);
   const allVisibleR2Selected = r2Files.length > 0 && r2Files.every((file) => selectedR2Keys.includes(file.key));
   const adminActiveId: AdminTreeId = section === 'sets'
     ? (setFilter === 'all' ? 'sets:all' : `sets:subject:${setFilter}`)
@@ -551,6 +567,7 @@ export default function Admin() {
               <div className="r2-summary-strip">
                 <div><b>{c.r2Objects}</b><span>ไฟล์ทั้งหมด</span></div>
                 <div><b>{formatBytes(c.r2Bytes)}</b><span>พื้นที่โดยประมาณ</span></div>
+                <div><b>{formatBytes(selectedR2Bytes)}</b><span>พื้นที่ที่เลือก</span></div>
                 <div><b>{r2Files.length}</b><span>โหลดมาแล้ว</span></div>
               </div>
               <EntityList

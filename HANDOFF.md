@@ -1071,3 +1071,27 @@ Verification for this slice:
 npm test
 npm run build
 ```
+
+## Product completion slice: polish items 6-10
+
+Completed polish pass:
+
+- `/parent/exercises` selected toolbar now summarizes what the selected sets can do before action:
+  - `เผยแพร่ได้ N`
+  - `ซ่อนได้ N`
+  - assignment target summary remains visible.
+- Parent admin dangerous actions now require typing a confirmation word before the final delete button enables.
+- Parent R2 manager shows selected file size as `พื้นที่ที่เลือก`, so cleanup decisions are clearer before deleting.
+- Existing admin/super-admin audit logging remains in worker routes for destructive cleanup actions.
+- Existing child UX coverage remains active through UI contracts:
+  - Thai kid-facing navigation
+  - touch-friendly child learning controls
+  - neutral readable progress surfaces
+  - child progress by subject
+
+Verification:
+
+```powershell
+npm test
+npm run build
+```

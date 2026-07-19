@@ -396,6 +396,7 @@ export default function ExerciseList() {
   const selectedSets = useMemo(() => sets.filter((set) => selected.has(set.id)), [sets, selected]);
   const selectedPublishableCount = selectedSets.filter((set) => set.status === 'pending_review').length;
   const selectedUnpublishableCount = selectedSets.filter((set) => set.status === 'published').length;
+  const selectedStatusSummary = `เผยแพร่ได้ ${selectedPublishableCount} · ซ่อนได้ ${selectedUnpublishableCount}`;
   const selectedChildNames = children
     .filter((child) => bulkAssignChildIds.has(child.id))
     .map((child) => child.name);
@@ -650,6 +651,7 @@ export default function ExerciseList() {
                 <div className="grow">
                   <Text as="div" weight="medium">เลือก {selected.size} ชุด</Text>
                   <Text as="div" size="2" color="gray">{selectedAssignmentSummary}</Text>
+                  <Text as="div" size="2" color="gray">{selectedStatusSummary}</Text>
                 </div>
                 {selected.size >= 2 && <Button onClick={openMerge} disabled={loading}>รวมชุด</Button>}
                 <PublishSelectedSetsButton

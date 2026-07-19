@@ -135,6 +135,21 @@ test('exercise management exposes bulk hide for selected published sets', () => 
   assert.match(source, /\/unpublish/);
 });
 
+test('exercise management summarizes selected bulk actions before acting', () => {
+  const source = read('src/routes/parent/ExerciseList.tsx');
+  assert.match(source, /selectedStatusSummary/);
+  assert.match(source, /เผยแพร่ได้/);
+  assert.match(source, /ซ่อนได้/);
+});
+
+test('parent admin dangerous actions require explicit confirmation and show selected R2 size', () => {
+  const source = read('src/routes/parent/Admin.tsx');
+  assert.match(source, /confirmValue/);
+  assert.match(source, /confirmationInput/);
+  assert.match(source, /selectedR2Bytes/);
+  assert.match(source, /พื้นที่ที่เลือก/);
+});
+
 test('child tree uses names while detail workspace owns the avatar', () => {
   const source = read('src/routes/parent/ChildrenList.tsx');
   assert.match(source, /PageHeader/);

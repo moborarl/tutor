@@ -884,6 +884,17 @@ table.data th { color: var(--muted); font-weight: 600; }
   margin-top: 12px;
 }
 
+.danger-confirm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid rgba(160, 68, 56, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 247, 240, 0.74);
+}
+
 .family-child-list {
   display: flex;
   flex-direction: column;
