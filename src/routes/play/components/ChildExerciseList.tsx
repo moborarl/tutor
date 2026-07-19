@@ -7,17 +7,17 @@ const FALLBACK_SUBJECT = 'ไม่ระบุวิชา';
 
 function exerciseState(exercise: PlayExercise) {
   if (exercise.hasInProgress) {
-    return { action: 'Continue', status: 'In progress', Icon: ArrowRight };
+    return { action: 'ทำต่อ', status: 'กำลังทำ', Icon: ArrowRight };
   }
   if (exercise.completedCount > 0 || exercise.bestScore != null) {
-    return { action: 'Try again', status: 'Completed', Icon: RotateCcw };
+    return { action: 'ทำซ้ำ', status: 'ทำเสร็จแล้ว', Icon: RotateCcw };
   }
-  return { action: 'Start', status: 'Not started', Icon: Play };
+  return { action: 'เริ่มทำ', status: 'ยังไม่ได้ทำ', Icon: Play };
 }
 
 export function ChildExerciseList({ exercises }: { exercises: PlayExercise[] }) {
   return (
-    <ul className="child-exercise-list" role="list" aria-label="Assigned exercises">
+    <ul className="child-exercise-list" role="list" aria-label="แบบฝึกหัดที่ได้รับมอบหมาย">
       {exercises.map((exercise) => {
         const state = exerciseState(exercise);
         return (
@@ -29,9 +29,9 @@ export function ChildExerciseList({ exercises }: { exercises: PlayExercise[] }) 
               </div>
               <p className="child-exercise-meta">
                 <span>{exercise.subjectName ?? FALLBACK_SUBJECT}</span>
-                <span>{exercise.questionCount} questions</span>
+                <span>{exercise.questionCount} ข้อ</span>
                 {exercise.bestScore != null && (
-                  <span className="child-exercise-score">Best {Math.round(exercise.bestScore * 100)}%</span>
+                  <span className="child-exercise-score">ดีที่สุด {Math.round(exercise.bestScore * 100)}%</span>
                 )}
               </p>
             </div>

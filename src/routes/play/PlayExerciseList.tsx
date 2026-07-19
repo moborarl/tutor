@@ -48,9 +48,9 @@ export default function PlayExerciseList() {
       <main className="child-learning child-learning-entry-state">
         <AppState
           tone="empty"
-          title="Choose a family member"
-          description="Select a learner before opening the dashboard."
-          action={<Link className="child-primary-action" to="/play">Choose member</Link>}
+          title="เลือกสมาชิกครอบครัว"
+          description="เลือกเด็กก่อนเปิดหน้าความคืบหน้า"
+          action={<Link className="child-primary-action" to="/play">เลือกสมาชิก</Link>}
         />
       </main>
     );
@@ -69,44 +69,44 @@ export default function PlayExerciseList() {
   return (
     <ChildLearningShell
       child={child}
-      eyebrow="My learning"
-      title={`Ready, ${child.name}?`}
-      summary={`${completedCount} of ${rows.length} sets completed`}
+      eyebrow="การเรียนรู้ของฉัน"
+      title={`${child.name} พร้อมทำแบบฝึกหัดหรือยัง?`}
+      summary={`ทำเสร็จแล้ว ${completedCount} จาก ${rows.length} ชุด`}
       actions={(
         <>
           <Link className="child-secondary-action" to="/play/progress">
             <BarChart3 aria-hidden="true" />
-            Progress
+            ความคืบหน้า
           </Link>
           <button className="child-secondary-action" type="button" onClick={switchProfile}>
             <Users aria-hidden="true" />
-            Switch member
+            สลับสมาชิก
           </button>
           <Link className="child-secondary-action" to="/parent/exercises">
             <ShieldCheck aria-hidden="true" />
-            Parent
+            ผู้ปกครอง
           </Link>
         </>
       )}
     >
       {exercises === null && !loadError && (
-        <AppState tone="loading" title="Loading your exercises" description="Your next activity will be ready shortly." />
+        <AppState tone="loading" title="กำลังโหลดแบบฝึกหัด" description="อีกสักครู่จะพร้อมเริ่มทำแบบฝึกหัด" />
       )}
 
       {loadError && (
         <AppState
           tone="error"
-          title="Exercises could not be loaded"
-          description="Try again, or use parent access if the problem continues."
+          title="โหลดแบบฝึกหัดไม่สำเร็จ"
+          description="ลองใหม่อีกครั้ง หรือเปิดหน้าผู้ปกครองหากยังมีปัญหา"
           action={(
             <div className="child-state-actions">
               <button className="child-primary-action" type="button" onClick={loadExercises}>
                 <RefreshCw aria-hidden="true" />
-                Retry
+                ลองใหม่
               </button>
               <Link className="child-secondary-action" to="/parent/exercises">
                 <ShieldCheck aria-hidden="true" />
-                Parent access
+                หน้าผู้ปกครอง
               </Link>
             </div>
           )}
@@ -116,9 +116,9 @@ export default function PlayExerciseList() {
       {exercises?.length === 0 && (
         <AppState
           tone="empty"
-          title="No exercises yet"
-          description="A parent can assign practice sets when they are ready."
-          action={<Link className="child-secondary-action" to="/play">Back to member selection</Link>}
+          title="ยังไม่มีแบบฝึกหัด"
+          description="ผู้ปกครองสามารถมอบหมายชุดแบบฝึกหัดให้ได้เมื่อพร้อม"
+          action={<Link className="child-secondary-action" to="/play">กลับไปเลือกสมาชิก</Link>}
         />
       )}
 
@@ -126,13 +126,13 @@ export default function PlayExerciseList() {
         <>
           <section className="child-overall-progress" aria-labelledby="overall-progress-heading">
             <div>
-              <p className="child-section-kicker">Today and beyond</p>
-              <h2 id="overall-progress-heading">Overall progress</h2>
+              <p className="child-section-kicker">วันนี้และต่อไป</p>
+              <h2 id="overall-progress-heading">ความคืบหน้าโดยรวม</h2>
             </div>
             <ChildProgressMeter
               value={completedCount}
               max={exercises.length}
-              label={`${completedCount} of ${exercises.length} exercise sets completed`}
+              label={`ทำแบบฝึกหัดเสร็จแล้ว ${completedCount} จาก ${exercises.length} ชุด`}
             />
           </section>
 
@@ -141,10 +141,10 @@ export default function PlayExerciseList() {
           <section className="child-assigned-work" aria-labelledby="assigned-work-heading">
             <div className="child-section-heading">
               <div>
-                <p className="child-section-kicker">Assigned work</p>
-                <h2 id="assigned-work-heading">Choose an exercise</h2>
+                <p className="child-section-kicker">แบบฝึกหัดที่ได้รับมอบหมาย</p>
+                <h2 id="assigned-work-heading">เลือกแบบฝึกหัด</h2>
               </div>
-              <span>{filteredExercises.length} sets</span>
+              <span>{filteredExercises.length} ชุด</span>
             </div>
             <SubjectSwitcher
               subjects={subjectSummaries}

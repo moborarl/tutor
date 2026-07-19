@@ -13,7 +13,7 @@ const FALLBACK_SUBJECT = 'ไม่ระบุวิชา';
 const PROGRESS_SETS_PANEL_ID = 'child-progress-sets-panel';
 
 function pct(value: number | null): string {
-  return value == null ? 'No score yet' : `${Math.round(value * 100)}%`;
+  return value == null ? 'ยังไม่มีคะแนน' : `${Math.round(value * 100)}%`;
 }
 
 export default function PlayProgress() {
@@ -40,9 +40,9 @@ export default function PlayProgress() {
       <main className="child-learning child-learning-entry-state">
         <AppState
           tone="empty"
-          title="Choose a family member"
-          description="Select a learner before opening progress."
-          action={<Link className="child-primary-action" to="/play">Choose member</Link>}
+          title="เลือกสมาชิกครอบครัว"
+          description="เลือกเด็กก่อนเปิดหน้าความคืบหน้า"
+          action={<Link className="child-primary-action" to="/play">เลือกสมาชิก</Link>}
         />
       </main>
     );
@@ -63,40 +63,40 @@ export default function PlayProgress() {
   return (
     <ChildLearningShell
       child={child}
-      eyebrow="Learning progress"
-      title={`${child.name}'s progress`}
-      summary={`${completedTotal} completed · ${Math.max(0, assignedTotal - completedTotal)} remaining`}
+      eyebrow="ความคืบหน้าการเรียนรู้"
+      title={`ความคืบหน้าของ ${child.name}`}
+      summary={`ทำเสร็จแล้ว ${completedTotal} ชุด · เหลือ ${Math.max(0, assignedTotal - completedTotal)} ชุด`}
       actions={(
         <>
           <Link className="child-secondary-action" to="/play/exercises">
             <ArrowLeft aria-hidden="true" />
-            Dashboard
+            แบบฝึกหัด
           </Link>
           <Link className="child-secondary-action" to="/parent/exercises">
             <ShieldCheck aria-hidden="true" />
-            Parent
+            ผู้ปกครอง
           </Link>
         </>
       )}
     >
       {!data && !loadError && (
-        <AppState tone="loading" title="Loading progress" description="Collecting completed and remaining work." />
+        <AppState tone="loading" title="กำลังโหลดความคืบหน้า" description="กำลังรวบรวมแบบฝึกหัดที่ทำเสร็จและที่เหลืออยู่" />
       )}
 
       {loadError && (
         <AppState
           tone="error"
-          title="Progress could not be loaded"
-          description="Try again without leaving this page."
+          title="โหลดความคืบหน้าไม่สำเร็จ"
+          description="ลองใหม่อีกครั้งได้จากหน้านี้"
           action={(
             <div className="child-state-actions">
               <button className="child-primary-action" type="button" onClick={loadProgress}>
                 <RefreshCw aria-hidden="true" />
-                Retry
+                ลองใหม่
               </button>
               <Link className="child-secondary-action" to="/play/exercises">
                 <ArrowLeft aria-hidden="true" />
-                Dashboard
+                แบบฝึกหัด
               </Link>
             </div>
           )}
@@ -107,23 +107,23 @@ export default function PlayProgress() {
         <>
           <section className="child-overall-progress" aria-labelledby="progress-overall-heading">
             <div>
-              <p className="child-section-kicker">All assigned work</p>
-              <h2 id="progress-overall-heading">Completed and remaining</h2>
-              <p>{data.totalCompletedAttempts} completed attempts in total</p>
+              <p className="child-section-kicker">แบบฝึกหัดทั้งหมด</p>
+              <h2 id="progress-overall-heading">ทำเสร็จแล้วและที่เหลือ</h2>
+              <p>ทำเสร็จแล้วทั้งหมด {data.totalCompletedAttempts} ครั้ง</p>
             </div>
             <ChildProgressMeter
               value={completedTotal}
               max={assignedTotal}
-              label={`${completedTotal} of ${assignedTotal} exercise sets completed`}
+              label={`ทำแบบฝึกหัดเสร็จแล้ว ${completedTotal} จาก ${assignedTotal} ชุด`}
             />
           </section>
 
           {data.subjects.length === 0 ? (
             <AppState
               tone="empty"
-              title="No progress yet"
-              description="Completed and remaining work will appear after exercises are assigned."
-              action={<Link className="child-secondary-action" to="/play/exercises">Dashboard</Link>}
+              title="ยังไม่มีความคืบหน้า"
+              description="ความคืบหน้าจะแสดงเมื่อมีแบบฝึกหัดที่ได้รับมอบหมาย"
+              action={<Link className="child-secondary-action" to="/play/exercises">ไปที่แบบฝึกหัด</Link>}
             />
           ) : (
             <>
@@ -141,8 +141,8 @@ export default function PlayProgress() {
               <section className="child-progress-section" aria-labelledby="subject-progress-heading">
                 <div className="child-section-heading">
                   <div>
-                    <p className="child-section-kicker">By subject</p>
-                    <h2 id="subject-progress-heading">Set progress</h2>
+                    <p className="child-section-kicker">แยกตามวิชา</p>
+                    <h2 id="subject-progress-heading">ความคืบหน้าของชุดแบบฝึกหัด</h2>
                   </div>
                 </div>
                 <div className="child-progress-subject-list" role="list">
@@ -151,14 +151,14 @@ export default function PlayProgress() {
                       <div className="child-progress-subject-heading">
                         <div>
                           <h3>{subject.subjectName}</h3>
-                          <strong>{subject.completedSetCount} completed · {subject.remainingSetCount} remaining</strong>
+                          <strong>เสร็จแล้ว {subject.completedSetCount} ชุด · เหลือ {subject.remainingSetCount} ชุด</strong>
                         </div>
-                        <span>Best score {pct(subject.bestScore)}</span>
+                        <span>คะแนนดีที่สุด {pct(subject.bestScore)}</span>
                       </div>
                       <ChildProgressMeter
                         value={subject.completedSetCount}
                         max={subject.assignedCount}
-                        label={`${subject.subjectName}: ${subject.completedSetCount} of ${subject.assignedCount} sets completed`}
+                        label={`${subject.subjectName}: ทำเสร็จแล้ว ${subject.completedSetCount} จาก ${subject.assignedCount} ชุด`}
                       />
                     </article>
                   ))}
@@ -174,13 +174,13 @@ export default function PlayProgress() {
               >
                 <div className="child-section-heading">
                   <div>
-                    <p className="child-section-kicker">Exercise sets</p>
-                    <h2 id="progress-sets-heading">Practice history</h2>
+                    <p className="child-section-kicker">ชุดแบบฝึกหัด</p>
+                    <h2 id="progress-sets-heading">ประวัติการทำ</h2>
                   </div>
-                  <span>{visibleSets.length} sets</span>
+                  <span>{visibleSets.length} ชุด</span>
                 </div>
                 {visibleSets.length === 0 ? (
-                  <p className="child-inline-empty">No exercise sets in this subject.</p>
+                  <p className="child-inline-empty">ยังไม่มีชุดแบบฝึกหัดในวิชานี้</p>
                 ) : (
                   <ul className="child-progress-set-list" role="list">
                     {visibleSets.map((set) => (
@@ -188,11 +188,11 @@ export default function PlayProgress() {
                         <Link className="child-progress-set-row" to={`/play/exercises/${set.exerciseSetId}`}>
                           <span>
                             <strong>{set.title || `Set ${set.exerciseSetId}`}</strong>
-                            <small>{set.subjectName ?? FALLBACK_SUBJECT} · {set.attemptCount} attempts</small>
+                            <small>{set.subjectName ?? FALLBACK_SUBJECT} · ทำ {set.attemptCount} ครั้ง</small>
                           </span>
                           <span>
-                            <strong>{set.hasInProgress ? 'In progress' : pct(set.bestScore)}</strong>
-                            <small>Best score</small>
+                            <strong>{set.hasInProgress ? 'กำลังทำ' : pct(set.bestScore)}</strong>
+                            <small>คะแนนดีที่สุด</small>
                           </span>
                         </Link>
                       </li>

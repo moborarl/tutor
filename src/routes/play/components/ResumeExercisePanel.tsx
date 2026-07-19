@@ -12,16 +12,16 @@ export function ResumeExercisePanel({ exercise }: { exercise: PlayExercise }) {
         <History />
       </div>
       <div className="child-resume-copy">
-        <p className="child-section-kicker">In progress</p>
-        <h2 id={`resume-exercise-${exercise.id}`}>{exercise.title || 'Practice set'}</h2>
+        <p className="child-section-kicker">กำลังทำอยู่</p>
+        <h2 id={`resume-exercise-${exercise.id}`}>{exercise.title || 'ชุดแบบฝึกหัด'}</h2>
         <div className="child-resume-meta">
           <span>{exercise.subjectName ?? FALLBACK_SUBJECT}</span>
           <LearningModeBadge mode={exercise.learningMode} />
-          <span>{exercise.inProgressAnsweredCount} of {exercise.questionCount} answered</span>
+          <span>ทำแล้ว {exercise.inProgressAnsweredCount} จาก {exercise.questionCount} ข้อ</span>
         </div>
       </div>
       <Link className="child-primary-action" to={`/play/exercises/${exercise.id}`}>
-        Continue where I stopped
+        ทำต่อจากเดิม
         <ArrowRight aria-hidden="true" />
       </Link>
     </section>
