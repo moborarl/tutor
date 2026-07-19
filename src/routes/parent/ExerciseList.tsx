@@ -110,6 +110,34 @@ function ArchiveSelectedSetsButton({
   );
 }
 
+function PublishSelectedSetsButton({
+  count,
+  disabled,
+  onConfirm,
+}: {
+  count: number;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger>
+        <Button color="green" disabled={disabled}>เผยแพร่ที่เลือก</Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="440px">
+        <AlertDialog.Title>เผยแพร่แบบฝึกหัด {count} ชุด?</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          ระบบจะเผยแพร่เฉพาะชุดที่อยู่สถานะรอตรวจและผ่านการอนุมัติครบทุกข้อ ชุดอื่นจะถูกข้าม
+        </AlertDialog.Description>
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action><Button color="green" onClick={onConfirm}>เผยแพร่ที่เลือก</Button></AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 function AssignSelectedSetsDialog({
   children,
   selectedChildIds,
@@ -337,6 +365,14 @@ export default function ExerciseList() {
     published: filteredVisibleSets.filter((set) => set.status === 'published').length,
     review: filteredVisibleSets.filter((set) => set.status === 'pending_review').length,
   };
+  const selectedSets = useMemo(() => sets.filter((set) => selected.has(set.id)), [sets, selected]);
+  const selectedPublishableCount = selectedSets.filter((set) => set.status === 'pending_review').length;
+  const selectedChildNames = children
+    .filter((child) => bulkAssignChildIds.has(child.id))
+    .map((child) => child.name);
+  const selectedAssignmentSummary = selectedChildNames.length > 0
+    ? `มอบหมายให้ ${selectedChildNames.join(', ')}`
+    : 'ยังไม่ได้เลือกเด็กสำหรับมอบหมาย';
 
   const toggleSelected = (id: number) => {
     setSelected((current) => {
@@ -432,6 +468,22 @@ export default function ExerciseList() {
       notify(`มอบหมายแบบฝึกหัด ${setIds.length} ชุดแล้ว`, 'success');
     } catch (err) {
       notify('มอบหมายแบบฝึกหัดที่เลือกไม่สำเร็จ: ' + String(err), 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function publishSelectedSets() {
+    const setIds = selectedSets.filter((set) => set.status === 'pending_review').map((set) => set.id);
+    if (setIds.length === 0) return;
+    setLoading(true);
+    try {
+      await Promise.all(setIds.map((id) => api.post(`/api/parent/exercise-sets/${id}/publish`)));
+      await loadSets();
+      notify(`เผยแพร่แบบฝึกหัด ${setIds.length} ชุดแล้ว`, 'success');
+    } catch {
+      notify('เผยแพร่ที่เลือกไม่สำเร็จ: ต้องอนุมัติทุกข้อก่อน', 'error');
+      await loadSets();
     } finally {
       setLoading(false);
     }
@@ -550,8 +602,16 @@ export default function ExerciseList() {
           {selected.size > 0 && (
             <Card className="selection-bar">
               <Flex align="center" gap="3" wrap="wrap">
-                <Text className="grow" weight="medium">เลือก {selected.size} ชุด</Text>
+                <div className="grow">
+                  <Text as="div" weight="medium">เลือก {selected.size} ชุด</Text>
+                  <Text as="div" size="2" color="gray">{selectedAssignmentSummary}</Text>
+                </div>
                 {selected.size >= 2 && <Button onClick={openMerge} disabled={loading}>รวมชุด</Button>}
+                <PublishSelectedSetsButton
+                  count={selectedPublishableCount}
+                  disabled={loading || selectedPublishableCount === 0}
+                  onConfirm={publishSelectedSets}
+                />
                 <AssignSelectedSetsDialog
                   children={children}
                   selectedChildIds={bulkAssignChildIds}

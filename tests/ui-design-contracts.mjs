@@ -118,6 +118,15 @@ test('exercise management exposes bulk assignment for selected sets', () => {
   assert.match(source, /\/assign/);
 });
 
+test('exercise management exposes bulk publish and selected assignment visibility', () => {
+  const source = read('src/routes/parent/ExerciseList.tsx');
+  assert.match(source, /publishSelectedSets/);
+  assert.match(source, /selectedPublishableCount/);
+  assert.match(source, /selectedAssignmentSummary/);
+  assert.match(source, /selectedChildNames/);
+  assert.match(source, /\/publish/);
+});
+
 test('child tree uses names while detail workspace owns the avatar', () => {
   const source = read('src/routes/parent/ChildrenList.tsx');
   assert.match(source, /PageHeader/);
