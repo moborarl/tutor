@@ -127,6 +127,14 @@ test('exercise management exposes bulk publish and selected assignment visibilit
   assert.match(source, /\/publish/);
 });
 
+test('exercise management exposes bulk hide for selected published sets', () => {
+  const source = read('src/routes/parent/ExerciseList.tsx');
+  assert.match(source, /unpublishSelectedSets/);
+  assert.match(source, /selectedUnpublishableCount/);
+  assert.match(source, /ซ่อนที่เลือก/);
+  assert.match(source, /\/unpublish/);
+});
+
 test('child tree uses names while detail workspace owns the avatar', () => {
   const source = read('src/routes/parent/ChildrenList.tsx');
   assert.match(source, /PageHeader/);

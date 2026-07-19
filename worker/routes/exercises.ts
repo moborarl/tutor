@@ -460,6 +460,24 @@ exerciseRoutes.post('/:id/publish', async (c) => {
   return c.json({ ok: true });
 });
 
+exerciseRoutes.post('/:id/unpublish', async (c) => {
+  const { parentId } = c.get('session');
+  const id = Number(c.req.param('id'));
+  const set = await c.env.DB.prepare(
+    `SELECT id FROM exercise_sets WHERE id = ? AND parent_id = ? AND status = 'published'`,
+  )
+    .bind(id, parentId)
+    .first();
+  if (!set) return c.json({ error: 'not_found_or_not_published' }, 404);
+
+  await c.env.DB.prepare(
+    `UPDATE exercise_sets SET status = 'pending_review', updated_at = datetime('now') WHERE id = ?`,
+  )
+    .bind(id)
+    .run();
+  return c.json({ ok: true, status: 'pending_review' });
+});
+
 exerciseRoutes.post('/:id/assign', async (c) => {
   const { parentId } = c.get('session');
   const id = Number(c.req.param('id'));

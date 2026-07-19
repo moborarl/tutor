@@ -14,6 +14,7 @@
     "smoke:prod": "node scripts/smoke-prod.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:child": "node scripts/smoke-child.mjs",
+    "smoke:all": "npm run smoke:prod && npm run smoke:auth && npm run smoke:child",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },

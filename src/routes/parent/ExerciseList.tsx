@@ -138,6 +138,34 @@ function PublishSelectedSetsButton({
   );
 }
 
+function HideSelectedSetsButton({
+  count,
+  disabled,
+  onConfirm,
+}: {
+  count: number;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger>
+        <Button variant="soft" color="amber" disabled={disabled}>ซ่อนที่เลือก</Button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Content maxWidth="440px">
+        <AlertDialog.Title>ซ่อนแบบฝึกหัด {count} ชุดจากเด็ก?</AlertDialog.Title>
+        <AlertDialog.Description size="2">
+          ระบบจะเปลี่ยนเฉพาะชุดที่เผยแพร่แล้วกลับเป็นสถานะรอตรวจ เด็กจะไม่เห็นชุดเหล่านี้จนกว่าจะเผยแพร่อีกครั้ง
+        </AlertDialog.Description>
+        <Flex gap="3" justify="end" mt="4">
+          <AlertDialog.Cancel><Button variant="soft" color="gray">ยกเลิก</Button></AlertDialog.Cancel>
+          <AlertDialog.Action><Button color="amber" onClick={onConfirm}>ซ่อนที่เลือก</Button></AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 function AssignSelectedSetsDialog({
   children,
   selectedChildIds,
@@ -286,7 +314,7 @@ export default function ExerciseList() {
   const [sortMode, setSortMode] = useState('newest');
 
   function loadSets() {
-    api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets')
+    return api.get<ExerciseSetSummary[]>('/api/parent/exercise-sets')
       .then((data) => {
         setSets(data);
         setSelected((current) => new Set([...current].filter((id) => data.some((set) => set.id === id))));
@@ -367,6 +395,7 @@ export default function ExerciseList() {
   };
   const selectedSets = useMemo(() => sets.filter((set) => selected.has(set.id)), [sets, selected]);
   const selectedPublishableCount = selectedSets.filter((set) => set.status === 'pending_review').length;
+  const selectedUnpublishableCount = selectedSets.filter((set) => set.status === 'published').length;
   const selectedChildNames = children
     .filter((child) => bulkAssignChildIds.has(child.id))
     .map((child) => child.name);
@@ -483,6 +512,22 @@ export default function ExerciseList() {
       notify(`เผยแพร่แบบฝึกหัด ${setIds.length} ชุดแล้ว`, 'success');
     } catch {
       notify('เผยแพร่ที่เลือกไม่สำเร็จ: ต้องอนุมัติทุกข้อก่อน', 'error');
+      await loadSets();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function unpublishSelectedSets() {
+    const setIds = selectedSets.filter((set) => set.status === 'published').map((set) => set.id);
+    if (setIds.length === 0) return;
+    setLoading(true);
+    try {
+      await Promise.all(setIds.map((id) => api.post(`/api/parent/exercise-sets/${id}/unpublish`)));
+      await loadSets();
+      notify(`ซ่อนแบบฝึกหัด ${setIds.length} ชุดแล้ว`, 'success');
+    } catch {
+      notify('ซ่อนที่เลือกไม่สำเร็จ', 'error');
       await loadSets();
     } finally {
       setLoading(false);
@@ -611,6 +656,11 @@ export default function ExerciseList() {
                   count={selectedPublishableCount}
                   disabled={loading || selectedPublishableCount === 0}
                   onConfirm={publishSelectedSets}
+                />
+                <HideSelectedSetsButton
+                  count={selectedUnpublishableCount}
+                  disabled={loading || selectedUnpublishableCount === 0}
+                  onConfirm={unpublishSelectedSets}
                 />
                 <AssignSelectedSetsDialog
                   children={children}

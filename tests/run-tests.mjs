@@ -164,7 +164,7 @@ function makeQuestionsApp(questionOverrides = {}) {
 }
 
 function makeExercisesApp() {
-  const state = { set: { id: 20, parent_id: 1, learning_mode: 'guided' } };
+  const state = { set: { id: 20, parent_id: 1, learning_mode: 'guided', status: 'published' } };
   const db = {
     prepare(sql) {
       return {
@@ -176,12 +176,20 @@ function makeExercisesApp() {
                   ? { id: state.set.id }
                   : null;
               }
+              if (sql.includes("status = 'published'")) {
+                return Number(args[0]) === state.set.id
+                  && Number(args[1]) === state.set.parent_id
+                  && state.set.status === 'published'
+                  ? { id: state.set.id }
+                  : null;
+              }
               return null;
             },
             async run() {
               if (sql.startsWith('UPDATE exercise_sets SET') && sql.includes('learning_mode = ?')) {
                 state.set.learning_mode = String(args[0]);
               }
+              if (sql.includes("status = 'pending_review'")) state.set.status = 'pending_review';
               return { meta: { changes: 1 } };
             },
             async all() {
@@ -977,6 +985,18 @@ test('exercise set patch rejects unsupported learning modes', async () => {
 
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: 'invalid_learning_mode' });
+});
+
+test('exercise set unpublish returns a published set to review', async () => {
+  const { app, db, state } = makeExercisesApp();
+  const response = await app.request(
+    '/exercise-sets/20/unpublish',
+    { method: 'POST' },
+    { DB: db },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(state.set.status, 'pending_review');
 });
 
 test('parent AI credentials encrypt without exposing plaintext and decrypt with the same secret', async () => {

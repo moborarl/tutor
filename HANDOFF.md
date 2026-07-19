@@ -1032,3 +1032,42 @@ npm run smoke:child
 ```
 
 This starts or resumes a real child attempt, so use it only when mutation is acceptable.
+
+## Product completion slice: management and quality loop
+
+Implemented in the current follow-up slice:
+
+- Bulk hide/unpublish selected exercise sets from `/parent/exercises`.
+  - UI button: `ซ่อนที่เลือก`
+  - Backend endpoint: `POST /api/parent/exercise-sets/:id/unpublish`
+  - Behavior: only published sets can be hidden; they return to `pending_review`.
+  - Kids only see `published`, so hidden sets disappear from child play without deleting data.
+- Bulk publish remains available as `เผยแพร่ที่เลือก`.
+- Selected assignment summary remains visible in the selected-set toolbar.
+- Production smoke convenience command:
+
+```powershell
+npm run smoke:all
+```
+
+Before running `smoke:all`, set:
+
+```powershell
+$env:SMOKE_EMAIL="parent@example.com"
+$env:SMOKE_PASSWORD="..."
+```
+
+Existing quality coverage to preserve:
+
+- Parent AI settings require explicit cost consent and encrypted credentials.
+- AI settings support custom public HTTPS OpenAI-compatible providers and reject localhost/private local URLs.
+- Parent AI settings smoke verifies credentials are not exposed.
+- Import preflight reports question-level validation errors and image warnings.
+- Ordering/matching format errors must remain readable and question-specific.
+
+Verification for this slice:
+
+```powershell
+npm test
+npm run build
+```
