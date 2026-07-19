@@ -334,6 +334,25 @@ test('completed result owns review actions and lazy Exam reasoning feedback', ()
   assert.doesNotMatch(source, /<button[^>]*>\s*<Link/);
 });
 
+test('child learning workspace keeps visible navigation in Thai', () => {
+  const dashboard = read('src/routes/play/PlayExerciseList.tsx');
+  const progress = read('src/routes/play/PlayProgress.tsx');
+  const shell = read('src/routes/play/components/ChildLearningShell.tsx');
+  assert.match(dashboard, /ความคืบหน้า/);
+  assert.match(dashboard, /สลับสมาชิก/);
+  assert.match(dashboard, /ผู้ปกครอง/);
+  assert.match(progress, /ความคืบหน้าของ/);
+  assert.match(shell, /เมนูการเรียนรู้ของเด็ก/);
+  assert.doesNotMatch(dashboard, />\s*(Progress|Switch member|Parent|Continue)\s*</);
+});
+
+test('family child tiles keep labels readable on dark surfaces', () => {
+  const css = read('src/styles/auth-family.css');
+  assert.match(css, /\.family-member-child \.family-member-name,\s*\.family-member-child \.family-member-action/);
+  assert.match(css, /color:\s*#f7fbf4/);
+  assert.match(css, /\.family-member-child:hover \.family-member-name/);
+});
+
 test('player geometry remains stable and mobile navigation cannot overflow', () => {
   const css = read('src/styles/child-learning.css');
 

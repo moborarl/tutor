@@ -54,7 +54,7 @@ export function SubjectSwitcher({
     <div
       className="child-subject-switcher"
       role="tablist"
-      aria-label="Filter exercises by subject"
+      aria-label="กรองแบบฝึกหัดตามวิชา"
       aria-orientation="horizontal"
     >
       {options.map((subject, index) => {

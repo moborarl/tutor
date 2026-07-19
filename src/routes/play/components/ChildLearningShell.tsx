@@ -29,7 +29,7 @@ export function ChildLearningShell({
           </div>
         </div>
         {actions && (
-          <nav className="child-dashboard-actions" aria-label="Child learning actions">
+          <nav className="child-dashboard-actions" aria-label="เมนูการเรียนรู้ของเด็ก">
             {actions}
           </nav>
         )}

@@ -231,6 +231,12 @@
 .family-member-child { border-top: 4px solid var(--cfs-child-marigold); }
 .family-member-parent { border-top: 4px solid var(--cfs-accent); }
 
+/* Child tiles use a dark surface, so their labels must stay light enough to scan. */
+.family-member-child .family-member-name,
+.family-member-child .family-member-action { color: #f7fbf4; }
+.family-member-child:hover .family-member-name,
+.family-member-child:hover .family-member-action { color: #ffffff; }
+
 .family-member-avatar {
   min-height: 92px;
   display: grid;
