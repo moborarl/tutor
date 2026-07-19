@@ -395,6 +395,21 @@ test('parent progress can drill into per-question attempt answers', () => {
   assert.match(progress, /api\.get<AttemptResult>/);
 });
 
+test('child exercise navigator is visible by default', () => {
+  const navigator = read('src/routes/play/components/QuestionNavigator.tsx');
+  const css = read('src/styles/child-learning.css');
+  assert.match(navigator, /<details open>/);
+  assert.match(navigator, /aria-label="เลือกข้อ"/);
+  assert.match(css, /\.child-question-navigator summary \{[\s\S]*display: block;/);
+});
+
+test('children progress panel links to per-question answer review', () => {
+  const children = read('src/routes/parent/ChildrenList.tsx');
+  assert.match(children, /data\.recentAttempts/);
+  assert.match(children, /children\/\$\{data\.child\.id\}\/progress/);
+  assert.match(children, /ดูคำตอบรายข้อ/);
+});
+
 test('child learning workspace keeps visible navigation in Thai', () => {
   const dashboard = read('src/routes/play/PlayExerciseList.tsx');
   const progress = read('src/routes/play/PlayProgress.tsx');

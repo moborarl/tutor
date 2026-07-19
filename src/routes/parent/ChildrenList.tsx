@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertDialog, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api-client';
 import { AppState } from '../../components/AppState';
 import { ChildAvatar, CHILD_AVATAR_OPTIONS } from '../../components/ChildAvatar';
@@ -239,7 +240,12 @@ export default function ChildrenList() {
 function ProgressPanel({ data }: { data: ChildProgressData }) {
   return (
     <section className="parent-panel workspace-section">
-      <Heading as="h3" size="4">ความคืบหน้าตามวิชา</Heading>
+      <Flex align="center" justify="between" gap="3" wrap="wrap">
+        <Heading as="h3" size="4">ความคืบหน้าตามวิชา</Heading>
+        <Link to={`/parent/children/${data.child.id}/progress`}>
+          <Button variant="soft" color="gray">ดูประวัติและคำตอบรายข้อ</Button>
+        </Link>
+      </Flex>
       <EntityList
         label="ความคืบหน้าตามวิชา"
         isEmpty={data.subjects.length === 0}
@@ -259,6 +265,23 @@ function ProgressPanel({ data }: { data: ChildProgressData }) {
           />
         ))}
       </EntityList>
+      <div className="progress-recent-attempts" aria-label="ประวัติการทำล่าสุด">
+        <Text as="div" weight="bold" size="2">ประวัติการทำล่าสุด</Text>
+        {data.recentAttempts.length === 0 && <Text color="gray" size="2">ยังไม่มีประวัติการทำ</Text>}
+        {data.recentAttempts.slice(0, 3).map((attempt) => (
+          <div key={attempt.attemptId} className="progress-recent-attempt">
+            <div className="grow">
+              <Text as="div" weight="medium">{attempt.exerciseSetTitle}</Text>
+              <Text as="div" color="gray" size="1">{attempt.status === 'completed' ? `คะแนน ${pct(attempt.score)}` : 'ยังทำไม่เสร็จ'}</Text>
+            </div>
+            {attempt.status === 'completed' && (
+              <Link to={`/parent/children/${data.child.id}/attempts/${attempt.attemptId}`}>
+                <Button variant="soft" color="gray" size="1">ดูคำตอบรายข้อ</Button>
+              </Link>
+            )}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

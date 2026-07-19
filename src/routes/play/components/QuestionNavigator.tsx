@@ -32,7 +32,7 @@ export function QuestionNavigator({
 
   return (
     <nav className="child-question-navigator" aria-label="เลือกข้อ">
-      <details>
+      <details open>
         <summary>
           ดูรายการข้อ
           <span>{questionNavigatorSummary.answered}/{questionNavigatorSummary.total} ข้อ</span>
