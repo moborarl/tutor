@@ -152,6 +152,7 @@ adminRoutes.get('/summary', async (c) => {
      FROM assignments asg
      JOIN children ch ON ch.id = asg.child_id AND ch.parent_id = ?
      JOIN exercise_sets es ON es.id = asg.exercise_set_id AND es.parent_id = ? AND es.status = 'published'
+     LEFT JOIN subjects s ON s.id = es.subject_id
      LEFT JOIN attempts a ON a.child_id = ch.id AND a.exercise_set_id = es.id AND a.status = 'completed'
      WHERE a.id IS NULL
      ORDER BY es.updated_at DESC LIMIT 20`,

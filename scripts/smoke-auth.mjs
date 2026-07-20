@@ -98,7 +98,7 @@ await check('load family children', async () => {
 
 await check('load parent admin summary', async () => {
   const { res, body } = await request('/api/parent/admin/summary');
-  if (res.status !== 200 || typeof body?.counts !== 'object') throw new Error(`expected admin summary, got ${res.status}`);
+  if (res.status !== 200 || typeof body?.counts !== 'object') throw new Error(`expected admin summary, got ${res.status}: ${typeof body === 'string' ? body.slice(0, 180) : JSON.stringify(body)}`);
   if (typeof body.counts.exerciseSets !== 'number') throw new Error('admin summary missing exerciseSets count');
 });
 
