@@ -437,6 +437,20 @@ test('child learning CSS is route-loaded instead of global-loaded', () => {
   assert.match(player, /styles\/child-learning\.css/);
 });
 
+test('production monitoring avoids PII and keeps Radix CSS out of the critical import list', () => {
+  const main = read('src/main.tsx');
+  const telemetry = read('src/lib/telemetry.ts');
+  const worker = read('worker/routes/telemetry.ts');
+  assert.doesNotMatch(main, /import ['"]@radix-ui\/themes\/styles\.css['"]/);
+  assert.match(main, /import\('@radix-ui\/themes\/styles\.css'\)/);
+  assert.match(main, /initTelemetry\(\)/);
+  assert.match(telemetry, /runtime_error/);
+  assert.match(telemetry, /page_performance/);
+  assert.doesNotMatch(telemetry, /localStorage|sessionStorage|email|parentId/);
+  assert.match(worker, /payload_too_large/);
+  assert.match(worker, /telemetry_events/);
+});
+
 test('child learning workspace keeps visible navigation in Thai', () => {
   const dashboard = read('src/routes/play/PlayExerciseList.tsx');
   const progress = read('src/routes/play/PlayProgress.tsx');

@@ -28,6 +28,11 @@ interface R2FileRow {
   uploaded: string;
 }
 
+interface TelemetrySummary {
+  summary: Array<{ type: string; count: number; averageValue: number | null; lastSeen: string | null }>;
+  recent: Array<{ type: string; route: string; value: number | null; detail: string | null; createdAt: string }>;
+}
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -126,14 +131,17 @@ export default function SuperAdmin() {
   const [r2Files, setR2Files] = useState<R2FileRow[]>([]);
   const [r2Cursor, setR2Cursor] = useState<string | null>(null);
   const [r2Loading, setR2Loading] = useState(false);
+  const [telemetry, setTelemetry] = useState<TelemetrySummary | null>(null);
 
   async function load() {
     setError('');
     setBusy(true);
     try {
       const data = await request<SuperAdminSummary>('/api/super-admin/summary', token);
+      const telemetryData = await request<TelemetrySummary>('/api/super-admin/telemetry', token);
       sessionStorage.setItem('superAdminToken', token);
       setSummary(data);
+      setTelemetry(telemetryData);
     } catch (err) {
       setError('เข้า super-admin ไม่ได้ ตรวจสอบ token');
     } finally {
@@ -240,6 +248,20 @@ export default function SuperAdmin() {
                   </div>
                   <DeleteParentDialog parent={p} busy={busy} onDelete={deleteParent} />
                 </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="parent-panel">
+            <Heading as="h3" size="4">การใช้งานและ monitoring (7 วัน)</Heading>
+            <Text color="gray" size="2">ข้อมูลนี้ไม่รวมเนื้อหาโจทย์หรือข้อมูลส่วนตัวของครอบครัว</Text>
+            <div className="stats-grid admin-stats" style={{ marginTop: 12 }}>
+              {(telemetry?.summary ?? []).map((item) => (
+                <Card className="stat-card" key={item.type}>
+                  <div className="stat-value">{item.count}</div>
+                  <Text color="gray" size="2">{item.type === 'page_performance' ? 'รายงาน page performance' : item.type === 'runtime_error' ? 'runtime errors' : 'unhandled rejections'}</Text>
+                  {item.averageValue != null && <Text as="div" color="gray" size="1">ค่าเฉลี่ย {item.averageValue} ms</Text>}
+                </Card>
               ))}
             </div>
           </Card>

@@ -1072,6 +1072,24 @@ npm test
 npm run build
 ```
 
+## Production performance and monitoring
+
+Completed:
+
+- Radix theme CSS is dynamically imported so the critical entry CSS is reduced from approximately 770 KB to approximately 76 KB. The full Radix stylesheet remains available as a separate async asset.
+- Client monitoring reports only route, event type, duration, and short redacted error text. It does not send email, parent IDs, answer content, or browser storage identifiers.
+- Worker endpoint `POST /api/telemetry` validates event type, route, and payload size before storing events in D1.
+- Super-admin endpoint `GET /api/super-admin/telemetry` shows seven-day counts and recent events. It uses the existing `SUPER_ADMIN_TOKEN` guard.
+- Migration required: `0015_telemetry_events.sql`.
+
+Deployment:
+
+```powershell
+npx wrangler d1 migrations apply DB --remote
+npm run build
+npm run smoke:all
+```
+
 ## Product completion slice: insights, archive, prompt templates, and CSS loading
 
 Completed in the current slice:

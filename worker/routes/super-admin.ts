@@ -111,6 +111,30 @@ superAdminRoutes.get('/summary', async (c) => {
   });
 });
 
+superAdminRoutes.get('/telemetry', async (c) => {
+  const summary = await c.env.DB.prepare(
+    `SELECT event_type, COUNT(*) AS event_count, AVG(value) AS average_value, MAX(created_at) AS last_seen
+     FROM telemetry_events
+     WHERE created_at >= datetime('now', '-7 days')
+     GROUP BY event_type ORDER BY event_type`,
+  ).all();
+  const recent = await c.env.DB.prepare(
+    `SELECT event_type, route, value, detail, created_at
+     FROM telemetry_events ORDER BY id DESC LIMIT 20`,
+  ).all();
+  return c.json({
+    summary: summary.results.map((row) => ({
+      type: String(row.event_type), count: Number(row.event_count ?? 0),
+      averageValue: row.average_value == null ? null : Math.round(Number(row.average_value)),
+      lastSeen: row.last_seen == null ? null : String(row.last_seen),
+    })),
+    recent: recent.results.map((row) => ({
+      type: String(row.event_type), route: String(row.route), value: row.value == null ? null : Number(row.value),
+      detail: row.detail == null ? null : String(row.detail), createdAt: String(row.created_at),
+    })),
+  });
+});
+
 superAdminRoutes.get('/r2-files', async (c) => {
   const cursor = c.req.query('cursor') || undefined;
   const prefix = c.req.query('prefix') || undefined;

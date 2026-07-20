@@ -17,10 +17,12 @@ import { adminRoutes } from './routes/admin';
 import { superAdminRoutes } from './routes/super-admin';
 import { profileRoutes } from './routes/profile';
 import { aiSettingsRoutes } from './routes/ai-settings';
+import { telemetryRoutes } from './routes/telemetry';
 
 const app = new Hono<AppEnv>();
 
 app.get('/api/health', (c) => c.json({ ok: true }));
+app.route('/api/telemetry', telemetryRoutes);
 
 // Public AI contract: the canonical rules for producing importable exercise
 // JSON. Served as markdown so any AI/agent in the pipeline can fetch the
